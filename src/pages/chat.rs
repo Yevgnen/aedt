@@ -198,21 +198,11 @@ fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
         .child(when(can_send, move || echo_strip(draft)))
         .child(input::composer(draft, "输入消息，Aedt 会用 Mock 数据回复…"))
         .child(
-            view()
-                .flex_row()
-                .items_center()
-                .justify_between()
-                .gap_3()
-                .child(
-                    text("Enter 换行 · 点击发送")
-                        .text_xs()
-                        .text_color(move || theme().muted_foreground),
-                )
-                .child(
-                    button::action(Variant::Primary, "发送")
-                        .disabled(move || !can_send())
-                        .on_press(submit),
-                ),
+            view().flex_row().items_center().justify_end().child(
+                button::action(Variant::Primary, "发送")
+                    .disabled(move || !can_send())
+                    .on_press(submit),
+            ),
         )
 }
 
