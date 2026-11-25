@@ -277,7 +277,7 @@ fn message_preview(
                 text(body_of(reply))
                     .text_size(px(13.0))
                     .number_of_lines(4)
-                    .text_color(quiet_ink)
+                    .text_color(move || quiet_ink().opacity(0.7))
             },
         ))
 }
