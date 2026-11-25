@@ -118,39 +118,27 @@ fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
     view()
         .w_full()
         .gap_1()
-        .child(
-            view()
-                .flex_row()
-                .items_center()
-                .gap_2()
-                .child(
-                    text("Aedt")
-                        .text_xs()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(move || theme().foreground),
-                )
-                .child(when(
-                    move || {
-                        message.with(|message| {
-                            message
-                                .as_ref()
-                                .is_some_and(|message| message.meta.is_some())
-                        })
-                    },
-                    move || {
-                        text(move || {
-                            message.with(|message| {
-                                message
-                                    .as_ref()
-                                    .and_then(|message| message.meta.clone())
-                                    .unwrap_or_default()
-                            })
-                        })
-                        .text_xs()
-                        .text_color(move || theme().muted_foreground)
-                    },
-                )),
-        )
+        .child(when(
+            move || {
+                message.with(|message| {
+                    message
+                        .as_ref()
+                        .is_some_and(|message| message.meta.is_some())
+                })
+            },
+            move || {
+                text(move || {
+                    message.with(|message| {
+                        message
+                            .as_ref()
+                            .and_then(|message| message.meta.clone())
+                            .unwrap_or_default()
+                    })
+                })
+                .text_xs()
+                .text_color(move || theme().muted_foreground)
+            },
+        ))
         .child(
             text_view()
                 .markdown(move || {
