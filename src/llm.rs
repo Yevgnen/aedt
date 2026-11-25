@@ -1,5 +1,5 @@
-//! The chat model: the provider the chosen model belongs to, spoken to as
-//! OpenAI's Responses API, streamed into the conversation as it answers.
+//! The chat: the conversation's model is asked through its provider, and the
+//! answer is shown a few characters at a time as it arrives.
 
 use std::{
     cell::RefCell,
@@ -7,98 +7,54 @@ use std::{
     time::{Duration, Instant},
 };
 
+use aedt_provider::responses::{self, Endpoint, ReplyEvent, Role, Turn};
 use aedt_store::{self as store, Author, Message};
-use async_openai::{
-    Client,
-    config::OpenAIConfig,
-    types::responses::{
-        CreateResponse, CreateResponseArgs, EasyInputContent, EasyInputMessage, InputItem,
-        InputParam, MessageType, Reasoning, ReasoningEffort, ResponseStreamEvent, Role,
-    },
-};
-use futures_util::StreamExt;
 use nsh_core::prelude::*;
 
-use crate::settings::{self, Choice, Effort};
+use crate::settings;
 
 /// Sends `text` to the conversation and starts the reply its model writes: the
-/// store keeps the conversation, the settings name the model.
+/// store keeps the conversation, the settings name the model and its provider.
 pub(crate) fn ask(session_id: u32, text: &str) {
     let Some(sent) = store::send(session_id, text) else {
         return;
     };
     let model = settings::selected();
     let effort = settings::effort();
-    reply(session_id, sent.reply_id, sent.history, &model, effort);
-}
-
-/// DeepSeek's base URL: their docs' `base_url (OpenAI)`.
-pub(crate) const BASE_URL: &str = "https://api.deepseek.com";
-
-/// The model DeepSeek's docs name for the Responses API today.
-pub(crate) const MODEL: &str = "deepseek-flash";
-
-/// The environment variable the API key comes from.
-pub(crate) const API_KEY: &str = "DEEPSEEK_API_KEY";
-
-/// Streams `model`'s answer into reply `reply_id` of `session_id`, from the
-/// conversation `history` (which ends with the message just sent), at the
-/// provider the model belongs to.
-///
-/// DeepSeek serves OpenAI's Responses API at `POST /responses` and streams it
-/// as semantic server-sent events, so this asks for a response with `stream:
-/// true` rather than a chat completion.
-fn reply(session_id: u32, reply_id: u32, history: Vec<Message>, model: &Choice, effort: Effort) {
-    let base_url = model.base_url.trim().to_owned();
-    let key = model.api_key.trim().to_owned();
-    if base_url.is_empty() || key.is_empty() {
-        store::fail_reply(session_id, reply_id, "API URL or API key is missing");
+    if model.base_url.trim().is_empty() || model.api_key.trim().is_empty() {
+        store::fail_reply(session_id, sent.reply_id, "API URL or API key is missing");
         return;
     }
-
-    let mut args = CreateResponseArgs::default();
-    args.model(model.id.as_str());
-    args.input(InputParam::Items(input(&history)));
-    // The provider thinks without being asked; the app asks for the effort
-    // its picker names, and for none while that is the provider's default.
-    if let Some(effort) = reasoning_effort(effort) {
-        args.reasoning(Reasoning {
-            effort: Some(effort),
-            ..Reasoning::default()
-        });
-    }
-    let request = match args.build() {
-        Ok(request) => request,
-        Err(error) => {
-            store::fail_reply(session_id, reply_id, &error.to_string());
-            return;
-        }
-    };
 
     // Under no owner, so switching sessions does not cut the answer off: it
     // keeps streaming into the store of the session that asked for it.
     let reveal = Rc::new(RefCell::new(Reveal::default()));
-    let name = model.label.clone();
     Owner::detached().run(move || {
-        spawn(answer(base_url, key, request, reveal.clone()));
-        spawn(reveal_answer(session_id, reply_id, reveal, name));
+        let endpoint = Endpoint {
+            base_url: model.base_url.clone(),
+            api_key: model.api_key.clone(),
+        };
+        let collect = {
+            let reveal = reveal.clone();
+            move |event| collect(&reveal, event)
+        };
+        responses::reply(
+            endpoint,
+            model.id.clone(),
+            effort,
+            turns(&sent.history),
+            collect,
+        );
+        spawn(reveal_answer(
+            session_id,
+            sent.reply_id,
+            reveal.clone(),
+            model.label.clone(),
+        ));
     });
 }
 
-/// What `effort` asks the API for: no effort at all for the provider's own
-/// default.
-fn reasoning_effort(effort: Effort) -> Option<ReasoningEffort> {
-    match effort {
-        Effort::Default => None,
-        Effort::Low => Some(ReasoningEffort::Low),
-        Effort::Medium => Some(ReasoningEffort::Medium),
-        Effort::High => Some(ReasoningEffort::High),
-    }
-}
-
-/// What has arrived of an answer but is not shown yet. The network task fills
-/// it; the reveal task drains it at a steady pace, so the text flows instead of
-/// landing in token-sized bursts.
+/// What arrived of an answer, kept until the reveal task shows it.
 #[derive(Default)]
 struct Reveal {
     /// The chain of thought, as it arrived.
@@ -111,75 +67,31 @@ struct Reveal {
     failed: Option<String>,
 }
 
-/// `history` as the API's input items: who spoke, and what they said. The
-/// conversation starts at its first user turn, as the API expects.
-fn input(history: &[Message]) -> Vec<InputItem> {
+/// Keeps `event` in `reveal` for the reveal task to show.
+fn collect(reveal: &Rc<RefCell<Reveal>>, event: ReplyEvent) {
+    let mut reveal = reveal.borrow_mut();
+    match event {
+        ReplyEvent::Thinking(text) => reveal.thinking.push_str(text.as_str()),
+        ReplyEvent::Answer(text) => reveal.answer.push_str(text.as_str()),
+        ReplyEvent::Done => reveal.done = true,
+        ReplyEvent::Failed(why) => reveal.failed = Some(why.to_string()),
+    }
+}
+
+/// `history` as the provider's turns: the conversation starts at its first user
+/// message, as the API expects.
+fn turns(history: &[Message]) -> Vec<Turn> {
     history
         .iter()
         .skip_while(|message| message.author != Author::User)
-        .map(|message| {
-            InputItem::EasyMessage(EasyInputMessage {
-                r#type: MessageType::Message,
-                role: match message.author {
-                    Author::User => Role::User,
-                    Author::Assistant => Role::Assistant,
-                },
-                content: EasyInputContent::Text(message.body.to_string()),
-                phase: None,
-            })
+        .map(|message| Turn {
+            role: match message.author {
+                Author::User => Role::User,
+                Author::Assistant => Role::Assistant,
+            },
+            text: message.body.clone(),
         })
         .collect()
-}
-
-/// Reads the streamed answer into `reveal`, which the reveal task shows at its
-/// own pace; the reply is closed there once the last of it is out.
-async fn answer(
-    base_url: String,
-    key: String,
-    request: CreateResponse,
-    reveal: Rc<RefCell<Reveal>>,
-) {
-    let config = OpenAIConfig::new()
-        .with_api_base(base_url)
-        .with_api_key(key);
-    let client = Client::with_config(config);
-
-    let mut stream = match client.responses().create_stream(request).await {
-        Ok(stream) => stream,
-        Err(error) => {
-            reveal.borrow_mut().failed = Some(error.to_string());
-            return;
-        }
-    };
-
-    while let Some(event) = stream.next().await {
-        match event {
-            // The chain of thought and the answer are streamed apart: each is
-            // read into the reply's own buffer, in its own place.
-            Ok(ResponseStreamEvent::ResponseReasoningTextDelta(delta)) => {
-                reveal.borrow_mut().thinking.push_str(&delta.delta);
-            }
-            Ok(ResponseStreamEvent::ResponseOutputTextDelta(delta)) => {
-                reveal.borrow_mut().answer.push_str(&delta.delta);
-            }
-            Ok(ResponseStreamEvent::ResponseFailed(failed)) => {
-                let message = failed
-                    .response
-                    .error
-                    .map(|error| error.message)
-                    .unwrap_or_else(|| "Response failed".to_owned());
-                reveal.borrow_mut().failed = Some(message);
-                return;
-            }
-            Ok(_) => {}
-            Err(error) => {
-                reveal.borrow_mut().failed = Some(error.to_string());
-                return;
-            }
-        }
-    }
-
-    reveal.borrow_mut().done = true;
 }
 
 /// How often the reveal task looks at what arrived: about one frame of a 30 Hz
@@ -192,7 +104,7 @@ const REVEAL_TICK: Duration = Duration::from_millis(33);
 /// keeps up with the model without bursting.
 const REVEAL_STEP: usize = 40;
 
-/// Shows what `answer` put in `reveal`, a few characters a tick, then closes the
+/// Shows what the provider reported, a few characters a tick, then closes the
 /// reply with how long it took; a failure takes the answer's place.
 async fn reveal_answer(
     session_id: u32,

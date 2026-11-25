@@ -22,17 +22,24 @@ dependencies = [
 name = "aedt"
 version = "0.1.0"
 dependencies = [
+ "aedt-provider",
  "aedt-store",
  "aedt-ui",
- "async-openai",
- "chrono",
  "env_logger",
- "futures-util",
  "nsh-base",
  "nsh-core",
  "nsh-platform-linux",
  "nsh-platform-macos",
  "nsh-platform-windows",
+]
+
+[[package]]
+name = "aedt-provider"
+version = "0.1.0"
+dependencies = [
+ "async-openai",
+ "futures-util",
+ "nsh-core",
  "serde",
  "serde_json",
 ]

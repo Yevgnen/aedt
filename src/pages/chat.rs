@@ -1,5 +1,6 @@
 //! The conversation: its header, its message timeline and its composer.
 
+use aedt_provider::responses::Effort;
 use aedt_store::{self as store, Author, Message};
 use aedt_ui::{MESSAGE_LINE, button, empty, icon, input, menu, motion, sizes, tokens};
 use nsh_base::{MarkdownOptions, SubmenuEvent, TextViewClasses, text_view, theme};
@@ -657,23 +658,23 @@ fn effort_choices() -> impl IntoElement {
     view()
         .min_w(px(160.0))
         .gap_1()
-        .child(effort_choice(settings::Effort::Default))
-        .child(effort_choice(settings::Effort::Low))
-        .child(effort_choice(settings::Effort::Medium))
-        .child(effort_choice(settings::Effort::High))
+        .child(effort_choice(Effort::Default))
+        .child(effort_choice(Effort::Low))
+        .child(effort_choice(Effort::Medium))
+        .child(effort_choice(Effort::High))
 }
 
-fn effort_choice(effort: settings::Effort) -> impl IntoElement {
+fn effort_choice(effort: Effort) -> impl IntoElement {
     menu::choice(effort_label(effort), move || settings::effort() == effort)
         .on_select(move || settings::select_effort(effort))
 }
 
 /// What `effort` is called in the picker.
-fn effort_label(effort: settings::Effort) -> &'static str {
+fn effort_label(effort: Effort) -> &'static str {
     match effort {
-        settings::Effort::Default => "Default",
-        settings::Effort::Low => "Low",
-        settings::Effort::Medium => "Medium",
-        settings::Effort::High => "High",
+        Effort::Default => "Default",
+        Effort::Low => "Low",
+        Effort::Medium => "Medium",
+        Effort::High => "High",
     }
 }
