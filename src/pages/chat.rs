@@ -77,10 +77,7 @@ fn timeline(session_id: u32) -> impl IntoElement {
     .content_padding_y(px(24.0))
     .estimated_item_size(px(96.0))
     .row_gap(px(16.0))
-    .empty(empty::empty(
-        "还没有消息",
-        "在下面输入一句话，Aedt 会转给 DeepSeek 回答",
-    ))
+    .empty(empty::empty("说点什么…"))
     .flex_1()
 }
 
