@@ -11,7 +11,6 @@ pub(crate) fn composer(value: Signal<String>) -> Input {
     input()
         .value(move || value.get())
         .on_change(move |text: &str| value.set(text.to_owned()))
-        .caret_color(move || color(theme().primary))
         .multiline(true)
         .scrollbar(false)
         .min_h(px(sizes::COMPOSER_MIN))
