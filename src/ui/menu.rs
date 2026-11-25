@@ -11,10 +11,16 @@ use nsh_core::prelude::*;
 use crate::ui::{icon, motion, sizes, tokens};
 
 /// A menu that `trigger` opens, its `items` in the app's floating card. It
-/// goes above the trigger, where a command at the window's edge has room.
-pub(crate) fn menu(trigger: impl IntoElement, items: impl IntoElement) -> MenuElement {
+/// goes above the trigger, where a command at the window's edge has room, and
+/// `align` names the trigger's edge its own edge lines up with.
+pub(crate) fn menu(
+    trigger: impl IntoElement,
+    align: Align,
+    items: impl IntoElement,
+) -> MenuElement {
     base_menu()
         .placement(Placement::Top)
+        .align(align)
         .offset(px(4.0))
         .popup_style(|s| {
             s.p_1()

@@ -573,6 +573,7 @@ fn model_picker() -> impl IntoElement {
             move || SharedString::from(effort_label(settings::effort())),
         )
         .disabled(move || settings::enabled_models().is_empty()),
+        Align::End,
         view()
             .child(
                 menu::submenu(
