@@ -1,6 +1,6 @@
 //! The conversation: its header, its message timeline and its composer.
 
-use nsh_base::{MarkdownOptions, TextViewClasses, button, text_view, theme};
+use nsh_base::{MarkdownOptions, TextViewClasses, text_view, theme};
 use nsh_core::{Color, LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::{
@@ -197,7 +197,7 @@ fn tick(
         timeline.scroll_to_index(at.get() as u32, percentage(0.0), Points::ZERO, true);
     };
 
-    button()
+    button::bare()
         .accessibility_label("跳转到该消息")
         .w_full()
         .items_end()
@@ -499,23 +499,10 @@ fn thinking_bar(
         });
     };
 
-    button()
+    button::quiet(icon::bulb(14.0), "思考")
         .accessibility_label("展开或收起思考")
-        .flex_row()
-        .items_center()
-        .gap_2()
-        .px_1()
-        .py(px(2.0))
-        .rounded(move || theme().radius)
         .text_color(quiet_ink)
-        .hover(|s| s.bg(move || theme().muted))
-        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
-        .transition_colors()
-        .duration(motion::control_duration())
-        .ease_out()
         .on_press(toggle)
-        .child(icon::bulb(14.0))
-        .child(text("思考").text_xs())
 }
 
 /// The thought itself, quieter than the answer it led to.

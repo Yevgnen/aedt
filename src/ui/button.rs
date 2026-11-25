@@ -84,6 +84,36 @@ pub(crate) fn icon(
         )
 }
 
+/// A quiet action: a mark and its label on one line, no fill at rest, a wash on
+/// hover. The caller adds `.on_press`, its ink and its place in the layout.
+pub(crate) fn quiet(
+    mark: impl IntoElement,
+    label: impl IntoReactive<SharedString>,
+) -> ButtonElement {
+    button()
+        .flex_row()
+        .items_center()
+        .gap_2()
+        .px_1()
+        .py(px(2.0))
+        .rounded(move || theme().radius)
+        .hover(|s| s.bg(move || theme().muted))
+        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .transition_colors()
+        .duration(motion::control_duration())
+        .ease_out()
+        .child(mark)
+        .child(text(label).text_xs())
+}
+
+/// A control whose children draw all of its appearance, for a row whose hover
+/// is its child's own: the shared focus ring and nothing else.
+pub(crate) fn bare() -> ButtonElement {
+    button()
+        .rounded(move || theme().radius)
+        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+}
+
 /// A quiet icon button for a row's trailing action: no fill at rest, a wash on
 /// hover, and the same press and focus feedback as the other buttons.
 pub(crate) fn ghost_icon(
