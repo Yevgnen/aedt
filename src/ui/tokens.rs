@@ -2,7 +2,7 @@
 //! read here so a page names the role instead of a string and a fallback.
 
 use nsh_base::theme;
-use nsh_core::{Color, prelude::*};
+use nsh_core::{Color, color::black, prelude::*};
 
 /// A user message's bubble.
 pub(crate) fn bubble() -> AdaptiveColor {
@@ -45,4 +45,11 @@ pub(crate) fn floating_shadow() -> Vec<BoxShadow> {
         inset: false,
     };
     vec![layer(1.0, 2.0, 10), layer(6.0, 20.0, 13)]
+}
+
+/// The dim a modal lays over the window: black, faint enough that the app
+/// behind it still reads as there. A theme file names roles, not a modal's
+/// scrim, so the app's one scrim is a token here with the rest.
+pub(crate) fn scrim() -> Hsla {
+    black().opacity(0.28)
 }

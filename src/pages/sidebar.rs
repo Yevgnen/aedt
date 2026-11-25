@@ -4,7 +4,7 @@ use nsh_base::theme;
 use nsh_core::{element::desktop::title_bar, prelude::*};
 
 use crate::{
-    store,
+    settings, store,
     ui::{avatar, button, icon, list_item, menu, separator, sizes},
 };
 
@@ -33,8 +33,7 @@ pub(crate) fn sidebar() -> View {
 fn footer() -> impl IntoElement {
     view().px_3().pb_3().child(menu::menu(
         menu::trigger(icon::more(14.0), "更多"),
-        // 设置还没有页面：这一项现在只把菜单关掉。
-        menu::item(icon::settings(14.0), "设置"),
+        menu::item(icon::settings(14.0), "设置").on_select(settings::open),
     ))
 }
 

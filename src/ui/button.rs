@@ -135,6 +135,7 @@ pub(crate) fn ghost_icon(
         .hover(|s| s.bg(move || theme().muted))
         .active(press)
         .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .disabled_style(|s| s.opacity(0.4))
         .hit_slop(EdgeInsets::all(px(4.0)))
         .transition_all()
         .duration(motion::control_duration())

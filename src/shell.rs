@@ -4,7 +4,7 @@ use nsh_base::theme;
 use nsh_core::prelude::*;
 
 use crate::{
-    pages::{chat, sidebar},
+    pages::{chat, settings, sidebar},
     store,
 };
 
@@ -30,4 +30,6 @@ pub(crate) fn shell() -> View {
                     untracked(|| chat::pane(id).key(format!("chat-{id}")))
                 })),
         )
+        // The settings, over everything while they are open.
+        .child(settings::dialog())
 }

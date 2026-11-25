@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-async-openai = { version = "0.43.0", default-features = false, features = ["responses", "rustls"] }
+async-openai = { version = "0.43.0", default-features = false, features = ["model", "responses", "rustls"] }
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 env_logger = "0.11.12"
 futures-util = { version = "0.3.34", default-features = false, features = ["std"] }

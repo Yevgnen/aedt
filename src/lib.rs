@@ -4,6 +4,7 @@
 
 mod llm;
 mod pages;
+mod settings;
 mod shell;
 mod store;
 mod ui;

@@ -56,6 +56,18 @@ const SETTINGS: &str = concat!(
     r#"</svg>"#,
 );
 
+/// A refresh mark (Lucide's `refresh-cw`): asks a list to load again.
+const REFRESH: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>"#,
+    r#"<path d="M21 3v5h-5"/>"#,
+    r#"<path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>"#,
+    r#"<path d="M8 16H3v5"/>"#,
+    r#"</svg>"#,
+);
+
 /// The menu mark, `size` points square, in the caller's text color.
 pub(crate) fn more(size: f32) -> impl IntoElement {
     icon(MORE, size)
@@ -64,6 +76,11 @@ pub(crate) fn more(size: f32) -> impl IntoElement {
 /// The settings mark, `size` points square, in the caller's text color.
 pub(crate) fn settings(size: f32) -> impl IntoElement {
     icon(SETTINGS, size)
+}
+
+/// The refresh mark, `size` points square, in the caller's text color.
+pub(crate) fn refresh(size: f32) -> impl IntoElement {
+    icon(REFRESH, size)
 }
 
 /// `markup` drawn at `size` points square.

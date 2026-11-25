@@ -21,13 +21,13 @@ use nsh_core::prelude::*;
 use crate::store::{self, Author, Message};
 
 /// DeepSeek's base URL: their docs' `base_url (OpenAI)`.
-const BASE_URL: &str = "https://api.deepseek.com";
+pub(crate) const BASE_URL: &str = "https://api.deepseek.com";
 
 /// The model DeepSeek's docs name for the Responses API today.
 pub(crate) const MODEL: &str = "deepseek-flash";
 
 /// The environment variable the API key comes from.
-const API_KEY: &str = "DEEPSEEK_API_KEY";
+pub(crate) const API_KEY: &str = "DEEPSEEK_API_KEY";
 
 /// Streams the model's answer into reply `reply_id` of `session_id`, from the
 /// conversation `history` (which ends with the message just sent).
