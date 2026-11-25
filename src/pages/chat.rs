@@ -392,7 +392,8 @@ fn message_meta(message: Memo<Option<Message>>) -> impl IntoElement {
                 message.with(|message| {
                     message
                         .as_ref()
-                        .and_then(|message| message.meta.clone())
+                        .and_then(|message| message.meta.as_ref())
+                        .map(|meta| meta.time.clone())
                         .unwrap_or_default()
                 })
             })
@@ -400,6 +401,22 @@ fn message_meta(message: Memo<Option<Message>>) -> impl IntoElement {
             .text_color(move || tokens::caption().opacity(0.8))
         },
     )
+}
+
+/// What a reply adds to that line: the model it ran on and how long it took.
+fn message_detail(message: Memo<Option<Message>>) -> impl IntoElement {
+    text(move || {
+        message.with(|message| {
+            message
+                .as_ref()
+                .and_then(|message| message.meta.as_ref())
+                .and_then(|meta| meta.detail.clone())
+                .map(|detail| format!("· {detail}"))
+                .unwrap_or_default()
+        })
+    })
+    .text_xs()
+    .text_color(move || tokens::caption().opacity(0.8))
 }
 
 fn assistant_message(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> impl IntoElement {
@@ -434,14 +451,15 @@ fn assistant_message(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> 
                 .text_color(move || theme().foreground),
         )
         .child(
-            // The model and the time show while the pointer is over the row they
-            // share, so a reply reads as its text until it is asked for more.
+            // The model and the duration show while the pointer is over the row
+            // they share; when the reply was sent always shows.
             view()
                 .group()
                 .flex_row()
                 .items_center()
                 .gap_1()
                 .child(copy_message(message))
+                .child(message_meta(message))
                 .child(
                     view()
                         .opacity(0.0)
@@ -450,7 +468,7 @@ fn assistant_message(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> 
                         .transition_opacity()
                         .duration(motion::row_duration())
                         .ease_out()
-                        .child(message_meta(message)),
+                        .child(message_detail(message)),
                 ),
         )
 }
