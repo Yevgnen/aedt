@@ -181,8 +181,11 @@ fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
         .self_center()
         .px_6()
         .pt_4()
-        .pb_3()
+        .pb_2()
+        .gap_2()
         .child(composer_card(draft, can_send, submit))
+        // One line reserved for the status bar; it holds no text yet.
+        .child(view().h_5().pl_3().justify_center())
 }
 
 /// The floating composer: a rounded card whose input sits on top and whose
