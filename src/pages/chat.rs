@@ -42,55 +42,51 @@ pub(crate) fn pane(session_id: u32) -> View {
                 // The messages and the rail beside them: the rail is centered on
                 // this row, not on the composer under it.
                 .child(
-                    view()
-                        .flex_1()
-                        .min_h(px(0.0))
-                        .w_full()
-                        .flex_row()
-                        // Gutters as wide as the rail, so the conversation stays
-                        // centered in the pane whatever its width.
-                        .child(view().w(px(sizes::RAIL)).flex_none())
-                        .child(
-                            view()
-                                .flex_1()
-                                .min_w(px(0.0))
-                                .min_h(px(0.0))
-                                .flex_row()
-                                .justify_center()
-                                .child(
-                                    view()
-                                        .w_full()
-                                        .max_w(px(sizes::COMPOSER_MAX))
-                                        .min_h(px(0.0))
-                                        .px(px(sizes::COMPOSER_SIDE))
-                                        .child(timeline_view(session_id, open, &timeline, current)),
-                                ),
-                        )
-                        .child(rail(session_id, timeline, current)),
+                    column(
+                        view()
+                            .w_full()
+                            .max_w(px(sizes::COMPOSER_MAX))
+                            .min_h(px(0.0))
+                            .px(px(sizes::COMPOSER_SIDE))
+                            .child(timeline_view(session_id, open, &timeline, current)),
+                        rail(session_id, timeline, current),
+                    )
+                    .flex_1()
+                    .min_h(px(0.0)),
                 )
                 .child(
-                    view()
-                        .w_full()
-                        .flex_none()
-                        .flex_row()
-                        .child(view().w(px(sizes::RAIL)).flex_none())
-                        .child(
-                            view()
-                                .flex_1()
-                                .min_w(px(0.0))
-                                .flex_row()
-                                .justify_center()
-                                .child(
-                                    view()
-                                        .w_full()
-                                        .max_w(px(sizes::COMPOSER_MAX))
-                                        .px(px(sizes::COMPOSER_SIDE))
-                                        .child(composer(session_id, draft)),
-                                ),
-                        )
-                        .child(view().w(px(sizes::RAIL)).flex_none()),
+                    column(
+                        view()
+                            .w_full()
+                            .max_w(px(sizes::COMPOSER_MAX))
+                            .px(px(sizes::COMPOSER_SIDE))
+                            .child(composer(session_id, draft)),
+                        view().w(px(sizes::RAIL)).flex_none(),
+                    )
+                    .flex_none(),
                 ),
         )
+}
+
+/// One row of the conversation: its `content` centered in the pane, between a
+/// gutter as wide as the rail and `aside` — the rail itself beside the
+/// messages, an empty gutter beside the composer. The gutters keep the two
+/// rows on one column whatever the pane's width.
+fn column(content: impl IntoElement, aside: impl IntoElement) -> View {
+    view()
+        .w_full()
+        .flex_row()
+        .child(view().w(px(sizes::RAIL)).flex_none())
+        .child(
+            view()
+                .flex_1()
+                .min_w(px(0.0))
+                .min_h(px(0.0))
+                .flex_row()
+                .justify_center()
+                .child(content),
+        )
+        .child(aside)
 }
 
 fn header(session_id: u32) -> impl IntoElement {
