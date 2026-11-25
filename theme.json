@@ -5,34 +5,24 @@
       "font-mono": "Berkeley Mono"
     },
     "light": {
-      "primary": "#BFDBFE",
-      "primary-foreground": "#0B3555",
-      "secondary": "#DCEBFF",
-      "secondary-foreground": "#0B3555",
-      "accent": "#E6F1FF",
-      "accent-foreground": "#0B3555",
+      "primary": "#DBEAFE",
+      "primary-foreground": "#171717",
+      "secondary": "#F4F4F5",
+      "secondary-foreground": "#18181B",
+      "accent": "#E4E4E7",
+      "accent-foreground": "#18181B",
       "ring": "#3B82F6",
-      "link": "#1D4ED8",
-      "sidebar-primary": "#BFDBFE",
-      "sidebar-primary-foreground": "#0B3555",
-      "sidebar-accent": "#E6F1FF",
-      "sidebar-accent-foreground": "#0B3555",
-      "sidebar-ring": "#3B82F6"
+      "link": "#1D4ED8"
     },
     "dark": {
       "primary": "#93C5FD",
-      "primary-foreground": "#0B2545",
-      "secondary": "#152A4A",
-      "secondary-foreground": "#DBEAFE",
-      "accent": "#1B3358",
-      "accent-foreground": "#DBEAFE",
+      "primary-foreground": "#171717",
+      "secondary": "#27272A",
+      "secondary-foreground": "#FAFAFA",
+      "accent": "#3F3F46",
+      "accent-foreground": "#FAFAFA",
       "ring": "#93C5FD",
-      "link": "#93C5FD",
-      "sidebar-primary": "#93C5FD",
-      "sidebar-primary-foreground": "#0B2545",
-      "sidebar-accent": "#1B3358",
-      "sidebar-accent-foreground": "#DBEAFE",
-      "sidebar-ring": "#93C5FD"
+      "link": "#93C5FD"
     }
   }
 }
