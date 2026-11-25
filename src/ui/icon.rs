@@ -36,6 +36,36 @@ pub(crate) fn bulb(size: f32) -> impl IntoElement {
     icon(BULB, size)
 }
 
+/// Three dots in a row (Lucide's `ellipsis`): a menu that holds more than its
+/// trigger names.
+const MORE: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>"#,
+    r#"</svg>"#,
+);
+
+/// A gear (Lucide's `settings`).
+const SETTINGS: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/>"#,
+    r#"<circle cx="12" cy="12" r="3"/>"#,
+    r#"</svg>"#,
+);
+
+/// The menu mark, `size` points square, in the caller's text color.
+pub(crate) fn more(size: f32) -> impl IntoElement {
+    icon(MORE, size)
+}
+
+/// The settings mark, `size` points square, in the caller's text color.
+pub(crate) fn settings(size: f32) -> impl IntoElement {
+    icon(SETTINGS, size)
+}
+
 /// `markup` drawn at `size` points square.
 fn icon(markup: &str, size: f32) -> impl IntoElement {
     svg(ImageSrc::svg_markup(markup)).size(px(size))

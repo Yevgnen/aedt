@@ -5,7 +5,7 @@ use nsh_core::{element::desktop::title_bar, prelude::*};
 
 use crate::{
     store,
-    ui::{avatar, button, list_item, separator, sizes},
+    ui::{avatar, button, icon, list_item, menu, separator, sizes},
 };
 
 pub(crate) fn sidebar() -> View {
@@ -25,6 +25,17 @@ pub(crate) fn sidebar() -> View {
         )
         .child(view().px_3().pb_2().child(separator::horizontal()))
         .child(sessions())
+        .child(footer())
+}
+
+/// The sidebar's foot, at the bottom edge it belongs to: the menu of the
+/// app-wide commands.
+fn footer() -> impl IntoElement {
+    view().px_3().pb_3().child(menu::menu(
+        menu::trigger(icon::more(14.0), "更多"),
+        // 设置还没有页面：这一项现在只把菜单关掉。
+        menu::item(icon::settings(14.0), "设置"),
+    ))
 }
 
 fn brand() -> impl IntoElement {

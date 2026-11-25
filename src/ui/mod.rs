@@ -8,6 +8,7 @@ pub(crate) mod empty;
 pub(crate) mod icon;
 pub(crate) mod input;
 pub(crate) mod list_item;
+pub(crate) mod menu;
 pub(crate) mod motion;
 pub(crate) mod separator;
 pub(crate) mod sizes;
