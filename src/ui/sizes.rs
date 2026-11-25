@@ -10,6 +10,10 @@ pub(crate) const CONTROL: f32 = 32.0;
 /// A list row's smallest height.
 pub(crate) const LIST_ROW: f32 = 36.0;
 
+/// A list row's side padding: less than the list's own inset, so a title sits
+/// close to the edge of its row.
+pub(crate) const LIST_ROW_INSET: f32 = 10.0;
+
 /// An avatar's diameter.
 pub(crate) const AVATAR: f32 = 28.0;
 
