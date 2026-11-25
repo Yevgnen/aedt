@@ -33,6 +33,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 - 一级结构：`sidebar`（264pt，`sidebar` 底色，右边框）+ 会话面板（`flex_1`）。
 - 内容脊柱：侧栏外边距 12pt、行内再留 10pt，会话标题文字落在 22pt；会话面板 header 用 24pt 内边距。聊天 header 顶部留 16pt；侧栏品牌在系统控制区（`title_bar().top`）正下方开始，不再额外加内边距，红绿灯下方的可见留白与左侧 12pt 内边距接近。品牌与 header 标 `window_drag(true)`，两栏背景各顶到窗口上边。
 - 消息柱：消息流与 composer 放在同一个居中列里（最宽 760、列内左右 24）；列内消息内容再左右各缩 12pt，和输入框文字对齐。两根柱到卡片左右边的距离都是 12pt，AI 文本与用户气泡都不越过它们。
+- 右侧消息导航：`sizes::RAIL` 32pt 宽的竖列（右侧再留 `RAIL_INSET` 10pt，不贴窗口边），每条消息一个 2pt 高的短划线（静止时 `border` 色、8pt 长）；指针压上去的那根变长到 16pt、变 `foreground` 色（120ms 过渡），并在左侧浮出预览卡（320pt、`card` 底 + 1pt 边框 + 与 composer 相同的柔和阴影，显示作者与正文前 6 行）；点按会 `scroll_to_index` 把时间线滚到那条消息。列左右各留一个 32pt 的空 gutter，保证中间对话列仍在面板里居中。
 - 消息流、会话列表、输入框与代码块隐藏滚动条指示（`scrollbar(false)`），滚轮、触控板和键盘仍可滚动。
 - 会话面板：header（标题 + 模型 badge）、`virtual_list` 消息流（底部对齐、垂直 24pt、水平 12pt、16pt 行距；助手消息不带头像与昵称；用户气泡右对齐到右柱）。每条消息下面都有一行 12pt `muted_foreground` 元信息：先是发送/回复时间（`11/6 21:12`，月日不补零），助手再接模型与耗时（`deepseek-flash · 3.2 s`）；用户那行右对齐到气泡右沿，助手那行左对齐，行末跟一个 20pt 的幽灵按钮，里面是 14pt 的复制图标。时间取发送时的本机时钟（`chrono::Local`），示例数据里的时间是写死的。
 - 代码块由 `text_view` 自己画（1pt 边框 + 底色）；应用层在根组件用 `TextViewParts` 把 `CodeBlock` 的底色与边框色都设成 `code` token（明色 `#FCFCFC`，比 `muted` 的 `oklch(0.97 0 0)` 更接近页面底色；暗色显式写成同一个 `oklch(0.269 0 0)`），字号用 `sizes::CODE_FONT`（11pt，比行内代码的 13pt 小两号）。
@@ -47,6 +48,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 | 按钮按下 | 标签按钮缩放 0.97、圆形图标按钮 0.95，同为 `FAST` | 不缩放，颜色立即变化 |
 | 会话行 hover / 选中 | 背景 wash，`transition_colors` + `INSTANT`(120ms) | 时长归零 |
 | 思考折起 / 展开 | 无动效：分支直接切换，不给高度做动画 | — |
+| 导航短划线 hover | 宽度 8pt → 16pt、颜色 `border` → `foreground`，`transition_all` + `INSTANT`(120ms) | 时长归零 |
 | composer 卡片获得焦点 | 无动效：边框不随焦点变色，输入光标本身就是提示 | — |
 | 切换会话 | 面板淡入，`motion().entering(fade)`，`BASE`(240ms) ease-out | 直接显示终态 |
 | 发送后的新消息 | 匀速吐字：网络增量先进 `Reveal` 缓冲，每 33ms 出一段（`llm::REVEAL_TICK`）；无逐字淡入（`text_view` 不支持字符级样式），也没有流式光标 | 缓冲一次出完 |

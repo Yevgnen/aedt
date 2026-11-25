@@ -15,6 +15,8 @@ pub(crate) fn pane(session_id: u32) -> View {
     // The messages whose thinking the reader opened; closed again, a thought is
     // one quiet row.
     let open = signal(Vec::<u32>::new());
+    // The timeline's handle: the rail's ticks scroll it to their message.
+    let timeline = element_ref();
     let enter = motion().entering(motion::fade());
 
     view()
@@ -28,11 +30,28 @@ pub(crate) fn pane(session_id: u32) -> View {
                 .flex_1()
                 .min_h(px(0.0))
                 .w_full()
-                .max_w(px(sizes::COMPOSER_MAX))
-                .self_center()
-                .px(px(sizes::COMPOSER_SIDE))
-                .child(timeline(session_id, open))
-                .child(composer(session_id, draft)),
+                .flex_row()
+                // Gutters as wide as the rail, so the conversation stays
+                // centered in the pane whatever its width.
+                .child(view().w(px(sizes::RAIL)).flex_none())
+                .child(
+                    view()
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .min_h(px(0.0))
+                        .flex_row()
+                        .justify_center()
+                        .child(
+                            view()
+                                .w_full()
+                                .max_w(px(sizes::COMPOSER_MAX))
+                                .min_h(px(0.0))
+                                .px(px(sizes::COMPOSER_SIDE))
+                                .child(timeline_view(session_id, open, &timeline))
+                                .child(composer(session_id, draft)),
+                        ),
+                )
+                .child(rail(session_id, timeline)),
         )
 }
 
@@ -63,12 +82,13 @@ fn header(session_id: u32) -> impl IntoElement {
         .child(badge::badge(crate::llm::MODEL))
 }
 
-fn timeline(session_id: u32, open: Signal<Vec<u32>>) -> impl IntoElement {
+fn timeline_view(session_id: u32, open: Signal<Vec<u32>>, handle: &ElementRef) -> impl IntoElement {
     virtual_list(
         move || store::message_count(session_id),
         move |at| message_row(session_id, open, at),
     )
     .keys(move || store::message_ids(session_id))
+    .element_ref(handle)
     .alignment(ListAlignment::Bottom)
     .scrollbar(false)
     .content_padding_x(px(sizes::CARD_PADDING))
@@ -77,6 +97,110 @@ fn timeline(session_id: u32, open: Signal<Vec<u32>>) -> impl IntoElement {
     .row_gap(px(16.0))
     .empty(empty::empty("说点什么…"))
     .flex_1()
+}
+
+/// The column of message ticks at the pane's right edge: one per message, all
+/// light and short at rest; the one under the pointer grows dark and long, and
+/// a press jumps the timeline to its message.
+fn rail(session_id: u32, timeline: ElementRef) -> impl IntoElement {
+    view()
+        .w(px(sizes::RAIL))
+        .pr(px(sizes::RAIL_INSET))
+        .flex_none()
+        .flex_col()
+        .items_center()
+        .justify_center()
+        .gap(px(6.0))
+        .child(each(
+            move || store::message_ids(session_id),
+            |id| *id,
+            move |_id, at| tick(session_id, at, timeline),
+        ))
+}
+
+/// One message's tick.
+fn tick(session_id: u32, at: ReadSignal<usize>, timeline: ElementRef) -> impl IntoElement {
+    let message = computed(move || store::message_at(session_id, at.get()));
+    let hovered = signal(false);
+
+    let jump = move || {
+        timeline.scroll_to_index(at.get() as u32, percentage(0.0), Points::ZERO, true);
+    };
+
+    button()
+        .accessibility_label("跳转到该消息")
+        .w_full()
+        .items_end()
+        .py(px(3.0))
+        .on_mouse_enter(move |_: &MouseEvent| hovered.set(true))
+        .on_mouse_leave(move |_: &MouseEvent| hovered.set(false))
+        .on_press(jump)
+        .child(
+            // Every tick rests light and short; the one under the pointer is
+            // the dark, long one.
+            view()
+                .h(px(2.0))
+                .w(move || px(if hovered.get() { 16.0 } else { 8.0 }))
+                .rounded_full()
+                .bg(move || {
+                    if hovered.get() {
+                        theme().foreground
+                    } else {
+                        theme().border
+                    }
+                })
+                .transition_all()
+                .duration(motion::control_duration()),
+        )
+        .child(when(
+            move || hovered.get(),
+            move || message_preview(message),
+        ))
+}
+
+/// The card beside a hovered tick: who wrote it and the start of what they
+/// said.
+fn message_preview(message: Memo<Option<Message>>) -> impl IntoElement {
+    view()
+        .absolute()
+        .right(px(sizes::RAIL - 6.0))
+        .top(px(-10.0))
+        .w(px(320.0))
+        .p_3()
+        .gap_1()
+        .rounded(move || theme().radius)
+        .border_1()
+        .border_color(move || theme().border)
+        .bg(move || theme().card)
+        .shadow(composer_shadow())
+        .child(
+            text(move || {
+                message.with(|message| {
+                    message
+                        .as_ref()
+                        .map(|message| match message.author {
+                            Author::User => "你".into(),
+                            Author::Assistant => SharedString::from(crate::llm::MODEL),
+                        })
+                        .unwrap_or_default()
+                })
+            })
+            .text_xs()
+            .text_color(thinking_ink),
+        )
+        .child(
+            text(move || {
+                message.with(|message| {
+                    message
+                        .as_ref()
+                        .map(|message| message.body.clone())
+                        .unwrap_or_default()
+                })
+            })
+            .text_sm()
+            .number_of_lines(6)
+            .text_color(move || theme().foreground),
+        )
 }
 
 /// A cell, made once and given other messages as it is reused.
