@@ -33,7 +33,7 @@ fn brand() -> impl IntoElement {
         .items_center()
         .gap_3()
         .px_3()
-        .pt(move || Length::from(title_bar().top + px(16.0)))
+        .pt(move || Length::from(title_bar().top + px(4.0)))
         .pb_4()
         .window_drag(true)
         .child(avatar::avatar("A"))
