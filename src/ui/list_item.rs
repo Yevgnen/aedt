@@ -5,11 +5,9 @@ use nsh_core::prelude::*;
 
 use crate::ui::{motion, sizes};
 
-/// A two-line row: the session's title and its metadata. The caller owns
-/// which session is current and hears the press.
+/// A session row: its title, selected by the caller.
 pub(crate) fn session(
     title: impl IntoReactive<SharedString>,
-    meta: impl IntoReactive<SharedString>,
     selected: impl Fn() -> bool + Copy + 'static,
 ) -> ButtonElement {
     button()
@@ -18,7 +16,6 @@ pub(crate) fn session(
         .min_h(px(sizes::LIST_ROW))
         .flex_row()
         .items_center()
-        .gap_3()
         .px_3()
         .py_2()
         .rounded(move || theme().radius)
@@ -30,28 +27,18 @@ pub(crate) fn session(
         .duration(motion::row_duration())
         .ease_out()
         .child(
-            view()
+            text(title)
                 .flex_1()
                 .min_w(px(0.0))
-                .gap_1()
-                .child(
-                    text(title)
-                        .text_sm()
-                        .number_of_lines(1)
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_color(move || {
-                            if selected() {
-                                theme().foreground
-                            } else {
-                                theme().muted_foreground
-                            }
-                        }),
-                )
-                .child(
-                    text(meta)
-                        .text_xs()
-                        .number_of_lines(1)
-                        .text_color(move || theme().muted_foreground),
-                ),
+                .text_sm()
+                .number_of_lines(1)
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(move || {
+                    if selected() {
+                        theme().foreground
+                    } else {
+                        theme().muted_foreground
+                    }
+                }),
         )
 }

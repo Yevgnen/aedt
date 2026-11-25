@@ -5,7 +5,7 @@ Agent IDE 骨架的设计约定。改动界面时先读这份，再动 `src/ui`�
 ## 平台
 
 - 本轮交付 Desktop：macOS 用 `cargo run` 或 `nsh run --target macos`，GPUI 后端用 `nsh run --target gpui`。
-- 移动端、Web、TUI 未纳入本轮；布局按桌面密度（32pt 控件、44pt 双行列表行）搭建，侧栏在窄窗口下应改为可折叠，属于后续工作。
+- 移动端、Web、TUI 未纳入本轮；布局按桌面密度（32pt 控件、36pt 列表行）搭建，侧栏在窄窗口下应改为可折叠，属于后续工作。
 
 ## 颜色与尺度
 

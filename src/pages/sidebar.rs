@@ -84,14 +84,6 @@ fn session_row(at: Position) -> impl IntoElement {
                     .unwrap_or_else(|| "新会话".into())
             })
         },
-        move || {
-            session.with(|session| {
-                session
-                    .as_ref()
-                    .map(|session| format!("{} 条消息", session.messages.len()))
-                    .unwrap_or_default()
-            })
-        },
         selected,
     )
     .accessibility_label(move || {

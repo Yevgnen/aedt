@@ -7,8 +7,8 @@ pub(crate) const SIDEBAR: f32 = 264.0;
 /// A control's height.
 pub(crate) const CONTROL: f32 = 32.0;
 
-/// A two-line list row's smallest height.
-pub(crate) const LIST_ROW: f32 = 44.0;
+/// A list row's smallest height.
+pub(crate) const LIST_ROW: f32 = 36.0;
 
 /// An avatar's diameter.
 pub(crate) const AVATAR: f32 = 28.0;
