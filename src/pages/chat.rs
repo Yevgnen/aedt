@@ -397,7 +397,7 @@ fn message_meta(message: Memo<Option<Message>>) -> impl IntoElement {
                 })
             })
             .text_xs()
-            .text_color(tokens::caption)
+            .text_color(move || tokens::caption().opacity(0.8))
         },
     )
 }
