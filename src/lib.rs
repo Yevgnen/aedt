@@ -65,6 +65,7 @@ pub fn App() -> impl IntoElement {
     provide_context(TextViewParts::new().part(TextViewPart::CodeBlock, |s| {
         s.bg(code_fill)
             .border_color(code_fill)
+            .text_size(px(ui::sizes::CODE_FONT))
             .line_height(LineHeight::Multiple(ui::MESSAGE_LINE))
     }));
 

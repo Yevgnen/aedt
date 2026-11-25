@@ -39,3 +39,7 @@ pub(crate) const MESSAGE_MAX: f32 = 560.0;
 
 /// A meta row's trailing icon button: small enough to sit beside 12pt text.
 pub(crate) const META_ACTION: f32 = 20.0;
+
+/// A code block's font size: two points under the 13pt an inline code keeps,
+/// so a block reads as a quotation of code rather than as louder body text.
+pub(crate) const CODE_FONT: f32 = 11.0;
