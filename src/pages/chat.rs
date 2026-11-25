@@ -67,6 +67,7 @@ fn timeline(session_id: u32) -> impl IntoElement {
     )
     .keys(move || store::message_ids(session_id))
     .alignment(ListAlignment::Bottom)
+    .scrollbar(false)
     .content_padding_x(px(sizes::CARD_PADDING))
     .content_padding_y(px(24.0))
     .estimated_item_size(px(96.0))
@@ -124,6 +125,7 @@ fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
                     message.with(|message| message.as_ref().map(|message| message.body.clone()))
                 })
                 .selectable(true)
+                .code_block_scrollbar(false)
                 .gap_2()
                 .text_size(px(14.0))
                 .text_color(move || theme().foreground),

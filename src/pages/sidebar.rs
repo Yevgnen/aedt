@@ -48,6 +48,7 @@ fn brand() -> impl IntoElement {
 fn sessions() -> impl IntoElement {
     virtual_list(store::session_count, session_row)
         .keys(store::session_ids)
+        .scrollbar(false)
         .estimated_item_size(px(sizes::LIST_ROW))
         .content_padding(px(12.0))
         .row_gap(px(2.0))
