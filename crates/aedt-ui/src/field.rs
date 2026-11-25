@@ -59,7 +59,7 @@ pub fn field_with_trailing(
                     .absolute()
                     .right(px(4.0))
                     .top(px(0.0))
-                    .h(px(sizes::CONTROL))
+                    .bottom(px(0.0))
                     .items_center()
                     .justify_center()
                     .child(trailing),
