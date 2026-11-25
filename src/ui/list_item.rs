@@ -17,7 +17,7 @@ pub(crate) fn session(
         .flex_row()
         .items_center()
         .px(px(sizes::LIST_ROW_INSET))
-        .py_2()
+        .py_1()
         .rounded(move || theme().radius)
         .hover(|s| s.bg(move || theme().muted))
         .active(|s| s.bg(move || theme().accent))

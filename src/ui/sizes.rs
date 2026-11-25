@@ -8,7 +8,7 @@ pub(crate) const SIDEBAR: f32 = 264.0;
 pub(crate) const CONTROL: f32 = 32.0;
 
 /// A list row's smallest height.
-pub(crate) const LIST_ROW: f32 = 36.0;
+pub(crate) const LIST_ROW: f32 = 32.0;
 
 /// A list row's side padding: less than the list's own inset, so a title sits
 /// close to the edge of its row.
