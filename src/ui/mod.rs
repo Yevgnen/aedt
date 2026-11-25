@@ -5,6 +5,7 @@ pub(crate) mod avatar;
 pub(crate) mod badge;
 pub(crate) mod button;
 pub(crate) mod empty;
+pub(crate) mod icon;
 pub(crate) mod input;
 pub(crate) mod list_item;
 pub(crate) mod motion;

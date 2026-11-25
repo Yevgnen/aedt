@@ -26,6 +26,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 - `input`：受控多行输入，无边框；回车发送、Shift+回车与 Ctrl+回车换行（`submit_behavior(SubmitBehavior::Submit)`，macOS 下 IME 回车上字不会被当成发送）；发送后输入框保留焦点；卡片只是它的外框，聚焦时不换边框色（光标本身就是焦点提示，光标色不指定，用系统默认）。
 - `list_item::session`：侧栏会话行，selected 由调用方提供；标题在选中与未选中都用 `foreground`，选中只靠 `accent` 底色表达；NSH 的 `hover:` 排在 `selected:` 之后（`rank::HOVER` 34 > `rank::SELECTED` 32），所以选中行的 hover 底色直接取 `accent`（与选中同色），悬停时不换色。
 - `badge`、`avatar`、`separator`、`empty`。
+- `icon`：内联 SVG 图标（`copy` 照 Lucide 的 `copy` 几何画，24 单位 viewBox、`stroke="currentColor"`，所以颜色跟调用处的文字色）；用 `svg(ImageSrc::svg_markup(..))`，靠 nsh-core 的 `svg` feature 渲成矢量。
 
 ## 布局
 
@@ -33,7 +34,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 - 内容脊柱：侧栏外边距 12pt、行内再留 10pt，会话标题文字落在 22pt；会话面板 header 用 24pt 内边距。聊天 header 顶部留 16pt；侧栏品牌在系统控制区（`title_bar().top`）正下方开始，不再额外加内边距，红绿灯下方的可见留白与左侧 12pt 内边距接近。品牌与 header 标 `window_drag(true)`，两栏背景各顶到窗口上边。
 - 消息柱：消息流与 composer 放在同一个居中列里（最宽 760、列内左右 24）；列内消息内容再左右各缩 12pt，和输入框文字对齐。两根柱到卡片左右边的距离都是 12pt，AI 文本与用户气泡都不越过它们。
 - 消息流、会话列表、输入框与代码块隐藏滚动条指示（`scrollbar(false)`），滚轮、触控板和键盘仍可滚动。
-- 会话面板：header（标题 + 模型 badge）、`virtual_list` 消息流（底部对齐、垂直 24pt、水平 12pt、16pt 行距；助手消息不带头像与昵称；用户气泡右对齐到右柱）。每条消息下面都有一行 12pt `muted_foreground` 元信息：先是发送/回复时间（`14:02`），助手再接模型与耗时（`deepseek-flash · 3.2 s`）；用户那行右对齐到气泡右沿，助手那行左对齐。时间取发送时的本机时钟（`chrono::Local`），示例数据里的时间是写死的。
+- 会话面板：header（标题 + 模型 badge）、`virtual_list` 消息流（底部对齐、垂直 24pt、水平 12pt、16pt 行距；助手消息不带头像与昵称；用户气泡右对齐到右柱）。每条消息下面都有一行 12pt `muted_foreground` 元信息：先是发送/回复时间（`14:02`），助手再接模型与耗时（`deepseek-flash · 3.2 s`）；用户那行右对齐到气泡右沿，助手那行左对齐，行末跟一个 20pt 的幽灵按钮，里面是 14pt 的复制图标。时间取发送时的本机时钟（`chrono::Local`），示例数据里的时间是写死的。
 - 代码块由 `text_view` 自己画（1pt 边框 + 底色）；应用层在根组件用 `TextViewParts` 把 `CodeBlock` 的底色与边框色都设成 `code` token（明色 `#FCFCFC`，比 `muted` 的 `oklch(0.97 0 0)` 更接近页面底色；暗色显式写成同一个 `oklch(0.269 0 0)`）。
 - composer 放在同一列内：卡片顶边直接接消息视口，滚动内容在卡片上沿截断，中间不再留空白；卡片填满列宽，`rounded_3xl`、1pt `border`（`border` 色的 60%，存在感很弱）、两层自定义柔和阴影（0 1px 2px 4%、0 6px 20px 5%，比 Tailwind 的 `shadow_md` 更散更淡）、`card` 底色；卡片内 12pt 内边距，上面是最小 44pt 的输入框，下面是右对齐的 28pt 圆形发送键。卡片下方 8pt 后保留 20pt 状态栏高度（暂空），再留 8pt 到窗口底边。
 - 会话切换用 `dynamic` 按会话 id 重建面板，草稿与滚动位置随之重置；重建由 `computed(selected_session_id)` 驱动，所以流式回复写 store 时不会重建面板（否则每来一个 token 都重做面板、重播淡入）。消息与侧栏由 store 的 signal 驱动。

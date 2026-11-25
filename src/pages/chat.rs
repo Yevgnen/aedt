@@ -5,7 +5,7 @@ use nsh_core::{Color, LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::{
     store::{self, Author, Message},
-    ui::{badge, button, empty, input, motion, sizes},
+    ui::{badge, button, empty, icon, input, motion, sizes},
 };
 
 /// A message's line height, a multiple of its font size: lines sit close, as a
@@ -149,7 +149,7 @@ fn copy_message(message: Memo<Option<Message>>) -> impl IntoElement {
         }
     };
 
-    button::ghost_icon("⧉", "复制消息").on_press(copy)
+    button::ghost_icon(icon::copy(14.0), "复制消息").on_press(copy)
 }
 
 /// The muted line under a message: when it was sent, and for a reply the model

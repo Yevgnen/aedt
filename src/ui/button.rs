@@ -87,7 +87,7 @@ pub(crate) fn icon(
 /// A quiet icon button for a row's trailing action: no fill at rest, a wash on
 /// hover, and the same press and focus feedback as the other buttons.
 pub(crate) fn ghost_icon(
-    glyph: impl IntoReactive<SharedString>,
+    icon: impl IntoElement,
     accessibility_label: &'static str,
 ) -> ButtonElement {
     let reduce = reduce_motion();
@@ -109,9 +109,5 @@ pub(crate) fn ghost_icon(
         .transition_all()
         .duration(motion::control_duration())
         .ease_out()
-        .child(
-            text(glyph)
-                .text_sm()
-                .text_color(move || theme().muted_foreground),
-        )
+        .child(icon)
 }
