@@ -17,8 +17,8 @@ pub(crate) struct Message {
     pub(crate) id: u32,
     pub(crate) author: Author,
     pub(crate) body: SharedString,
-    /// The muted line under the message: when it was sent, and for the mock
-    /// model what the reply took. `None` shows no line at all.
+    /// The muted line under the message: when it was sent, and for a reply what
+    /// it ran on and how long it took. `None` shows no line at all.
     pub(crate) meta: Option<SharedString>,
 }
 
@@ -67,7 +67,7 @@ impl Default for Workspace {
                     &mut next_message_id,
                     Author::Assistant,
                     "先定住三件事：\n\n1. 会话是唯一的领域对象，消息只属于会话；\n2. 列表用 `virtual_list`，行内不保存状态；\n3. 输入框的草稿属于页面，不放进 store。\n\n```rust\nlet draft = signal(String::new());\n```",
-                    Some("10:12 · Mock · 96 tokens · 0.3 s"),
+                    Some("10:12 · deepseek-flash · 0.3 s"),
                 ),
                 message(
                     &mut next_message_id,
@@ -79,7 +79,7 @@ impl Default for Workspace {
                     &mut next_message_id,
                     Author::Assistant,
                     "草稿是页面的 signal：输入框绑定它，回显条也绑定它。每次按键只重跑这两处绑定，列表和侧栏都不动。",
-                    Some("10:14 · Mock · 64 tokens · 0.2 s"),
+                    Some("10:14 · deepseek-flash · 0.2 s"),
                 ),
                 message(
                     &mut next_message_id,
@@ -91,7 +91,7 @@ impl Default for Workspace {
                     &mut next_message_id,
                     Author::Assistant,
                     "因为 `virtual_list` 的 cell 会复用：同一个 cell 依次显示不同的行。行内 signal 会跟着 cell 走到下一行，状态就串了。每行的状态按消息 id 放在数据里，cell 只读当前位置的那一条。",
-                    Some("10:17 · Mock · 88 tokens · 0.3 s"),
+                    Some("10:17 · deepseek-flash · 0.3 s"),
                 ),
                 message(
                     &mut next_message_id,
@@ -103,7 +103,7 @@ impl Default for Workspace {
                     &mut next_message_id,
                     Author::Assistant,
                     "会话面板按 id 用 `dynamic` 重建，草稿 signal 和滚动位置都属于那一次构建，切换时一起释放。要保留的话，把草稿按会话 id 存进 store，面板打开时再恢复。",
-                    Some("10:21 · Mock · 70 tokens · 0.2 s"),
+                    Some("10:21 · deepseek-flash · 0.2 s"),
                 ),
                 message(
                     &mut next_message_id,
@@ -115,7 +115,7 @@ impl Default for Workspace {
                     &mut next_message_id,
                     Author::Assistant,
                     "每行拿自己的会话 id 和当前选中 id 比较：选中时用 `accent` 底色和 `foreground` 文字，悬停是更浅的一层 wash。没有左侧竖条，也不靠加粗单独表达选中。",
-                    Some("10:24 · Mock · 76 tokens · 0.2 s"),
+                    Some("10:24 · deepseek-flash · 0.2 s"),
                 ),
                 message(
                     &mut next_message_id,
@@ -127,7 +127,7 @@ impl Default for Workspace {
                     &mut next_message_id,
                     Author::Assistant,
                     "助手消息用 `text_view` 渲染 Markdown，代码块在自己的横向滚动区里，不会撑破消息列；用户消息保持纯文本，最宽 560pt。\n\n```rust\nfn main() {\n    println!(\"Aedt\");\n}\n```\n\n这段长内容就是用来把列表撑出滚动的。",
-                    Some("10:28 · Mock · 120 tokens · 0.4 s"),
+                    Some("10:28 · deepseek-flash · 0.4 s"),
                 ),
                 message(
                     &mut next_message_id,
@@ -139,7 +139,7 @@ impl Default for Workspace {
                     &mut next_message_id,
                     Author::Assistant,
                     "不用。颜色都从 `theme()` 读，`card`、`border`、`muted` 各有明暗两套值；页面里不写 hex，缺角色就先补到主题里。",
-                    Some("10:33 · Mock · 58 tokens · 0.2 s"),
+                    Some("10:33 · deepseek-flash · 0.2 s"),
                 ),
                 message(
                     &mut next_message_id,
@@ -151,7 +151,7 @@ impl Default for Workspace {
                     &mut next_message_id,
                     Author::Assistant,
                     "键盘能走完主流程、焦点始终可见、空/加载/失败态都有、浅色和深色都看过、窗口缩到最小不破版。最后在目标平台跑一次真实窗口，而不是只看截图。",
-                    Some("10:37 · Mock · 64 tokens · 0.2 s"),
+                    Some("10:37 · deepseek-flash · 0.2 s"),
                 ),
             ],
         };
@@ -169,7 +169,7 @@ impl Default for Workspace {
                     &mut next_message_id,
                     Author::Assistant,
                     "先确认根组件填满了窗口：给它 `.flex_1()` 和主题背景，否则窗口后面没有任何东西绘制。",
-                    Some("09:41 · Mock · 42 tokens · 0.2 s"),
+                    Some("09:41 · deepseek-flash · 0.2 s"),
                 ),
             ],
         };
@@ -180,7 +180,7 @@ impl Default for Workspace {
                 &mut next_message_id,
                 Author::Assistant,
                 "每个工具调用都该有超时，并且把「超时」和「被取消」分开报给上层。",
-                Some("08:15 · Mock · 38 tokens · 0.1 s"),
+                Some("08:15 · deepseek-flash · 0.1 s"),
             )],
         };
 
@@ -321,63 +321,114 @@ pub(crate) fn message_at(session_id: u32, index: usize) -> Option<Message> {
     })
 }
 
-/// Sends `text` and appends the placeholder reply the mock model returns.
-/// A blank message sends nothing.
+/// Sends `text`: appends the user's message and an empty reply, then streams
+/// the model's answer into that reply. A blank message sends nothing.
 pub(crate) fn send(session_id: u32, text: &str) {
     let text = text.trim();
     if text.is_empty() {
         return;
     }
 
+    let mut started = None;
+    workspace().update(|workspace| started = append_sent(workspace, session_id, text));
+
+    if let Some((reply_id, history)) = started {
+        crate::llm::reply(session_id, reply_id, history);
+    }
+}
+
+/// The user's message, the reply left empty, and what the model gets to read:
+/// every message before that reply.
+fn append_sent(
+    workspace: &mut Workspace,
+    session_id: u32,
+    text: &str,
+) -> Option<(u32, Vec<Message>)> {
+    let index = workspace
+        .sessions
+        .iter()
+        .position(|session| session.id == session_id)?;
+
+    let user_id = workspace.next_message_id;
+    let reply_id = user_id + 1;
+    workspace.next_message_id += 2;
+
     let sent_at = now_label();
-    let reply = mock_reply(text, &sent_at);
+    let session = &mut workspace.sessions[index];
+    if session.title.is_empty() {
+        session.title = title_from(text);
+    }
+    session.messages.push(Message {
+        id: user_id,
+        author: Author::User,
+        body: text.to_owned().into(),
+        meta: Some(sent_at.clone()),
+    });
+    let history = session.messages.clone();
+    session.messages.push(Message {
+        id: reply_id,
+        author: Author::Assistant,
+        body: SharedString::default(),
+        meta: Some(sent_at),
+    });
+
+    Some((reply_id, history))
+}
+
+/// Appends what arrived of the streamed answer to reply `message_id`.
+pub(crate) fn append_reply(session_id: u32, message_id: u32, delta: &str) {
+    if delta.is_empty() {
+        return;
+    }
     workspace().update(|workspace| {
-        let Some(index) = workspace
-            .sessions
-            .iter()
-            .position(|session| session.id == session_id)
-        else {
+        let Some(message) = find_message(workspace, session_id, message_id) else {
             return;
         };
+        let mut body = message.body.to_string();
+        body.push_str(delta);
+        message.body = body.into();
+    });
+}
 
-        let user_id = workspace.next_message_id;
-        let reply_id = workspace.next_message_id + 1;
-        workspace.next_message_id += 2;
-
-        let session = &mut workspace.sessions[index];
-        if session.title.is_empty() {
-            session.title = title_from(text);
-        }
-        session.messages.push(Message {
-            id: user_id,
-            author: Author::User,
-            body: text.to_owned().into(),
-            meta: Some(sent_at.clone()),
-        });
-        session.messages.push(Message {
-            id: reply_id,
-            author: Author::Assistant,
-            body: reply.body,
-            meta: Some(reply.meta),
+/// Closes the reply: its meta line gains the model and how long the answer
+/// took, after the time it was sent.
+pub(crate) fn finish_reply(session_id: u32, message_id: u32, model: &str, seconds: f32) {
+    workspace().update(|workspace| {
+        let Some(message) = find_message(workspace, session_id, message_id) else {
+            return;
+        };
+        let sent_at = message.meta.take().unwrap_or_default();
+        message.meta = Some(if sent_at.is_empty() {
+            format!("{model} · {seconds:.1} s").into()
+        } else {
+            format!("{sent_at} · {model} · {seconds:.1} s").into()
         });
     });
 }
 
-struct MockReply {
-    body: SharedString,
-    meta: SharedString,
+/// Shows what went wrong in place of the answer.
+pub(crate) fn fail_reply(session_id: u32, message_id: u32, error: &str) {
+    workspace().update(|workspace| {
+        let Some(message) = find_message(workspace, session_id, message_id) else {
+            return;
+        };
+        message.body = format!("请求失败：{error}").into();
+    });
 }
 
-fn mock_reply(prompt: &str, sent_at: &SharedString) -> MockReply {
-    let snippet = preview(prompt, 24);
-    let body = format!(
-        "收到：{snippet}\n\n这是 **Mock 回复**，用来占位：\n\n```rust\nfn main() {{\n    println!(\"Aedt\");\n}}\n```\n\n接入真实模型后，把 `store::send` 换成流式请求即可。"
-    );
-    let tokens = prompt.chars().count() / 2 + 48;
-    MockReply {
-        body: body.into(),
-        meta: format!("{sent_at} · Mock · {tokens} tokens · 0.3 s").into(),
-    }
+/// Message `message_id` of session `session_id`.
+fn find_message(
+    workspace: &mut Workspace,
+    session_id: u32,
+    message_id: u32,
+) -> Option<&mut Message> {
+    workspace
+        .sessions
+        .iter_mut()
+        .find(|session| session.id == session_id)?
+        .messages
+        .iter_mut()
+        .find(|message| message.id == message_id)
 }
 
 /// The first `max` characters of `text`, on one line.

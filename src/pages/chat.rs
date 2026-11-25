@@ -61,7 +61,7 @@ fn header(session_id: u32) -> impl IntoElement {
             .font_weight(FontWeight::SEMIBOLD)
             .text_color(move || theme().foreground),
         )
-        .child(badge::badge("mock-model-1"))
+        .child(badge::badge(crate::llm::MODEL))
 }
 
 fn timeline(session_id: u32) -> impl IntoElement {
@@ -78,7 +78,7 @@ fn timeline(session_id: u32) -> impl IntoElement {
     .row_gap(px(16.0))
     .empty(empty::empty(
         "还没有消息",
-        "在下面输入一句话，Aedt 会用 Mock 数据回复",
+        "在下面输入一句话，Aedt 会转给 DeepSeek 回答",
     ))
     .flex_1()
 }
@@ -132,9 +132,9 @@ fn user_message(message: Memo<Option<Message>>) -> impl IntoElement {
         )
 }
 
-/// The muted line under a message: when it was sent, and for the mock model
-/// what the reply took. The caller aligns it; it reads the message where that
-/// message now is.
+/// The muted line under a message: when it was sent, and for a reply the model
+/// it ran on and how long it took. The caller aligns it; it reads the message
+/// where that message now is.
 fn message_meta(message: Memo<Option<Message>>) -> impl IntoElement {
     when(
         move || {

@@ -1,7 +1,8 @@
-//! Aedt: a desktop chat app skeleton in Rust. Sessions live in the sidebar, the
-//! selected conversation fills the pane beside it, and the composer echoes
-//! placeholder model data while it changes.
+//! Aedt: a desktop chat app in Rust. Sessions live in the sidebar, the selected
+//! conversation fills the pane beside it, and replies stream from DeepSeek into
+//! the conversation as they arrive.
 
+mod llm;
 mod pages;
 mod shell;
 mod store;
