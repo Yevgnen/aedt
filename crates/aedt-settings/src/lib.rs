@@ -61,6 +61,9 @@ struct Provider {
     base_url: String,
     /// The key its requests carry.
     api_key: String,
+    /// The models the reader switched off, by id: their choice outlives the list
+    /// a provider answers with.
+    disabled: Vec<SharedString>,
     /// The models it lists, as its last ask found them.
     models: Models,
     /// Which ask the last answer belongs to: an older answer does not land.
@@ -105,6 +108,7 @@ impl Default for Settings {
                 kind: ProviderKind::OpenAiCompatible,
                 base_url: DEEPSEEK_BASE_URL.to_owned(),
                 api_key: env::var(DEEPSEEK_API_KEY).unwrap_or_default(),
+                disabled: Vec::new(),
                 models: Models::Idle,
                 ask: 0,
                 saved: true,
@@ -258,6 +262,7 @@ pub fn add_provider(kind: ProviderKind) {
             kind,
             base_url: String::new(),
             api_key: String::new(),
+            disabled: Vec::new(),
             models: Models::Idle,
             ask: 0,
             saved: false,
@@ -389,17 +394,23 @@ pub fn models(id: u32) -> Vec<Model> {
 
 /// Offers the model called `model`, or stops offering it.
 pub fn set_model_enabled(id: u32, model: &str, on: bool) {
+    let model: SharedString = model.to_owned().into();
     settings().update(|settings| {
         let Some(provider) = provider_mut(settings, id) else {
             return;
         };
+        if on {
+            provider.disabled.retain(|off| off != &model);
+        } else if !provider.disabled.contains(&model) {
+            provider.disabled.push(model.clone());
+        }
         let (Models::Loading(models) | Models::Ready(models) | Models::Failed(models, _)) =
             &mut provider.models
         else {
             return;
         };
-        if let Some(model) = models.iter_mut().find(|m| m.id.as_str() == model) {
-            model.enabled = on;
+        if let Some(listed) = models.iter_mut().find(|m| m.id == model) {
+            listed.enabled = on;
         }
     });
 }
@@ -442,8 +453,9 @@ pub fn refresh_models(id: u32) {
                     return;
                 }
                 let shown = provider.models.shown().to_vec();
+                let disabled = provider.disabled.clone();
                 provider.models = match listed {
-                    Ok(ids) => Models::Ready(merged(&shown, ids)),
+                    Ok(listed) => Models::Ready(merged(listed, &disabled)),
                     Err(why) => Models::Failed(shown, why),
                 };
             });
@@ -451,17 +463,14 @@ pub fn refresh_models(id: u32) {
     });
 }
 
-/// `listed` as the models to show, keeping the choice made of the models
-/// shown before: one it did not have joins offered.
-fn merged(shown: &[Model], listed: Vec<ListedModel>) -> Vec<Model> {
+/// `listed` as the models to show: the reader's switches decide which one is
+/// offered, and one they never switched is offered.
+fn merged(listed: Vec<ListedModel>, disabled: &[SharedString]) -> Vec<Model> {
     listed
         .into_iter()
         .map(|listed| {
-            let enabled = shown
-                .iter()
-                .find(|m| m.id.as_str() == listed.id.as_str())
-                .is_none_or(|m| m.enabled);
             let id: SharedString = listed.id.into();
+            let enabled = !disabled.contains(&id);
             let label = match listed.name {
                 Some(name) if !name.trim().is_empty() => name.into(),
                 _ => id.clone(),
