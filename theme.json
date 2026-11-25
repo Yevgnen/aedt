@@ -7,6 +7,7 @@
     "light": {
       "primary": "#DBEAFE",
       "primary-foreground": "#171717",
+      "bubble": "#EFF6FF",
       "secondary": "#F4F4F5",
       "secondary-foreground": "#18181B",
       "accent": "#E4E4E7",
@@ -17,6 +18,7 @@
     "dark": {
       "primary": "#93C5FD",
       "primary-foreground": "#171717",
+      "bubble": "#93C5FD",
       "secondary": "#27272A",
       "secondary-foreground": "#FAFAFA",
       "accent": "#3F3F46",

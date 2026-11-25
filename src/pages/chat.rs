@@ -96,7 +96,7 @@ fn user_message(message: Memo<Option<Message>>) -> impl IntoElement {
         view()
             .max_w(px(sizes::MESSAGE_MAX))
             .rounded(move || theme().radius)
-            .bg(move || theme().primary)
+            .bg(move || theme().color("bubble").unwrap_or_else(|| theme().primary))
             .px_4()
             .py_3()
             .child(
