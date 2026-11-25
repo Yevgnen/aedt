@@ -12,9 +12,11 @@ use async_openai::{
 };
 use futures_util::StreamExt;
 use nsh_core::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// How hard a reply's model thinks before it answers (`reasoning.effort`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum Effort {
     /// The provider's own default: the request asks for no effort.
     Default,

@@ -8,9 +8,13 @@ use aedt_provider::models::{ListedModel, list_models};
 use aedt_provider::responses::Effort;
 use aedt_provider::{DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL};
 use nsh_core::prelude::*;
+use serde::{Deserialize, Serialize};
+
+mod stored;
 
 /// A provider's API: the shape of its requests and of its model list.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum ProviderKind {
     /// OpenAI's API, as other providers serve it: `/models` lists the models.
     OpenAiCompatible,
@@ -98,10 +102,43 @@ struct Settings {
 }
 
 impl Default for Settings {
+    /// The settings the app kept between runs, or the ones it starts from.
     fn default() -> Self {
+        stored::load()
+            .and_then(Settings::restored)
+            .unwrap_or_else(Settings::seeded)
+    }
+}
+
+impl Settings {
+    /// The settings `kept` names, while it names a provider at all.
+    fn restored(kept: stored::Kept) -> Option<Self> {
+        if kept.providers.is_empty() {
+            return None;
+        }
+        let providers = kept
+            .providers
+            .into_iter()
+            .map(Provider::restored)
+            .collect::<Vec<_>>();
+        let next_provider_id = providers
+            .iter()
+            .map(|provider| provider.id)
+            .max()
+            .map_or(1, |id| id + 1);
+
+        Some(Self {
+            providers,
+            next_provider_id,
+            selected: kept.selected.into(),
+            effort: kept.effort.unwrap_or(Effort::High),
+        })
+    }
+
+    /// The settings a new install starts from: DeepSeek, whose key the app reads
+    /// from its environment, so its models arrive unasked.
+    fn seeded() -> Self {
         Self {
-            // DeepSeek, whose key the app reads at first: its models arrive as
-            // soon as the app asks for them with that key set.
             providers: vec![Provider {
                 id: 1,
                 name: "DeepSeek".into(),
@@ -118,10 +155,59 @@ impl Default for Settings {
             effort: Effort::High,
         }
     }
+
+    /// What to keep of them: the providers the reader kept, never their keys.
+    fn kept(&self) -> stored::Kept {
+        stored::Kept {
+            providers: self
+                .providers
+                .iter()
+                .filter(|provider| provider.saved)
+                .map(|provider| stored::Provider {
+                    id: provider.id,
+                    name: provider.name.to_string(),
+                    kind: provider.kind,
+                    base_url: provider.base_url.clone(),
+                    disabled: provider.disabled.iter().map(|id| id.to_string()).collect(),
+                })
+                .collect(),
+            selected: self.selected.to_string(),
+            effort: Some(self.effort),
+        }
+    }
+}
+
+impl Provider {
+    /// The provider `kept` names: reachable again, its key the environment's
+    /// while it is DeepSeek's.
+    fn restored(kept: stored::Provider) -> Self {
+        let api_key = if kept.base_url.trim_end_matches('/') == DEEPSEEK_BASE_URL {
+            env::var(DEEPSEEK_API_KEY).unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        Self {
+            id: kept.id,
+            name: kept.name.into(),
+            kind: kept.kind,
+            base_url: kept.base_url,
+            api_key,
+            disabled: kept.disabled.into_iter().map(SharedString::from).collect(),
+            models: Models::Idle,
+            ask: 0,
+            saved: true,
+        }
+    }
 }
 
 fn settings() -> Signal<Settings> {
     global::<Settings>()
+}
+
+/// Keeps the settings as they are now, for the next run.
+fn save() {
+    settings().with(|settings| stored::save(&settings.kept()));
 }
 
 /// `f` of provider `id`, or none once it is gone (tracked where it is read).
@@ -213,6 +299,7 @@ pub fn selected() -> Choice {
 pub fn select_model(model: &str) {
     let model: SharedString = model.to_owned().into();
     settings().update(|settings| settings.selected = model.clone());
+    save();
 }
 
 /// How hard the next reply's model thinks (tracked where it is read).
@@ -223,6 +310,7 @@ pub fn effort() -> Effort {
 /// Asks for `effort` from the replies from now on.
 pub fn select_effort(effort: Effort) {
     settings().update(|settings| settings.effort = effort);
+    save();
 }
 
 /// The providers' ids, in order (tracked where it is read).
@@ -289,6 +377,7 @@ pub fn save_provider(id: u32) {
             provider.saved = true;
         }
     });
+    save();
     load();
 }
 
@@ -337,6 +426,7 @@ pub fn set_base_url(id: u32, url: &str) {
             provider.base_url = url.to_owned();
         }
     });
+    save();
 }
 
 /// Sets the key `id`'s requests carry.
@@ -413,6 +503,7 @@ pub fn set_model_enabled(id: u32, model: &str, on: bool) {
             listed.enabled = on;
         }
     });
+    save();
 }
 
 /// Asks `id` for its models, from the URL and key it holds. Its answer lands
