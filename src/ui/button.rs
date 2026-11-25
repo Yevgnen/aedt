@@ -4,7 +4,7 @@
 use nsh_base::{ButtonElement, button, theme};
 use nsh_core::{element::StyleRefinement, prelude::*};
 
-use crate::ui::{motion, sizes};
+use crate::ui::{icon, motion, sizes};
 
 /// An ordinary labeled action. The caller adds `.on_press` and its layout.
 pub(crate) fn secondary(label: impl IntoReactive<SharedString>) -> ButtonElement {
@@ -112,6 +112,52 @@ pub(crate) fn bare() -> ButtonElement {
     button()
         .rounded(move || theme().radius)
         .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+}
+
+/// A button that adds to the list it stands before: a dashed edge around a
+/// centered label, in the app's quiet ink.
+pub(crate) fn add(label: impl IntoReactive<SharedString>) -> ButtonElement {
+    button()
+        .w_full()
+        .flex_row()
+        .items_center()
+        .justify_center()
+        .gap_2()
+        .py_3()
+        .rounded(move || theme().radius)
+        .border_1()
+        .border_dashed()
+        .border_color(move || theme().border)
+        .text_color(move || theme().muted_foreground)
+        .hover(|s| s.bg(move || theme().muted))
+        .active(|s| s.bg(move || theme().accent))
+        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .disabled_style(|s| s.opacity(0.4))
+        .transition_colors()
+        .duration(motion::control_duration())
+        .ease_out()
+        .child(icon::plus(14.0))
+        .child(text(label).text_sm())
+}
+
+/// A command that is only its label: no edge, no fill, a wash on hover — the
+/// text form of [`ghost_icon`].
+pub(crate) fn ghost(label: impl IntoReactive<SharedString>) -> ButtonElement {
+    button()
+        .min_h(px(sizes::CONTROL))
+        .px_3()
+        .items_center()
+        .justify_center()
+        .rounded(move || theme().radius)
+        .text_color(move || theme().foreground)
+        .hover(|s| s.bg(move || theme().muted))
+        .active(|s| s.bg(move || theme().accent))
+        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .disabled_style(|s| s.opacity(0.4))
+        .transition_colors()
+        .duration(motion::control_duration())
+        .ease_out()
+        .child(text(label).text_sm())
 }
 
 /// A quiet icon button for a row's trailing action: no fill at rest, a wash on

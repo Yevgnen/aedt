@@ -6,7 +6,7 @@ use nsh_core::prelude::*;
 
 use crate::{
     settings::{self, ProviderKind, Section},
-    ui::{badge, button, collapsible, field, icon, list_item, sizes, switch, tokens},
+    ui::{badge, button, collapsible, field, icon, list_item, menu, sizes, switch, tokens},
 };
 
 /// The settings, presented while they are open and dismissed when they close,
@@ -75,20 +75,14 @@ fn categories() -> impl IntoElement {
         )
 }
 
-/// The chosen category's content: its heading, then the providers, in a page
-/// that scrolls as their sections open.
+/// The chosen category's content: its heading, then the page it shows.
 fn content() -> impl IntoElement {
-    view()
-        .flex_1()
-        .min_w(px(0.0))
-        .min_h(px(0.0))
-        .child(scroll().flex_1().min_h(px(0.0)).child(
-            view().w_full().p_6().gap_5().child(heading()).child(each(
-                settings::provider_ids,
-                |id| *id,
-                |id, _| provider_card(id.get()),
-            )),
-        ))
+    view().flex_1().min_w(px(0.0)).min_h(px(0.0)).child(
+        scroll()
+            .flex_1()
+            .min_h(px(0.0))
+            .child(view().w_full().p_6().gap_5().child(heading()).child(page())),
+    )
 }
 
 /// The pane's heading: what it is, and what it asks the reader for.
@@ -97,16 +91,80 @@ fn heading() -> impl IntoElement {
         .w_full()
         .gap_1()
         .child(
-            text("Models")
-                .text_lg()
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(move || theme().foreground),
+            text(move || {
+                if settings::draft().is_some() {
+                    SharedString::from("Add model provider")
+                } else {
+                    SharedString::from("Models")
+                }
+            })
+            .text_lg()
+            .font_weight(FontWeight::SEMIBOLD)
+            .text_color(move || theme().foreground),
         )
-        .child(
-            text("Enter your API keys to use models from the following providers.")
-                .text_sm()
-                .text_color(move || theme().muted_foreground),
-        )
+        .child(when(
+            move || settings::draft().is_none(),
+            || {
+                text("Enter your API keys to use models from the following providers.")
+                    .text_sm()
+                    .text_color(move || theme().muted_foreground)
+            },
+        ))
+}
+
+/// The page: the action that adds a provider, the ones the reader kept, or the
+/// provider being added.
+fn page() -> impl IntoElement {
+    view()
+        .w_full()
+        .gap_5()
+        .child(when(move || settings::draft().is_none(), add_provider))
+        .child(when(
+            move || settings::draft().is_none(),
+            || {
+                view().w_full().gap_2().child(each(
+                    settings::saved_providers,
+                    |id| *id,
+                    |id, _| provider_card(id.get()),
+                ))
+            },
+        ))
+        .child(when(
+            move || settings::draft().is_some(),
+            || add_form(settings::draft().unwrap_or_default()),
+        ))
+}
+
+/// The action that starts adding a provider: a dashed row whose menu names the
+/// kinds the app speaks, one press opening its form.
+fn add_provider() -> impl IntoElement {
+    menu::menu(
+        button::add("Add model provider"),
+        Placement::Bottom,
+        Align::Start,
+        menu::item(icon::database(14.0), "OpenAI compatible").on_select(|| {
+            settings::begin_provider(ProviderKind::OpenAiCompatible, "OpenAI compatible");
+        }),
+    )
+}
+
+/// The provider being added: its fields, the models they can list, and the
+/// commands that keep it or drop it.
+fn add_form(id: u32) -> impl IntoElement {
+    view().w_full().gap_5().child(provider_body(id)).child(
+        view()
+            .w_full()
+            .flex_row()
+            .items_center()
+            .justify_end()
+            .gap_2()
+            .child(button::ghost("Cancel").on_press(move || settings::cancel_provider(id)))
+            .child(
+                button::secondary("Save")
+                    .disabled(move || !settings::can_refresh(id))
+                    .on_press(move || settings::save_provider(id)),
+            ),
+    )
 }
 
 /// One provider, folded to its name until it is asked for: what it is, how to
@@ -114,7 +172,11 @@ fn heading() -> impl IntoElement {
 fn provider_card(id: u32) -> impl IntoElement {
     collapsible::section(
         move || settings::name(id),
-        badge::badge(move || kind_label(settings::kind(id))),
+        // The kind, unless the name is the kind's own.
+        when(
+            move || settings::name(id) != kind_label(settings::kind(id)),
+            move || badge::badge(move || kind_label(settings::kind(id))),
+        ),
         provider_body(id),
     )
     .w_full()

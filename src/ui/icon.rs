@@ -108,6 +108,16 @@ const CHEVRON_RIGHT: &str = concat!(
     r#"</svg>"#,
 );
 
+/// A plus (Lucide's `plus`): an action that adds something.
+const PLUS: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M5 12h14"/>"#,
+    r#"<path d="M12 5v14"/>"#,
+    r#"</svg>"#,
+);
+
 /// The menu mark, `size` points square, in the caller's text color.
 pub(crate) fn more(size: f32) -> impl IntoElement {
     icon(MORE, size)
@@ -143,6 +153,11 @@ pub(crate) fn chevron_down(size: f32) -> impl IntoElement {
 /// color.
 pub(crate) fn chevron_right(size: f32) -> impl IntoElement {
     icon(CHEVRON_RIGHT, size)
+}
+
+/// The plus, `size` points square, in the caller's text color.
+pub(crate) fn plus(size: f32) -> impl IntoElement {
+    icon(PLUS, size)
 }
 
 /// `markup` drawn at `size` points square.

@@ -33,6 +33,7 @@ pub(crate) fn sidebar() -> View {
 fn footer() -> impl IntoElement {
     view().px_3().pb_3().child(menu::menu(
         menu::trigger(icon::more(14.0), "More"),
+        Placement::Top,
         Align::Start,
         menu::item(icon::settings(14.0), "Settings").on_select(settings::open),
     ))

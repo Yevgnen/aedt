@@ -59,9 +59,13 @@ struct Provider {
     base_url: String,
     /// The key its requests carry.
     api_key: String,
+    /// The models it lists, as its last ask found them.
     models: Models,
     /// Which ask the last answer belongs to: an older answer does not land.
     ask: u64,
+    /// Whether the reader kept it: a provider being added is in the list only
+    /// while its form is filled in.
+    saved: bool,
 }
 
 /// A model a reply can ask: its id for the provider, its label for the reader.
@@ -98,6 +102,8 @@ struct Settings {
     open: bool,
     section: Section,
     providers: Vec<Provider>,
+    /// The id the next provider added takes.
+    next_provider_id: u32,
     /// The model the next reply asks, by id: the picker's choice, and the one
     /// the chat sends until another is picked.
     selected: SharedString,
@@ -120,7 +126,9 @@ impl Default for Settings {
                 api_key: env::var(crate::llm::API_KEY).unwrap_or_default(),
                 models: Models::Idle,
                 ask: 0,
+                saved: true,
             }],
+            next_provider_id: 2,
             selected: crate::llm::MODEL.into(),
             effort: Effort::High,
         }
@@ -163,7 +171,8 @@ pub(crate) fn load() {
 pub(crate) fn enabled_models() -> Vec<Choice> {
     settings().with(|settings| {
         let mut choices: Vec<Choice> = Vec::new();
-        for model in settings.providers.iter().flat_map(|p| p.models.shown()) {
+        let offered = settings.providers.iter().filter(|provider| provider.saved);
+        for model in offered.flat_map(|provider| provider.models.shown()) {
             if !model.enabled || choices.iter().any(|choice| choice.id == model.id) {
                 continue;
             }
@@ -184,7 +193,8 @@ pub(crate) fn selected() -> Choice {
         settings
             .providers
             .iter()
-            .flat_map(|p| p.models.shown())
+            .filter(|provider| provider.saved)
+            .flat_map(|provider| provider.models.shown())
             .find(|model| model.id == id)
             .map(|model| Choice {
                 id: model.id.clone(),
@@ -231,6 +241,62 @@ pub(crate) fn select_section(next: Section) {
 /// The providers' ids, in order (tracked where it is read).
 pub(crate) fn provider_ids() -> Vec<u32> {
     settings().with(|settings| settings.providers.iter().map(|p| p.id).collect())
+}
+
+/// The providers the reader kept, in order (tracked where it is read).
+pub(crate) fn saved_providers() -> Vec<u32> {
+    settings().with(|settings| {
+        settings
+            .providers
+            .iter()
+            .filter(|p| p.saved)
+            .map(|p| p.id)
+            .collect()
+    })
+}
+
+/// The provider being added, while one is (tracked where it is read).
+pub(crate) fn draft() -> Option<u32> {
+    settings().with(|settings| settings.providers.iter().find(|p| !p.saved).map(|p| p.id))
+}
+
+/// Starts adding a provider of `kind`, called `name` until it is saved. A
+/// provider already being added is left as it is.
+pub(crate) fn begin_provider(kind: ProviderKind, name: &str) {
+    let name: SharedString = name.to_owned().into();
+    settings().update(|settings| {
+        if settings.providers.iter().any(|p| !p.saved) {
+            return;
+        }
+        let id = settings.next_provider_id;
+        settings.next_provider_id += 1;
+        settings.providers.push(Provider {
+            id,
+            name,
+            kind,
+            base_url: String::new(),
+            api_key: String::new(),
+            models: Models::Idle,
+            ask: 0,
+            saved: false,
+        });
+    });
+}
+
+/// Keeps the provider `id`: it is one of the reader's from now on.
+pub(crate) fn save_provider(id: u32) {
+    settings().update(|settings| {
+        if let Some(provider) = settings.providers.iter_mut().find(|p| p.id == id) {
+            provider.saved = true;
+        }
+    });
+}
+
+/// Drops the provider `id` while it is one being added.
+pub(crate) fn cancel_provider(id: u32) {
+    settings().update(|settings| {
+        settings.providers.retain(|p| p.id != id || p.saved);
+    });
 }
 
 /// What `id` is called (tracked where it is read).

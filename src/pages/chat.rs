@@ -603,6 +603,7 @@ fn model_picker() -> impl IntoElement {
             move || SharedString::from(effort_label(settings::effort())),
         )
         .disabled(move || settings::enabled_models().is_empty()),
+        Placement::Top,
         Align::End,
         view()
             .child(

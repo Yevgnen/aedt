@@ -6,52 +6,44 @@ use nsh_core::prelude::*;
 use crate::ui::{icon, motion};
 
 /// A section: `title` and a `mark` beside it always show; pressing the header
-/// opens `content` (it comes in on a spring, and leaves the tree once it has
-/// gone) and pressing it again closes it. It starts closed.
+/// opens `content` and pressing it again closes it. It starts closed.
 pub(crate) fn section(
     title: impl IntoReactive<SharedString>,
     mark: impl IntoElement,
     content: impl IntoElement,
 ) -> CollapsibleElement {
     let open = signal(false);
-    collapsible()
-        .open(open)
-        .reveal(true)
-        .gap_4()
-        .content(content)
-        .child(
-            view()
-                .w_full()
-                .flex_row()
-                .items_center()
-                .gap_2()
-                .rounded(move || theme().radius)
-                .role(AccessibilityRole::Button)
-                .accessibility_state(move || AccessibilityState {
-                    expanded: Some(open.get()),
-                    ..AccessibilityState::default()
-                })
-                .on_press(move || open.update(|open| *open = !*open))
-                .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
-                .transition_colors()
-                .duration(motion::control_duration())
-                .child(
-                    text(title)
-                        .flex_1()
-                        .text_sm()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(move || theme().foreground),
-                )
-                .child(mark)
-                .child(
-                    // Points down while closed, up while open.
-                    view()
-                        .flex_none()
-                        .text_color(move || theme().muted_foreground)
-                        .transition_transform()
-                        .duration(motion::control_duration())
-                        .style_when(move || open.get(), |s| s.rotate(deg(180.0)))
-                        .child(icon::chevron_down(14.0)),
-                ),
-        )
+    collapsible().open(open).gap_4().content(content).child(
+        view()
+            .w_full()
+            .flex_row()
+            .items_center()
+            .gap_2()
+            .rounded(move || theme().radius)
+            .role(AccessibilityRole::Button)
+            .accessibility_state(move || AccessibilityState {
+                expanded: Some(open.get()),
+                ..AccessibilityState::default()
+            })
+            .on_press(move || open.update(|open| *open = !*open))
+            .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+            .transition_colors()
+            .duration(motion::control_duration())
+            .child(
+                text(title)
+                    .flex_1()
+                    .text_sm()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(move || theme().foreground),
+            )
+            .child(mark)
+            .child(
+                // Points down while closed, up while open.
+                view()
+                    .flex_none()
+                    .text_color(move || theme().muted_foreground)
+                    .style_when(move || open.get(), |s| s.rotate(deg(180.0)))
+                    .child(icon::chevron_down(14.0)),
+            ),
+    )
 }
