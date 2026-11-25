@@ -10,6 +10,7 @@ use aedt_provider::{DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL};
 use nsh_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
+mod secrets;
 mod stored;
 
 /// A provider's API: the shape of its requests and of its model list.
@@ -88,7 +89,8 @@ pub struct Choice {
     pub api_key: String,
 }
 
-/// The settings: its providers and the model the next reply asks.
+/// The settings: its providers, the model the next reply asks, and the keys
+/// the next run reads.
 #[derive(Clone)]
 struct Settings {
     providers: Vec<Provider>,
@@ -99,6 +101,9 @@ struct Settings {
     selected: SharedString,
     /// How hard that model thinks: the picker's other choice.
     effort: Effort,
+    /// The keys kept on disk, by provider id. A provider's key in memory may
+    /// come from the environment instead, and is not kept then.
+    keys: secrets::Keys,
 }
 
 impl Default for Settings {
@@ -116,10 +121,11 @@ impl Settings {
         if kept.providers.is_empty() {
             return None;
         }
+        let keys = secrets::load();
         let providers = kept
             .providers
             .into_iter()
-            .map(Provider::restored)
+            .map(|provider| Provider::restored(provider, &keys))
             .collect::<Vec<_>>();
         let next_provider_id = providers
             .iter()
@@ -132,6 +138,7 @@ impl Settings {
             next_provider_id,
             selected: kept.selected.into(),
             effort: kept.effort.unwrap_or(Effort::High),
+            keys,
         })
     }
 
@@ -153,6 +160,7 @@ impl Settings {
             next_provider_id: 2,
             selected: DEEPSEEK_MODEL.into(),
             effort: Effort::High,
+            keys: secrets::Keys::new(),
         }
     }
 
@@ -178,13 +186,17 @@ impl Settings {
 }
 
 impl Provider {
-    /// The provider `kept` names: reachable again, its key the environment's
-    /// while it is DeepSeek's.
-    fn restored(kept: stored::Provider) -> Self {
-        let api_key = if kept.base_url.trim_end_matches('/') == DEEPSEEK_BASE_URL {
-            env::var(DEEPSEEK_API_KEY).unwrap_or_default()
+    /// The provider `kept` names: reachable again with the key it kept, or the
+    /// environment's while it is DeepSeek's.
+    fn restored(kept: stored::Provider, keys: &secrets::Keys) -> Self {
+        let kept_key = keys.get(&kept.id.to_string()).cloned().unwrap_or_default();
+        let api_key = if is_deepseek(&kept.base_url) {
+            env::var(DEEPSEEK_API_KEY)
+                .ok()
+                .filter(|key| !key.trim().is_empty())
+                .unwrap_or(kept_key)
         } else {
-            String::new()
+            kept_key
         };
 
         Self {
@@ -201,6 +213,11 @@ impl Provider {
     }
 }
 
+/// Whether `base_url` is DeepSeek's, whose key the environment may name.
+fn is_deepseek(base_url: &str) -> bool {
+    base_url.trim_end_matches('/') == DEEPSEEK_BASE_URL
+}
+
 fn settings() -> Signal<Settings> {
     global::<Settings>()
 }
@@ -208,6 +225,11 @@ fn settings() -> Signal<Settings> {
 /// Keeps the settings as they are now, for the next run.
 fn save() {
     settings().with(|settings| stored::save(&settings.kept()));
+}
+
+/// Keeps the providers' keys as they are now, for the next run.
+fn save_keys() {
+    settings().with(|settings| secrets::save(&settings.keys));
 }
 
 /// `f` of provider `id`, or none once it is gone (tracked where it is read).
@@ -372,11 +394,23 @@ pub fn select_kind(id: u32, kind: ProviderKind) {
 /// Keeps the provider `id`: it is one of the reader's from now on, and the
 /// models it lists are asked for so the composer's picker has them.
 pub fn save_provider(id: u32) {
+    let mut key = None;
     settings().update(|settings| {
         if let Some(provider) = provider_mut(settings, id) {
             provider.saved = true;
+            key = Some(provider.api_key.trim().to_owned());
         }
     });
+    if let Some(key) = key {
+        settings().update(|settings| {
+            if key.is_empty() {
+                settings.keys.remove(&id.to_string());
+            } else {
+                settings.keys.insert(id.to_string(), key);
+            }
+        });
+        save_keys();
+    }
     save();
     load();
 }
@@ -431,11 +465,23 @@ pub fn set_base_url(id: u32, url: &str) {
 
 /// Sets the key `id`'s requests carry.
 pub fn set_api_key(id: u32, key: &str) {
+    let mut saved = false;
     settings().update(|settings| {
         if let Some(provider) = provider_mut(settings, id) {
             provider.api_key = key.to_owned();
+            saved = provider.saved;
+            if saved {
+                if key.trim().is_empty() {
+                    settings.keys.remove(&id.to_string());
+                } else {
+                    settings.keys.insert(id.to_string(), key.trim().to_owned());
+                }
+            }
         }
     });
+    if saved {
+        save_keys();
+    }
 }
 
 /// Whether `id` has what an ask needs: a URL and a key.

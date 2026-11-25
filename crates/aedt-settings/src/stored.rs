@@ -1,6 +1,7 @@
 //! What the settings keep between runs: the providers the reader configured,
 //! the models they switched off, and the choice the composer holds. A
-//! provider's API key is not among them; it lives only while the app runs.
+//! provider's API key is not among them: it is kept beside this file, readable
+//! by this user only ([`crate::secrets`]).
 
 use nsh_core::storage::Storage;
 use serde::{Deserialize, Serialize};
