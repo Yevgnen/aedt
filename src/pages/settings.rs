@@ -191,11 +191,7 @@ fn type_field(id: u32) -> impl IntoElement {
     view()
         .w_full()
         .gap_1()
-        .child(
-            text("Type")
-                .text_xs()
-                .text_color(move || theme().muted_foreground),
-        )
+        .child(field::label("Type"))
         .child(menu::menu(
             menu::select_trigger(move || kind_label(settings::kind(id))),
             Placement::Bottom,
