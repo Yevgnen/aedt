@@ -33,7 +33,9 @@ fn brand() -> impl IntoElement {
         .items_center()
         .gap_3()
         .px_3()
-        .pt(move || Length::from(title_bar().top + px(4.0)))
+        // The traffic lights own the whole title bar band on the left edge, so
+        // the brand starts right below it: no extra padding above.
+        .pt(move || Length::from(title_bar().top))
         .pb_4()
         .window_drag(true)
         .child(avatar::avatar("A"))
