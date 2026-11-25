@@ -5,7 +5,7 @@ use nsh_core::{element::desktop::title_bar, prelude::*};
 
 use crate::{
     store::{self, Author, Message},
-    ui::{avatar, badge, button, empty, input, motion, sizes},
+    ui::{badge, button, empty, input, motion, sizes},
 };
 
 /// One session's conversation. The caller keys it by the session, so
@@ -20,8 +20,17 @@ pub(crate) fn pane(session_id: u32) -> View {
         .bg(move || theme().background)
         .bind_motion(&enter)
         .child(header(session_id))
-        .child(timeline(session_id))
-        .child(composer(session_id, draft))
+        .child(
+            view()
+                .flex_1()
+                .min_h(px(0.0))
+                .w_full()
+                .max_w(px(sizes::COMPOSER_MAX))
+                .self_center()
+                .px(px(sizes::COMPOSER_SIDE))
+                .child(timeline(session_id))
+                .child(composer(session_id, draft)),
+        )
 }
 
 fn header(session_id: u32) -> impl IntoElement {
@@ -58,8 +67,9 @@ fn timeline(session_id: u32) -> impl IntoElement {
     )
     .keys(move || store::message_ids(session_id))
     .alignment(ListAlignment::Bottom)
+    .content_padding_x(px(sizes::CARD_PADDING))
+    .content_padding_y(px(24.0))
     .estimated_item_size(px(96.0))
-    .content_padding(px(24.0))
     .row_gap(px(16.0))
     .empty(empty::empty(
         "还没有消息",
@@ -107,60 +117,49 @@ fn user_message(message: Memo<Option<Message>>) -> impl IntoElement {
 fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
     view()
         .w_full()
-        .flex_row()
-        .items_start()
-        .gap_3()
-        .child(avatar::avatar("A"))
+        .gap_1()
         .child(
             view()
-                .flex_1()
-                .min_w(px(0.0))
-                .gap_1()
+                .flex_row()
+                .items_center()
+                .gap_2()
                 .child(
-                    view()
-                        .flex_row()
-                        .items_center()
-                        .gap_2()
-                        .child(
-                            text("Aedt")
-                                .text_xs()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_color(move || theme().foreground),
-                        )
-                        .child(when(
-                            move || {
-                                message.with(|message| {
-                                    message
-                                        .as_ref()
-                                        .is_some_and(|message| message.meta.is_some())
-                                })
-                            },
-                            move || {
-                                text(move || {
-                                    message.with(|message| {
-                                        message
-                                            .as_ref()
-                                            .and_then(|message| message.meta.clone())
-                                            .unwrap_or_default()
-                                    })
-                                })
-                                .text_xs()
-                                .text_color(move || theme().muted_foreground)
-                            },
-                        )),
+                    text("Aedt")
+                        .text_xs()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(move || theme().foreground),
                 )
-                .child(
-                    text_view()
-                        .markdown(move || {
+                .child(when(
+                    move || {
+                        message.with(|message| {
+                            message
+                                .as_ref()
+                                .is_some_and(|message| message.meta.is_some())
+                        })
+                    },
+                    move || {
+                        text(move || {
                             message.with(|message| {
-                                message.as_ref().map(|message| message.body.clone())
+                                message
+                                    .as_ref()
+                                    .and_then(|message| message.meta.clone())
+                                    .unwrap_or_default()
                             })
                         })
-                        .selectable(true)
-                        .gap_2()
-                        .text_size(px(14.0))
-                        .text_color(move || theme().foreground),
-                ),
+                        .text_xs()
+                        .text_color(move || theme().muted_foreground)
+                    },
+                )),
+        )
+        .child(
+            text_view()
+                .markdown(move || {
+                    message.with(|message| message.as_ref().map(|message| message.body.clone()))
+                })
+                .selectable(true)
+                .gap_2()
+                .text_size(px(14.0))
+                .text_color(move || theme().foreground),
         )
 }
 
@@ -176,16 +175,12 @@ fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
     };
 
     view()
-        .w_full()
-        .max_w(px(sizes::COMPOSER_MAX))
-        .self_center()
-        .px_6()
         .pt_4()
         .pb_2()
         .gap_2()
         .child(composer_card(draft, can_send, submit))
         // One line reserved for the status bar; it holds no text yet.
-        .child(view().h_5().pl_3().justify_center())
+        .child(view().h_5().pl(px(sizes::CARD_PADDING)).justify_center())
 }
 
 /// The floating composer: a rounded card whose input sits on top and whose
@@ -197,7 +192,7 @@ fn composer_card(
     submit: impl Fn() + Copy + 'static,
 ) -> impl IntoElement {
     view()
-        .p_3()
+        .p(px(sizes::CARD_PADDING))
         .gap_2()
         .rounded_3xl()
         .border_1()
