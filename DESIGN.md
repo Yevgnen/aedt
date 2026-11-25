@@ -24,7 +24,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 
 - `button`：`secondary` 标签按钮与 `icon` 圆形图标按钮，统一的按压反馈、焦点环与禁用态；圆形按钮 28pt，带 6pt 热区。
 - `input`：受控多行输入，无边框；焦点由外层 composer 卡片的 `focus_within` 边框承接。
-- `list_item::session`：侧栏会话行，selected 由调用方提供。
+- `list_item::session`：侧栏会话行，selected 由调用方提供；NSH 的 `hover:` 排在 `selected:` 之后（`rank::HOVER` 34 > `rank::SELECTED` 32），所以选中行的 hover 底色直接取 `accent`（与选中同色），悬停时不换色。
 - `badge`、`avatar`、`separator`、`empty`。
 
 ## 布局

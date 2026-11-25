@@ -19,7 +19,18 @@ pub(crate) fn session(
         .px(px(sizes::LIST_ROW_INSET))
         .py_1()
         .rounded(move || theme().radius)
-        .hover(|s| s.bg(move || theme().muted))
+        // NSH ranks `hover:` above `selected:` (`rank::HOVER` 34 > `rank::SELECTED`
+        // 32), so a selected row keeps the selected fill by taking that same
+        // color while hovered.
+        .hover(|s| {
+            s.bg(move || {
+                if selected() {
+                    theme().accent
+                } else {
+                    theme().muted
+                }
+            })
+        })
         .active(|s| s.bg(move || theme().accent))
         .selected_style(|s| s.bg(move || theme().accent))
         .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
