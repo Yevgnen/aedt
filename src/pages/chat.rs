@@ -429,7 +429,7 @@ fn assistant_message(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> 
                 .selectable(true)
                 .code_block_scrollbar(false)
                 .gap_2()
-                .text_size(px(14.0))
+                .text_sm()
                 .line_height(LineHeight::Multiple(ui::MESSAGE_LINE))
                 .text_color(move || theme().foreground),
         )
