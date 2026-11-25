@@ -78,6 +78,78 @@ impl Default for Workspace {
                     "草稿是页面的 signal：输入框绑定它，回显条也绑定它。每次按键只重跑这两处绑定，列表和侧栏都不动。",
                     Some("Mock · 64 tokens · 0.2 s"),
                 ),
+                message(
+                    &mut next_message_id,
+                    Author::User,
+                    "消息列表滚动时，为什么不能把每行的状态放进行内的 signal？",
+                    None,
+                ),
+                message(
+                    &mut next_message_id,
+                    Author::Assistant,
+                    "因为 `virtual_list` 的 cell 会复用：同一个 cell 依次显示不同的行。行内 signal 会跟着 cell 走到下一行，状态就串了。每行的状态按消息 id 放在数据里，cell 只读当前位置的那一条。",
+                    Some("Mock · 88 tokens · 0.3 s"),
+                ),
+                message(
+                    &mut next_message_id,
+                    Author::User,
+                    "会话切换后草稿为什么没了？",
+                    None,
+                ),
+                message(
+                    &mut next_message_id,
+                    Author::Assistant,
+                    "会话面板按 id 用 `dynamic` 重建，草稿 signal 和滚动位置都属于那一次构建，切换时一起释放。要保留的话，把草稿按会话 id 存进 store，面板打开时再恢复。",
+                    Some("Mock · 70 tokens · 0.2 s"),
+                ),
+                message(
+                    &mut next_message_id,
+                    Author::User,
+                    "侧栏选中态你是怎么画的？",
+                    None,
+                ),
+                message(
+                    &mut next_message_id,
+                    Author::Assistant,
+                    "每行拿自己的会话 id 和当前选中 id 比较：选中时用 `accent` 底色和 `foreground` 文字，悬停是更浅的一层 wash。没有左侧竖条，也不靠加粗单独表达选中。",
+                    Some("Mock · 76 tokens · 0.2 s"),
+                ),
+                message(
+                    &mut next_message_id,
+                    Author::User,
+                    "长回复里的代码块会不会把消息列撑破？",
+                    None,
+                ),
+                message(
+                    &mut next_message_id,
+                    Author::Assistant,
+                    "助手消息用 `text_view` 渲染 Markdown，代码块在自己的横向滚动区里，不会撑破消息列；用户消息保持纯文本，最宽 560pt。\n\n```rust\nfn main() {\n    println!(\"Aedt\");\n}\n```\n\n这段长内容就是用来把列表撑出滚动的。",
+                    Some("Mock · 120 tokens · 0.4 s"),
+                ),
+                message(
+                    &mut next_message_id,
+                    Author::User,
+                    "深色模式还要额外改颜色吗？",
+                    None,
+                ),
+                message(
+                    &mut next_message_id,
+                    Author::Assistant,
+                    "不用。颜色都从 `theme()` 读，`card`、`border`、`muted` 各有明暗两套值；页面里不写 hex，缺角色就先补到主题里。",
+                    Some("Mock · 58 tokens · 0.2 s"),
+                ),
+                message(
+                    &mut next_message_id,
+                    Author::User,
+                    "发布前还要检查什么？",
+                    None,
+                ),
+                message(
+                    &mut next_message_id,
+                    Author::Assistant,
+                    "键盘能走完主流程、焦点始终可见、空/加载/失败态都有、浅色和深色都看过、窗口缩到最小不破版。最后在目标平台跑一次真实窗口，而不是只看截图。",
+                    Some("Mock · 64 tokens · 0.2 s"),
+                ),
             ],
         };
         let second = Session {
