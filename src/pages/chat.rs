@@ -38,28 +38,17 @@ fn header(session_id: u32) -> impl IntoElement {
         .border_b_1()
         .border_b_color(move || theme().border)
         .child(
-            view()
-                .flex_1()
-                .min_w(px(0.0))
-                .gap_1()
-                .child(
-                    text(move || {
-                        store::session_by_id(session_id)
-                            .map(|session| session.display_title())
-                            .unwrap_or_else(|| "新会话".into())
-                    })
-                    .text_sm()
-                    .number_of_lines(1)
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(move || theme().foreground),
-                )
-                .child(
-                    text(move || {
-                        format!("{} 条消息 · 本地 Mock", store::message_count(session_id))
-                    })
-                    .text_xs()
-                    .text_color(move || theme().muted_foreground),
-                ),
+            text(move || {
+                store::session_by_id(session_id)
+                    .map(|session| session.display_title())
+                    .unwrap_or_else(|| "新会话".into())
+            })
+            .flex_1()
+            .min_w(px(0.0))
+            .text_sm()
+            .number_of_lines(1)
+            .font_weight(FontWeight::SEMIBOLD)
+            .text_color(move || theme().foreground),
         )
         .child(badge::badge("mock-model-1"))
 }
