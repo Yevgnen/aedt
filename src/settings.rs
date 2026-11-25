@@ -4,8 +4,8 @@
 
 use std::env;
 
-use async_openai::{Client, config::OpenAIConfig, error::OpenAIError};
-use nsh_core::prelude::*;
+use nsh_core::{platform::HttpRequest, prelude::*};
+use serde::Deserialize;
 
 /// A provider's API: the shape of its requests and of its model list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -309,26 +309,66 @@ fn merged(shown: &[Model], ids: Vec<String>) -> Vec<Model> {
         .collect()
 }
 
-/// The models `base_url` lists, by id, in order.
+/// The models `base_url` lists, by id, in order. It reads the answer's `data`
+/// and each model's `id` only, so whatever else a provider adds or leaves out
+/// of a model does not fail the whole list.
 async fn list_models(base_url: &str, api_key: &str) -> Result<Vec<String>, SharedString> {
-    let config = OpenAIConfig::new()
-        .with_api_base(base_url.trim_end_matches('/'))
-        .with_api_key(api_key);
-    let client = Client::with_config(config);
-    match client.models().list().await {
-        Ok(list) => {
-            let mut ids: Vec<String> = list.data.into_iter().map(|model| model.id).collect();
-            ids.sort();
-            Ok(ids)
+    let url = format!("{}/models", base_url.trim_end_matches('/'));
+    let request = HttpRequest::get(url).header("Authorization", format!("Bearer {api_key}"));
+    let response = fetch(request).await.map_err(SharedString::from)?;
+    let body = response.text();
+    if !response.ok() {
+        return Err(failure(response.status(), &body).into());
+    }
+
+    let listed: Listed = serde_json::from_str(&body)
+        .map_err(|error| SharedString::from(format!("模型列表解析失败：{error}")))?;
+    let mut ids: Vec<String> = listed.data.into_iter().map(|model| model.id).collect();
+    ids.sort();
+    ids.dedup();
+    Ok(ids)
+}
+
+/// What a refused answer says: its status, and the API's own message when the
+/// body carries one.
+fn failure(status: u16, body: &str) -> String {
+    let message = serde_json::from_str::<Failed>(body)
+        .ok()
+        .and_then(|failed| failed.error)
+        .map(|error| error.message);
+    match message {
+        Some(message) if !message.is_empty() => format!("{status} {message}"),
+        _ => {
+            let text: String = body.trim().chars().take(200).collect();
+            if text.is_empty() {
+                status.to_string()
+            } else {
+                format!("{status} {text}")
+            }
         }
-        Err(error) => Err(reason(&error).into()),
     }
 }
 
-/// What `error` says to the reader: the API's own message, or what failed.
-fn reason(error: &OpenAIError) -> String {
-    match error {
-        OpenAIError::ApiError(response) => response.api_error.message.clone(),
-        other => other.to_string(),
-    }
+/// A provider's `/models` answer, of what it says.
+#[derive(Deserialize)]
+struct Listed {
+    data: Vec<ListedModel>,
+}
+
+/// One model of that answer, of what the app reads.
+#[derive(Deserialize)]
+struct ListedModel {
+    id: String,
+}
+
+/// What an answer that failed says.
+#[derive(Deserialize)]
+struct Failed {
+    error: Option<FailedError>,
+}
+
+/// A failure's own words.
+#[derive(Deserialize)]
+struct FailedError {
+    message: String,
 }
