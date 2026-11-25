@@ -149,6 +149,10 @@ fn timeline_view(
 /// all light and short at rest. The lit ones — under the pointer, and the last
 /// question the list shows — are dark and long; a press jumps to it.
 fn rail(session_id: u32, timeline: ElementRef, current: Signal<Option<usize>>) -> impl IntoElement {
+    // Which question's card shows: one for the whole column, so moving from
+    // tick to tick swaps it instead of dropping it for a frame.
+    let hovered = signal(None::<usize>);
+
     view()
         .w(px(sizes::RAIL))
         .pr(px(sizes::RAIL_INSET))
@@ -156,11 +160,11 @@ fn rail(session_id: u32, timeline: ElementRef, current: Signal<Option<usize>>) -
         .flex_col()
         .items_center()
         .justify_center()
-        .gap(px(4.0))
+        .on_mouse_leave(move |_: &MouseEvent| hovered.set(None))
         .child(each(
             move || store::user_message_indices(session_id),
             |index| *index,
-            move |index, _row| tick(session_id, index, timeline, current),
+            move |index, _row| tick(session_id, index, timeline, current, hovered),
         ))
 }
 
@@ -170,12 +174,13 @@ fn tick(
     at: ReadSignal<usize>,
     timeline: ElementRef,
     current: Signal<Option<usize>>,
+    hovered: Signal<Option<usize>>,
 ) -> impl IntoElement {
     let message = computed(move || store::message_at(session_id, at.get()));
-    let reply = computed(move || store::reply_after(session_id, at.get()));
-    let hovered = signal(false);
+    let reply = computed(move || store::reply_at(session_id, at.get()));
+    let over = move || hovered.get() == Some(at.get());
     // Lit: the tick under the pointer, and the reader's place in the list.
-    let lit = move || hovered.get() || current.get() == Some(at.get());
+    let lit = move || over() || current.get() == Some(at.get());
 
     let jump = move || {
         timeline.scroll_to_index(at.get() as u32, percentage(0.0), Points::ZERO, true);
@@ -185,9 +190,10 @@ fn tick(
         .accessibility_label("跳转到该消息")
         .w_full()
         .items_end()
-        .py(px(2.0))
-        .on_mouse_enter(move |_: &MouseEvent| hovered.set(true))
-        .on_mouse_leave(move |_: &MouseEvent| hovered.set(false))
+        // The hit area fills the pitch, so sliding along the column never
+        // leaves it between two ticks.
+        .py(px(4.0))
+        .on_mouse_enter(move |_: &MouseEvent| hovered.set(Some(at.get())))
         .cursor_pointer()
         .on_press(jump)
         .child(
@@ -207,10 +213,7 @@ fn tick(
                 .transition_all()
                 .duration(motion::control_duration()),
         )
-        .child(when(
-            move || hovered.get(),
-            move || message_preview(message, reply),
-        ))
+        .child(when(over, move || message_preview(message, reply)))
 }
 
 /// The card beside a hovered tick: the question, then what it was answered.
@@ -218,6 +221,8 @@ fn message_preview(
     question: Memo<Option<Message>>,
     reply: Memo<Option<Message>>,
 ) -> impl IntoElement {
+    let enter = motion().entering(motion::fade());
+
     view()
         .absolute()
         .right(px(sizes::RAIL - 6.0))
@@ -230,6 +235,7 @@ fn message_preview(
         .border_color(move || theme().border)
         .bg(move || theme().card)
         .shadow(composer_shadow())
+        .bind_motion(&enter)
         .child(preview_part(question, 3))
         .child(when(
             move || reply.with(|reply| reply.is_some()),

@@ -369,7 +369,7 @@ pub(crate) fn user_message_indices(session_id: u32) -> Vec<usize> {
 
 /// The reply that follows the user message at `index`: the assistant messages
 /// up to the next question.
-pub(crate) fn reply_after(session_id: u32, index: usize) -> Option<Message> {
+pub(crate) fn reply_at(session_id: u32, index: usize) -> Option<Message> {
     workspace().with(|workspace| {
         let session = workspace
             .sessions
