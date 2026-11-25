@@ -32,28 +32,58 @@ pub(crate) fn pane(session_id: u32) -> View {
                 .flex_1()
                 .min_h(px(0.0))
                 .w_full()
-                .flex_row()
-                // Gutters as wide as the rail, so the conversation stays
-                // centered in the pane whatever its width.
-                .child(view().w(px(sizes::RAIL)).flex_none())
+                .flex_col()
+                // The messages and the rail beside them: the rail is centered on
+                // this row, not on the composer under it.
                 .child(
                     view()
                         .flex_1()
-                        .min_w(px(0.0))
                         .min_h(px(0.0))
+                        .w_full()
                         .flex_row()
-                        .justify_center()
+                        // Gutters as wide as the rail, so the conversation stays
+                        // centered in the pane whatever its width.
+                        .child(view().w(px(sizes::RAIL)).flex_none())
                         .child(
                             view()
-                                .w_full()
-                                .max_w(px(sizes::COMPOSER_MAX))
+                                .flex_1()
+                                .min_w(px(0.0))
                                 .min_h(px(0.0))
-                                .px(px(sizes::COMPOSER_SIDE))
-                                .child(timeline_view(session_id, open, &timeline, current))
-                                .child(composer(session_id, draft)),
-                        ),
+                                .flex_row()
+                                .justify_center()
+                                .child(
+                                    view()
+                                        .w_full()
+                                        .max_w(px(sizes::COMPOSER_MAX))
+                                        .min_h(px(0.0))
+                                        .px(px(sizes::COMPOSER_SIDE))
+                                        .child(timeline_view(session_id, open, &timeline, current)),
+                                ),
+                        )
+                        .child(rail(session_id, timeline, current)),
                 )
-                .child(rail(session_id, timeline, current)),
+                .child(
+                    view()
+                        .w_full()
+                        .flex_none()
+                        .flex_row()
+                        .child(view().w(px(sizes::RAIL)).flex_none())
+                        .child(
+                            view()
+                                .flex_1()
+                                .min_w(px(0.0))
+                                .flex_row()
+                                .justify_center()
+                                .child(
+                                    view()
+                                        .w_full()
+                                        .max_w(px(sizes::COMPOSER_MAX))
+                                        .px(px(sizes::COMPOSER_SIDE))
+                                        .child(composer(session_id, draft)),
+                                ),
+                        )
+                        .child(view().w(px(sizes::RAIL)).flex_none()),
+                ),
         )
 }
 
@@ -157,6 +187,7 @@ fn tick(
         .py(px(2.0))
         .on_mouse_enter(move |_: &MouseEvent| hovered.set(true))
         .on_mouse_leave(move |_: &MouseEvent| hovered.set(false))
+        .cursor_pointer()
         .on_press(jump)
         .child(
             // Every tick rests light and short; the lit ones — under the
@@ -167,7 +198,7 @@ fn tick(
                 .rounded_full()
                 .bg(move || {
                     if lit() {
-                        theme().foreground
+                        theme().primary_foreground
                     } else {
                         theme().border
                     }
