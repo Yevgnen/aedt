@@ -21,6 +21,16 @@ pub(crate) struct Provider {
     /// The models the reader switched off, by id.
     #[serde(default)]
     pub(crate) disabled: Vec<String>,
+    /// Whether the reader's switches are theirs already; a provider whose
+    /// models they never saw starts without them.
+    #[serde(default = "settled")]
+    pub(crate) curated: bool,
+}
+
+/// Whether a kept provider's switches are the reader's: one kept before the app
+/// settled any is.
+fn settled() -> bool {
+    true
 }
 
 /// The settings as they are kept.
@@ -31,6 +41,9 @@ pub(crate) struct Kept {
     /// The model the next reply asked, by id.
     #[serde(default)]
     pub(crate) selected: String,
+    /// The provider that served it, while the reader picked one.
+    #[serde(default)]
+    pub(crate) selected_provider: Option<u32>,
     /// How hard it thought; none for the app's own default.
     #[serde(default)]
     pub(crate) effort: Option<Effort>,

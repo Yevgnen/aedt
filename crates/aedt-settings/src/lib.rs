@@ -72,6 +72,10 @@ struct Provider {
     /// The models the reader switched off, by id: their choice outlives the list
     /// a provider answers with.
     disabled: Vec<SharedString>,
+    /// Whether the reader has had a say in which models are offered: a provider
+    /// the app seeds starts with the DeepSeek V4.1 Flash family only, and the
+    /// first list it answers settles that.
+    curated: bool,
     /// The models it lists, as its last ask found them.
     models: Models,
     /// Which ask the last answer belongs to: an older answer does not land.
@@ -85,6 +89,10 @@ struct Provider {
 /// and the provider that serves it, which the reply asks.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Choice {
+    /// The provider that serves it.
+    pub provider: u32,
+    /// That provider's name, as the picker's section says it.
+    pub provider_name: SharedString,
     pub id: SharedString,
     pub label: SharedString,
     /// The base URL and key of the provider that serves it.
@@ -102,6 +110,9 @@ struct Settings {
     /// The model the next reply asks, by id: the picker's choice, and the one
     /// the chat sends until another is picked.
     selected: SharedString,
+    /// The provider that serves it, while the reader picked one: a model id can
+    /// be offered by several providers.
+    selected_provider: Option<u32>,
     /// How hard that model thinks: the picker's other choice.
     effort: Effort,
     /// The keys kept on disk, by provider id. A provider's key in memory may
@@ -140,32 +151,33 @@ impl Settings {
             providers,
             next_provider_id,
             selected: kept.selected.into(),
+            selected_provider: kept.selected_provider,
             effort: kept.effort.unwrap_or(Effort::High),
             keys,
         })
     }
 
-    /// The settings a new install starts from: DeepSeek, whose key its name's
-    /// environment variable may hold, so its models arrive unasked.
+    /// The settings a new install starts from: DeepSeek and the gateways that
+    /// serve its V4.1 Flash, each with the key its name's environment variable
+    /// may hold.
     fn seeded() -> Self {
-        let mut provider = Provider {
-            id: 1,
-            name: "DeepSeek".into(),
-            kind: ProviderKind::OpenAiCompatible,
-            base_url: DEEPSEEK_BASE_URL.to_owned(),
-            api_key: String::new(),
-            env_key: None,
-            disabled: Vec::new(),
-            models: Models::Idle,
-            ask: 0,
-            saved: true,
-        };
-        adopt_environment_key(&mut provider);
+        let mut providers = vec![
+            Provider::seeded(1, "DeepSeek", DEEPSEEK_BASE_URL, true),
+            Provider::seeded(2, "Ollama", "https://ollama.com/v1", false),
+            Provider::seeded(3, "opencode", "https://opencode.ai/inference/go/v1", false),
+            Provider::seeded(4, "RightNow", "https://api.rightnowai.co/v1", false),
+            Provider::seeded(5, "LithosAI", "https://api.lithosai.cloud/v1", false),
+            Provider::seeded(6, "Baseten", "https://inference.baseten.co/v1", false),
+        ];
+        for provider in &mut providers {
+            adopt_environment_key(provider);
+        }
 
         Self {
-            providers: vec![provider],
-            next_provider_id: 2,
+            next_provider_id: providers.len() as u32 + 1,
+            providers,
             selected: DEEPSEEK_MODEL.into(),
+            selected_provider: Some(1),
             effort: Effort::High,
             keys: secrets::Keys::new(),
         }
@@ -184,15 +196,35 @@ impl Settings {
                     kind: provider.kind,
                     base_url: provider.base_url.clone(),
                     disabled: provider.disabled.iter().map(|id| id.to_string()).collect(),
+                    curated: provider.curated,
                 })
                 .collect(),
             selected: self.selected.to_string(),
+            selected_provider: self.selected_provider,
             effort: Some(self.effort),
         }
     }
 }
 
 impl Provider {
+    /// A provider the app starts from: saved, with no key of its own and no
+    /// models yet. `curated` says the reader's switches are theirs already.
+    fn seeded(id: u32, name: &'static str, base_url: &str, curated: bool) -> Self {
+        Self {
+            id,
+            name: name.into(),
+            kind: ProviderKind::OpenAiCompatible,
+            base_url: base_url.to_owned(),
+            api_key: String::new(),
+            env_key: None,
+            disabled: Vec::new(),
+            curated,
+            models: Models::Idle,
+            ask: 0,
+            saved: true,
+        }
+    }
+
     /// The provider `kept` names: reachable again with the key it kept, or the
     /// environment's while it keeps none.
     fn restored(kept: stored::Provider, keys: &secrets::Keys) -> Self {
@@ -204,6 +236,7 @@ impl Provider {
             api_key: keys.get(&kept.id.to_string()).cloned().unwrap_or_default(),
             env_key: None,
             disabled: kept.disabled.into_iter().map(SharedString::from).collect(),
+            curated: kept.curated,
             models: Models::Idle,
             ask: 0,
             saved: true,
@@ -306,45 +339,55 @@ pub fn enabled_models() -> Vec<Choice> {
         let offered = settings.providers.iter().filter(|provider| provider.saved);
         for provider in offered {
             for model in provider.models.shown() {
-                if !model.enabled || choices.iter().any(|choice| choice.id == model.id) {
-                    continue;
+                if model.enabled {
+                    choices.push(choice(provider, model));
                 }
-                choices.push(Choice {
-                    id: model.id.clone(),
-                    label: model.label.clone(),
-                    base_url: provider.base_url.clone(),
-                    api_key: provider.api_key.clone(),
-                });
             }
         }
         choices
     })
 }
 
+/// `model` as a reply may ask it, served by `provider`.
+fn choice(provider: &Provider, model: &Model) -> Choice {
+    Choice {
+        provider: provider.id,
+        provider_name: provider.name.clone(),
+        id: model.id.clone(),
+        label: model.label.clone(),
+        base_url: provider.base_url.clone(),
+        api_key: provider.api_key.clone(),
+    }
+}
+
 /// The model the next reply asks: the one picked, named as its provider does
-/// (tracked where it is read).
+/// (tracked where it is read). The provider picked serves it; without one, the
+/// first provider that lists it does.
 pub fn selected() -> Choice {
-    let id = settings().with(|settings| settings.selected.clone());
-    let known = settings().with(|settings| {
-        settings
+    let (id, picked) =
+        settings().with(|settings| (settings.selected.clone(), settings.selected_provider));
+    let found = settings().with(|settings| {
+        let serving = |provider: &Provider| {
+            provider.saved && provider.models.shown().iter().any(|model| model.id == id)
+        };
+        let provider = settings
             .providers
             .iter()
-            .filter(|provider| provider.saved)
-            .find_map(|provider| {
-                provider
-                    .models
-                    .shown()
-                    .iter()
-                    .find(|model| model.id == id)
-                    .map(|model| Choice {
-                        id: model.id.clone(),
-                        label: model.label.clone(),
-                        base_url: provider.base_url.clone(),
-                        api_key: provider.api_key.clone(),
-                    })
-            })
+            .find(|provider| Some(provider.id) == picked && serving(provider))
+            .or_else(|| settings.providers.iter().find(|provider| serving(provider)));
+        provider.and_then(|provider| {
+            provider
+                .models
+                .shown()
+                .iter()
+                .find(|model| model.id == id)
+                .map(|model| choice(provider, model))
+        })
     });
-    known.unwrap_or_else(|| Choice {
+
+    found.unwrap_or_else(|| Choice {
+        provider: picked.unwrap_or_default(),
+        provider_name: SharedString::default(),
         label: id.clone(),
         id,
         base_url: String::new(),
@@ -352,10 +395,13 @@ pub fn selected() -> Choice {
     })
 }
 
-/// Asks `model` for the replies from now on.
-pub fn select_model(model: &str) {
+/// Asks `provider` for `model` from now on.
+pub fn select_model(provider: u32, model: &str) {
     let model: SharedString = model.to_owned().into();
-    settings().update(|settings| settings.selected = model.clone());
+    settings().update(|settings| {
+        settings.selected = model;
+        settings.selected_provider = Some(provider);
+    });
     save();
 }
 
@@ -409,6 +455,7 @@ pub fn add_provider(kind: ProviderKind) {
             api_key: String::new(),
             env_key: None,
             disabled: Vec::new(),
+            curated: true,
             models: Models::Idle,
             ask: 0,
             saved: false,
@@ -642,6 +689,7 @@ pub fn refresh_models(id: u32) {
     Owner::detached().run(|| {
         spawn(async move {
             let listed = list_models(&base_url, &api_key).await;
+            let mut settled = false;
             settings().update(|settings| {
                 let Some(provider) = provider_mut(settings, id) else {
                     return;
@@ -650,14 +698,37 @@ pub fn refresh_models(id: u32) {
                     return;
                 }
                 let shown = provider.models.shown().to_vec();
-                let disabled = provider.disabled.clone();
                 provider.models = match listed {
-                    Ok(listed) => Models::Ready(merged(listed, &disabled)),
+                    Ok(listed) => {
+                        // The first list a provider the app seeded answers
+                        // offers the DeepSeek V4.1 Flash family and nothing else.
+                        if !provider.curated {
+                            provider.disabled = listed
+                                .iter()
+                                .filter(|model| !is_deepseek_flash(model))
+                                .map(|model| SharedString::from(model.id.clone()))
+                                .collect();
+                            provider.curated = true;
+                            settled = true;
+                        }
+                        let disabled = provider.disabled.clone();
+                        Models::Ready(merged(listed, &disabled))
+                    }
                     Err(why) => Models::Failed(shown, why),
                 };
             });
+            if settled {
+                save();
+            }
         });
     });
+}
+
+/// Whether `model` is one of the DeepSeek V4.1 Flash family: what a provider the
+/// app seeded offers until the reader says otherwise.
+fn is_deepseek_flash(model: &ListedModel) -> bool {
+    let name = format!("{} {}", model.id, model.name.as_deref().unwrap_or_default()).to_lowercase();
+    name.contains("deepseek") && name.contains("4.1") && name.contains("flash")
 }
 
 /// `listed` as the models to show: the reader's switches decide which one is

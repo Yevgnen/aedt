@@ -87,6 +87,17 @@ pub fn label_trigger(
         .child(icon::chevron_down(12.0))
 }
 
+/// A picker's section heading: the name of the provider whose models follow,
+/// quiet and small over them.
+pub fn heading(label: impl IntoReactive<SharedString>) -> impl IntoElement {
+    text(label)
+        .w_full()
+        .px(px(sizes::LIST_ROW_INSET))
+        .pt_1()
+        .text_xs()
+        .text_color(move || theme().muted_foreground)
+}
+
 /// An item of one of those menus: a mark and its label, in the app's row look.
 /// Choosing it closes the menu.
 pub fn item(mark: impl IntoElement, label: impl IntoReactive<SharedString>) -> MenuItemElement {

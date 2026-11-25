@@ -627,31 +627,69 @@ fn model_picker() -> impl IntoElement {
     )
 }
 
-/// The models the settings offer, narrowed to `query` (every one while it is
-/// empty), the chosen one checked.
+/// The models the settings offer, grouped under the provider that serves them
+/// and narrowed to `query` (every one while it is empty), the chosen one
+/// checked.
 fn model_choices(query: Signal<String>) -> impl IntoElement {
     each(
         move || {
             let query = query.with(|query| query.trim().to_lowercase());
-            settings::enabled_models()
-                .into_iter()
-                .filter(|choice| {
-                    query.is_empty() || choice.label.as_str().to_lowercase().contains(&query)
-                })
-                .collect::<Vec<_>>()
+            let mut sections: Vec<ModelSection> = Vec::new();
+            for choice in settings::enabled_models() {
+                if !query.is_empty() && !choice.label.as_str().to_lowercase().contains(&query) {
+                    continue;
+                }
+                match sections.last_mut() {
+                    Some(section) if section.provider == choice.provider => {
+                        section.choices.push(choice);
+                    }
+                    _ => sections.push(ModelSection {
+                        provider: choice.provider,
+                        name: choice.provider_name.clone(),
+                        choices: vec![choice],
+                    }),
+                }
+            }
+            sections
         },
-        |choice| choice.id.clone(),
-        |choice, _| {
-            menu::choice(
-                move || choice.with(|choice| choice.label.clone()),
-                move || choice.with(|choice| choice.id == settings::selected().id),
-            )
-            .on_select(move || {
-                let id = choice.with(|choice| choice.id.clone());
-                settings::select_model(id.as_str());
-            })
+        |section| section.provider,
+        |section, _| {
+            view()
+                .w_full()
+                .gap_1()
+                .child(menu::heading(move || {
+                    section.with(|section| section.name.clone())
+                }))
+                .child(each(
+                    move || section.with(|section| section.choices.clone()),
+                    |choice| choice.id.clone(),
+                    |choice, _| {
+                        menu::choice(
+                            move || choice.with(|choice| choice.label.clone()),
+                            move || {
+                                let selected = settings::selected();
+                                choice.with(|choice| {
+                                    choice.provider == selected.provider && choice.id == selected.id
+                                })
+                            },
+                        )
+                        .on_select(move || {
+                            let (provider, id) =
+                                choice.with(|choice| (choice.provider, choice.id.clone()));
+                            settings::select_model(provider, id.as_str());
+                        })
+                    },
+                ))
         },
     )
+}
+
+/// The models one provider serves, as the picker lists them under its name.
+#[derive(Clone, PartialEq)]
+struct ModelSection {
+    provider: u32,
+    name: SharedString,
+    choices: Vec<settings::Choice>,
 }
 
 /// The efforts a reply can ask for, the weakest first.
