@@ -8,6 +8,11 @@ use crate::{
     ui::{self, badge, button, empty, icon, input, motion, sizes},
 };
 
+/// A tick's bar height, and the padding that fills its pitch: adjacent ticks'
+/// hit areas touch, so sliding along the column never leaves it between them.
+const TICK_HEIGHT: f32 = 2.0;
+const TICK_PAD: f32 = 4.0;
+
 /// One session's conversation. The caller keys it by the session, so
 /// switching conversations resets the draft and the scroll position.
 pub(crate) fn pane(session_id: u32) -> View {
@@ -149,9 +154,11 @@ fn timeline_view(
 /// all light and short at rest. The lit ones — under the pointer, and the last
 /// question the list shows — are dark and long; a press jumps to it.
 fn rail(session_id: u32, timeline: ElementRef, current: Signal<Option<usize>>) -> impl IntoElement {
-    // Which question's card shows: one for the whole column, so moving from
-    // tick to tick swaps it instead of dropping it for a frame.
-    let hovered = signal(None::<usize>);
+    // Which question's card shows, as (its row among the ticks, its message
+    // index): one card for the whole column, so moving from tick to tick swaps
+    // its content instead of dropping it for a frame.
+    let hovered = signal(None::<(usize, usize)>);
+    let height = signal(0.0f32);
 
     view()
         .w(px(sizes::RAIL))
@@ -161,26 +168,30 @@ fn rail(session_id: u32, timeline: ElementRef, current: Signal<Option<usize>>) -
         .items_center()
         .justify_center()
         .on_mouse_leave(move |_: &MouseEvent| hovered.set(None))
+        .on_layout(move |bounds: &Bounds<Points>| height.set(bounds.size.height.0))
         .child(each(
             move || store::user_message_indices(session_id),
             |index| *index,
-            move |index, _row| tick(session_id, index, timeline, current, hovered),
+            move |index, row| tick(index, row, timeline, current, hovered),
+        ))
+        .child(when(
+            move || hovered.get().is_some(),
+            move || message_preview(session_id, hovered, height),
         ))
 }
 
 /// One question's tick.
 fn tick(
-    session_id: u32,
     at: ReadSignal<usize>,
+    row: ReadSignal<usize>,
     timeline: ElementRef,
     current: Signal<Option<usize>>,
-    hovered: Signal<Option<usize>>,
+    hovered: Signal<Option<(usize, usize)>>,
 ) -> impl IntoElement {
-    let message = computed(move || store::message_at(session_id, at.get()));
-    let reply = computed(move || store::reply_at(session_id, at.get()));
-    let over = move || hovered.get() == Some(at.get());
     // Lit: the tick under the pointer, and the reader's place in the list.
-    let lit = move || over() || current.get() == Some(at.get());
+    let lit = move || {
+        hovered.get().is_some_and(|(_, index)| index == at.get()) || current.get() == Some(at.get())
+    };
 
     let jump = move || {
         timeline.scroll_to_index(at.get() as u32, percentage(0.0), Points::ZERO, true);
@@ -192,15 +203,15 @@ fn tick(
         .items_end()
         // The hit area fills the pitch, so sliding along the column never
         // leaves it between two ticks.
-        .py(px(4.0))
-        .on_mouse_enter(move |_: &MouseEvent| hovered.set(Some(at.get())))
+        .py(px(TICK_PAD))
+        .on_mouse_enter(move |_: &MouseEvent| hovered.set(Some((row.get(), at.get()))))
         .cursor_pointer()
         .on_press(jump)
         .child(
             // Every tick rests light and short; the lit ones — under the
             // pointer, or where the reader is — are dark and long.
             view()
-                .h(px(2.0))
+                .h(px(TICK_HEIGHT))
                 .w(move || px(if lit() { 18.0 } else { 10.0 }))
                 .rounded_full()
                 .bg(move || {
@@ -213,20 +224,37 @@ fn tick(
                 .transition_all()
                 .duration(motion::control_duration()),
         )
-        .child(when(over, move || message_preview(message, reply)))
 }
 
-/// The card beside a hovered tick: the question, then what it was answered.
+/// The card beside the column: the question under the pointer, then what it was
+/// answered. It keeps its place in the tree while the pointer moves from tick to
+/// tick, and only its content and offset change.
 fn message_preview(
-    question: Memo<Option<Message>>,
-    reply: Memo<Option<Message>>,
+    session_id: u32,
+    hovered: Signal<Option<(usize, usize)>>,
+    height: Signal<f32>,
 ) -> impl IntoElement {
-    let enter = motion().entering(motion::fade());
+    let question = computed(move || {
+        hovered
+            .get()
+            .and_then(|(_, index)| store::message_at(session_id, index))
+    });
+    let reply = computed(move || {
+        hovered
+            .get()
+            .and_then(|(_, index)| store::reply_at(session_id, index))
+    });
 
     view()
         .absolute()
         .right(px(sizes::RAIL - 6.0))
-        .top(px(-10.0))
+        .top(move || {
+            let (row, _) = hovered.get().unwrap_or((0, 0));
+            let rows = store::user_message_indices(session_id).len() as f32;
+            let pitch = TICK_HEIGHT + TICK_PAD * 2.0;
+            let start = (height.get() - rows * pitch) / 2.0;
+            px(start + row as f32 * pitch - 20.0)
+        })
         .w(px(320.0))
         .p_3()
         .gap_2()
@@ -235,26 +263,34 @@ fn message_preview(
         .border_color(move || theme().border)
         .bg(move || theme().card)
         .shadow(composer_shadow())
-        .bind_motion(&enter)
-        .child(preview_part(question, 3))
+        .child(
+            text(body_of(question))
+                .text_sm()
+                .number_of_lines(3)
+                .text_color(move || theme().foreground),
+        )
         .child(when(
             move || reply.with(|reply| reply.is_some()),
-            move || preview_part(reply, 4),
+            move || {
+                // The answer sits one point smaller and a shade quieter than
+                // the question it belongs to.
+                text(body_of(reply))
+                    .text_size(px(13.0))
+                    .number_of_lines(4)
+                    .text_color(move || theme().muted_foreground)
+            },
         ))
 }
 
-/// One side of the preview card: the start of what was said.
-fn preview_part(body: Memo<Option<Message>>, lines: u32) -> impl IntoElement {
-    text(move || {
+/// What `body` says, as the preview's text binds it.
+fn body_of(body: Memo<Option<Message>>) -> impl Fn() -> SharedString + Copy + 'static {
+    move || {
         body.with(|body| {
             body.as_ref()
                 .map(|body| body.body.clone())
                 .unwrap_or_default()
         })
-    })
-    .text_sm()
-    .number_of_lines(lines)
-    .text_color(move || theme().foreground)
+    }
 }
 
 /// A cell, made once and given other messages as it is reused.
