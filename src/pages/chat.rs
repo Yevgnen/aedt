@@ -110,7 +110,7 @@ fn rail(session_id: u32, timeline: ElementRef) -> impl IntoElement {
         .flex_col()
         .items_center()
         .justify_center()
-        .gap(px(6.0))
+        .gap(px(4.0))
         .child(each(
             move || store::message_ids(session_id),
             |id| *id,
@@ -131,7 +131,7 @@ fn tick(session_id: u32, at: ReadSignal<usize>, timeline: ElementRef) -> impl In
         .accessibility_label("跳转到该消息")
         .w_full()
         .items_end()
-        .py(px(3.0))
+        .py(px(2.0))
         .on_mouse_enter(move |_: &MouseEvent| hovered.set(true))
         .on_mouse_leave(move |_: &MouseEvent| hovered.set(false))
         .on_press(jump)
