@@ -63,8 +63,8 @@ pub(crate) fn trigger(
         .child(text(label).text_sm())
 }
 
-/// The row at a control's edge that names its picker's value and a note beside
-/// it: a small quiet label, the note, and the chevron that opens the picker.
+/// A row at a control's edge that names its value and opens its picker: a
+/// small quiet label, the note, and the chevron that opens the picker.
 /// The menu opens it as it does [`trigger`].
 pub(crate) fn label_trigger(
     value: impl IntoReactive<SharedString>,
@@ -116,6 +116,36 @@ pub(crate) fn choice(
                 .text_sm(),
         )
         .child(when(chosen, || icon::check(14.0)))
+}
+
+/// A value that opens a menu of values, shaped like a form field: the value,
+/// then a chevron, in the field's edge.
+pub(crate) fn select_trigger(value: impl IntoReactive<SharedString>) -> ButtonElement {
+    button()
+        .w_full()
+        .flex_row()
+        .items_center()
+        .gap_2()
+        .min_h(px(sizes::CONTROL))
+        .px_2()
+        .rounded(move || theme().radius)
+        .border_1()
+        .border_color(move || theme().border)
+        .bg(move || theme().background)
+        .text_color(move || theme().foreground)
+        .hover(|s| s.bg(move || theme().muted))
+        .expanded(|s| s.border_color(move || theme().ring))
+        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .transition_colors()
+        .duration(motion::control_duration())
+        .ease_out()
+        .child(text(value).flex_1().min_w(px(0.0)).text_sm())
+        .child(
+            view()
+                .flex_none()
+                .text_color(move || theme().muted_foreground)
+                .child(icon::chevron_down(12.0)),
+        )
 }
 
 /// A row of a menu that opens its `items` beside it: its label, the value it

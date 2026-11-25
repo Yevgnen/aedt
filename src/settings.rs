@@ -262,7 +262,7 @@ pub(crate) fn draft() -> Option<u32> {
 
 /// Starts adding a provider of `kind`, called `name` until it is saved. A
 /// provider already being added is left as it is.
-pub(crate) fn begin_provider(kind: ProviderKind, name: &str) {
+pub(crate) fn add_provider(kind: ProviderKind, name: &str) {
     let name: SharedString = name.to_owned().into();
     settings().update(|settings| {
         if settings.providers.iter().any(|p| !p.saved) {
@@ -280,6 +280,22 @@ pub(crate) fn begin_provider(kind: ProviderKind, name: &str) {
             ask: 0,
             saved: false,
         });
+    });
+}
+
+/// Makes `id` a provider of `kind`, called `name`, while it is being added.
+pub(crate) fn select_kind(id: u32, kind: ProviderKind, name: &str) {
+    let name: SharedString = name.to_owned().into();
+    settings().update(|settings| {
+        let Some(provider) = settings
+            .providers
+            .iter_mut()
+            .find(|provider| provider.id == id && !provider.saved)
+        else {
+            return;
+        };
+        provider.kind = kind;
+        provider.name = name;
     });
 }
 

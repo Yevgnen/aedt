@@ -135,36 +135,57 @@ fn page() -> impl IntoElement {
         ))
 }
 
-/// The action that starts adding a provider: a dashed row whose menu names the
-/// kinds the app speaks, one press opening its form.
+/// The action that starts adding a provider: a press opens its form, where its
+/// kind is chosen.
 fn add_provider() -> impl IntoElement {
-    menu::menu(
-        button::add("Add model provider"),
-        Placement::Bottom,
-        Align::Start,
-        menu::item(icon::database(14.0), "OpenAI compatible").on_select(|| {
-            settings::begin_provider(ProviderKind::OpenAiCompatible, "OpenAI compatible");
-        }),
-    )
+    button::add("Add model provider").on_press(|| {
+        settings::add_provider(ProviderKind::OpenAiCompatible, "OpenAI compatible");
+    })
 }
 
-/// The provider being added: its fields, the models they can list, and the
-/// commands that keep it or drop it.
+/// The provider being added: its kind, its fields, the models they can list,
+/// and the commands that keep it or drop it.
 fn add_form(id: u32) -> impl IntoElement {
-    view().w_full().gap_5().child(provider_body(id)).child(
-        view()
-            .w_full()
-            .flex_row()
-            .items_center()
-            .justify_end()
-            .gap_2()
-            .child(button::ghost("Cancel").on_press(move || settings::cancel_provider(id)))
-            .child(
-                button::secondary("Save")
-                    .disabled(move || !settings::can_refresh(id))
-                    .on_press(move || settings::save_provider(id)),
-            ),
-    )
+    view()
+        .w_full()
+        .gap_5()
+        .child(type_field(id))
+        .child(provider_body(id))
+        .child(
+            view()
+                .w_full()
+                .flex_row()
+                .items_center()
+                .justify_end()
+                .gap_2()
+                .child(button::ghost("Cancel").on_press(move || settings::cancel_provider(id)))
+                .child(
+                    button::secondary("Save")
+                        .disabled(move || !settings::can_refresh(id))
+                        .on_press(move || settings::save_provider(id)),
+                ),
+        )
+}
+
+/// What kind of provider is being added: a field that opens the kinds the app
+/// speaks.
+fn type_field(id: u32) -> impl IntoElement {
+    view()
+        .w_full()
+        .gap_1()
+        .child(
+            text("Type")
+                .text_xs()
+                .text_color(move || theme().muted_foreground),
+        )
+        .child(menu::menu(
+            menu::select_trigger(move || kind_label(settings::kind(id))),
+            Placement::Bottom,
+            Align::Start,
+            menu::item(icon::database(14.0), "OpenAI compatible").on_select(move || {
+                settings::select_kind(id, ProviderKind::OpenAiCompatible, "OpenAI compatible");
+            }),
+        ))
 }
 
 /// One provider, folded to its name until it is asked for: what it is, how to
