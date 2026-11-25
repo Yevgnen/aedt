@@ -39,6 +39,9 @@ pub struct Meta {
     pub detail: Option<SharedString>,
 }
 
+/// What an untitled session shows until its first message names it.
+pub const UNTITLED: &str = "New chat";
+
 /// One conversation in the sidebar.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Session {
@@ -52,7 +55,7 @@ impl Session {
     /// placeholder until its first message names it.
     pub fn display_title(&self) -> SharedString {
         if self.title.is_empty() {
-            "New chat".into()
+            UNTITLED.into()
         } else {
             self.title.clone()
         }

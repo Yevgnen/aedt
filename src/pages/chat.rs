@@ -104,7 +104,7 @@ fn header(session_id: u32) -> impl IntoElement {
             text(move || {
                 store::session_summary(session_id)
                     .map(|session| session.title)
-                    .unwrap_or_else(|| "New chat".into())
+                    .unwrap_or_else(|| store::UNTITLED.into())
             })
             .flex_1()
             .min_w(px(0.0))

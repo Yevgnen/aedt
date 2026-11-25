@@ -77,7 +77,7 @@ fn session_row(at: Position) -> impl IntoElement {
             session
                 .as_ref()
                 .map(|session| session.title.clone())
-                .unwrap_or_else(|| "New chat".into())
+                .unwrap_or_else(|| store::UNTITLED.into())
         })
     };
     let selected = move || id() == Some(store::selected_session_id());
