@@ -92,26 +92,65 @@ fn message_row(session_id: u32, at: Position) -> impl IntoElement {
 }
 
 fn user_message(message: Memo<Option<Message>>) -> impl IntoElement {
-    view().w_full().flex_row().justify_end().child(
-        view()
-            .max_w(px(sizes::MESSAGE_MAX))
-            .rounded(move || theme().radius)
-            .bg(move || theme().color("bubble").unwrap_or_else(|| theme().primary))
-            .px_4()
-            .py_3()
-            .child(
-                text(move || {
-                    message.with(|message| {
-                        message
-                            .as_ref()
-                            .map(|message| message.body.clone())
-                            .unwrap_or_default()
-                    })
-                })
-                .text_sm()
-                .selectable(true)
-                .text_color(move || theme().primary_foreground),
+    view()
+        .w_full()
+        .gap_1()
+        .child(
+            view().w_full().flex_row().justify_end().child(
+                view()
+                    .max_w(px(sizes::MESSAGE_MAX))
+                    .rounded(move || theme().radius)
+                    .bg(move || theme().color("bubble").unwrap_or_else(|| theme().primary))
+                    .px_4()
+                    .py_3()
+                    .child(
+                        text(move || {
+                            message.with(|message| {
+                                message
+                                    .as_ref()
+                                    .map(|message| message.body.clone())
+                                    .unwrap_or_default()
+                            })
+                        })
+                        .text_sm()
+                        .selectable(true)
+                        .text_color(move || theme().primary_foreground),
+                    ),
             ),
+        )
+        .child(
+            view()
+                .w_full()
+                .flex_row()
+                .justify_end()
+                .child(message_meta(message)),
+        )
+}
+
+/// The muted line under a message: when it was sent, and for the mock model
+/// what the reply took. The caller aligns it; it reads the message where that
+/// message now is.
+fn message_meta(message: Memo<Option<Message>>) -> impl IntoElement {
+    when(
+        move || {
+            message.with(|message| {
+                message
+                    .as_ref()
+                    .is_some_and(|message| message.meta.is_some())
+            })
+        },
+        move || {
+            text(move || {
+                message.with(|message| {
+                    message
+                        .as_ref()
+                        .and_then(|message| message.meta.clone())
+                        .unwrap_or_default()
+                })
+            })
+            .text_xs()
+            .text_color(move || theme().muted_foreground)
+        },
     )
 }
 
@@ -134,27 +173,7 @@ fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
                 .text_size(px(14.0))
                 .text_color(move || theme().foreground),
         )
-        .child(when(
-            move || {
-                message.with(|message| {
-                    message
-                        .as_ref()
-                        .is_some_and(|message| message.meta.is_some())
-                })
-            },
-            move || {
-                text(move || {
-                    message.with(|message| {
-                        message
-                            .as_ref()
-                            .and_then(|message| message.meta.clone())
-                            .unwrap_or_default()
-                    })
-                })
-                .text_xs()
-                .text_color(move || theme().muted_foreground)
-            },
-        ))
+        .child(message_meta(message))
 }
 
 fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
