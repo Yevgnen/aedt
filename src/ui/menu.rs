@@ -1,6 +1,6 @@
-//! The app's menus: the row that opens one, the card its items open in, and an
-//! item of it. `nsh/base` owns the behavior (placement, focus, keyboard
-//! navigation, dismissal); the look is here.
+//! The app's menus: the row that opens one, the card its items open in, an
+//! item of it, and a picker's row and trigger. `nsh/base` owns the behavior
+//! (placement, focus, keyboard navigation, dismissal); the look is here.
 
 use nsh_base::{
     ButtonElement, MenuElement, MenuItemElement, button, menu as base_menu, menu_item as base_item,
@@ -8,7 +8,7 @@ use nsh_base::{
 };
 use nsh_core::prelude::*;
 
-use crate::ui::{motion, sizes, tokens};
+use crate::ui::{icon, motion, sizes, tokens};
 
 /// A menu that `trigger` opens, its `items` in the app's floating card. It
 /// goes above the trigger, where a command at the window's edge has room.
@@ -56,14 +56,59 @@ pub(crate) fn trigger(
         .child(text(label).text_sm())
 }
 
+/// The row at a control's edge that names its value and opens its picker: a
+/// small quiet label with a chevron. The menu opens it as it does [`trigger`].
+pub(crate) fn label_trigger(label: impl IntoReactive<SharedString>) -> ButtonElement {
+    button()
+        .flex_row()
+        .items_center()
+        .gap_1()
+        .px_1()
+        .py_0p5()
+        .rounded(move || theme().radius)
+        .text_color(move || theme().muted_foreground)
+        .hover(|s| s.bg(move || theme().muted))
+        .expanded(|s| s.bg(move || theme().accent))
+        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .disabled_style(|s| s.opacity(0.4))
+        .transition_colors()
+        .duration(motion::row_duration())
+        .ease_out()
+        .child(text(label).text_xs())
+        .child(icon::chevron_up(12.0))
+}
+
 /// An item of one of those menus: a mark and its label, in the app's row look.
 /// Choosing it closes the menu.
 pub(crate) fn item(
     mark: impl IntoElement,
     label: impl IntoReactive<SharedString>,
 ) -> MenuItemElement {
-    base_item()
-        .flex_row()
+    row(base_item()).child(mark).child(text(label).text_sm())
+}
+
+/// A picker's row: its label, and a check at its end while `chosen` holds. The
+/// caller adds `.on_select`, which closes the menu as an item's does.
+pub(crate) fn choice(
+    label: impl IntoReactive<SharedString>,
+    chosen: impl Fn() -> bool + Copy + 'static,
+) -> MenuItemElement {
+    row(base_item())
+        .role(AccessibilityRole::MenuItemRadio)
+        .checked(move || Some(chosen()))
+        .child(
+            text(label)
+                .flex_1()
+                .min_w(px(0.0))
+                .number_of_lines(1)
+                .text_sm(),
+        )
+        .child(when(chosen, || icon::check(14.0)))
+}
+
+/// A menu row's look, whichever content it holds.
+fn row(item: MenuItemElement) -> MenuItemElement {
+    item.flex_row()
         .items_center()
         .gap_2()
         .min_h(px(sizes::LIST_ROW))
@@ -77,6 +122,4 @@ pub(crate) fn item(
         .transition_colors()
         .duration(motion::row_duration())
         .ease_out()
-        .child(mark)
-        .child(text(label).text_sm())
 }

@@ -18,7 +18,10 @@ use async_openai::{
 use futures_util::StreamExt;
 use nsh_core::prelude::*;
 
-use crate::store::{self, Author, Message};
+use crate::{
+    settings::Choice,
+    store::{self, Author, Message},
+};
 
 /// DeepSeek's base URL: their docs' `base_url (OpenAI)`.
 pub(crate) const BASE_URL: &str = "https://api.deepseek.com";
@@ -29,20 +32,20 @@ pub(crate) const MODEL: &str = "deepseek-flash";
 /// The environment variable the API key comes from.
 pub(crate) const API_KEY: &str = "DEEPSEEK_API_KEY";
 
-/// Streams the model's answer into reply `reply_id` of `session_id`, from the
+/// Streams `model`'s answer into reply `reply_id` of `session_id`, from the
 /// conversation `history` (which ends with the message just sent).
 ///
 /// DeepSeek serves OpenAI's Responses API at `POST /responses` and streams it
 /// as semantic server-sent events, so this asks for a response with `stream:
 /// true` rather than a chat completion.
-pub(crate) fn reply(session_id: u32, reply_id: u32, history: Vec<Message>) {
+pub(crate) fn reply(session_id: u32, reply_id: u32, history: Vec<Message>, model: &Choice) {
     let Ok(key) = std::env::var(API_KEY) else {
         store::fail_reply(session_id, reply_id, &format!("未设置环境变量 {API_KEY}"));
         return;
     };
 
     let request = match CreateResponseArgs::default()
-        .model(MODEL)
+        .model(model.id.as_str())
         .input(InputParam::Items(input(&history)))
         // DeepSeek thinks by default; the app asks for the high effort its API
         // names (`reasoning.effort: "high"`).
@@ -62,9 +65,10 @@ pub(crate) fn reply(session_id: u32, reply_id: u32, history: Vec<Message>) {
     // Under no owner, so switching sessions does not cut the answer off: it
     // keeps streaming into the store of the session that asked for it.
     let reveal = Rc::new(RefCell::new(Reveal::default()));
-    Owner::detached().run(|| {
+    let name = model.label.clone();
+    Owner::detached().run(move || {
         spawn(answer(key, request, reveal.clone()));
-        spawn(reveal_answer(session_id, reply_id, reveal));
+        spawn(reveal_answer(session_id, reply_id, reveal, name));
     });
 }
 
@@ -161,7 +165,12 @@ const REVEAL_STEP: usize = 40;
 
 /// Shows what `answer` put in `reveal`, a few characters a tick, then closes the
 /// reply with how long it took; a failure takes the answer's place.
-async fn reveal_answer(session_id: u32, reply_id: u32, reveal: Rc<RefCell<Reveal>>) {
+async fn reveal_answer(
+    session_id: u32,
+    reply_id: u32,
+    reveal: Rc<RefCell<Reveal>>,
+    name: SharedString,
+) {
     let started = Instant::now();
 
     loop {
@@ -193,7 +202,7 @@ async fn reveal_answer(session_id: u32, reply_id: u32, reveal: Rc<RefCell<Reveal
         }
         if done && remaining == 0 {
             let seconds = started.elapsed().as_secs_f32();
-            store::finish_reply(session_id, reply_id, MODEL, seconds);
+            store::finish_reply(session_id, reply_id, name.as_str(), seconds);
             return;
         }
 

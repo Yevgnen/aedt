@@ -4,8 +4,9 @@ use nsh_base::{MarkdownOptions, TextViewClasses, text_view, theme};
 use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::{
+    settings,
     store::{self, Author, Message},
-    ui::{self, badge, button, empty, icon, input, motion, sizes, tokens},
+    ui::{self, button, empty, icon, input, menu, motion, sizes, tokens},
 };
 
 /// A tick's bar height, and the padding that fills its pitch: adjacent ticks'
@@ -116,7 +117,6 @@ fn header(session_id: u32) -> impl IntoElement {
             .font_weight(FontWeight::SEMIBOLD)
             .text_color(move || theme().foreground),
         )
-        .child(badge::badge(crate::llm::MODEL))
 }
 
 fn timeline_view(
@@ -555,7 +555,31 @@ fn composer_card(
             view()
                 .flex_row()
                 .items_center()
-                .justify_end()
+                .justify_between()
+                .child(model_picker())
                 .child(button::icon("↑", "发送", can_send).on_press(submit)),
         )
+}
+
+/// The model the next reply asks: its name at the composer's edge, and above it
+/// the models the settings offer, the chosen one checked.
+fn model_picker() -> impl IntoElement {
+    menu::menu(
+        menu::label_trigger(move || settings::selected().label)
+            .disabled(move || settings::enabled_models().is_empty()),
+        each(
+            settings::enabled_models,
+            |choice| choice.id.clone(),
+            |choice, _| {
+                menu::choice(
+                    move || choice.with(|choice| choice.label.clone()),
+                    move || choice.with(|choice| choice.id == settings::selected().id),
+                )
+                .on_select(move || {
+                    let id = choice.with(|choice| choice.id.clone());
+                    settings::select_model(id.as_str());
+                })
+            },
+        ),
+    )
 }

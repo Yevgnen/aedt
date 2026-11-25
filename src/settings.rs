@@ -64,6 +64,13 @@ struct Provider {
     ask: u64,
 }
 
+/// A model a reply can ask: its id for the provider, its label for the reader.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Choice {
+    pub(crate) id: SharedString,
+    pub(crate) label: SharedString,
+}
+
 /// A category of the settings: a row of its dialog's left column.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Section {
@@ -71,12 +78,16 @@ pub(crate) enum Section {
     Models,
 }
 
-/// The settings: whether they show, which category does, and its providers.
+/// The settings: whether they show, which category does, its providers and the
+/// model the next reply asks.
 #[derive(Clone)]
 struct Settings {
     open: bool,
     section: Section,
     providers: Vec<Provider>,
+    /// The model the next reply asks, by id: the picker's choice, and the one
+    /// the chat sends until another is picked.
+    selected: SharedString,
 }
 
 impl Default for Settings {
@@ -95,6 +106,7 @@ impl Default for Settings {
                 models: Models::Idle,
                 ask: 0,
             }],
+            selected: crate::llm::MODEL.into(),
         }
     }
 }
@@ -117,11 +129,62 @@ pub(crate) fn is_open() -> bool {
 /// yet: what the app can know of them fills in without a press.
 pub(crate) fn open() {
     settings().update(|settings| settings.open = true);
+    load();
+}
+
+/// Asks every provider still unasked for its models, so the composer's picker
+/// and the settings both have them without a press.
+pub(crate) fn load() {
     for id in provider_ids() {
         if with_provider(id, |p| matches!(p.models, Models::Idle)).unwrap_or(false) {
             refresh_models(id);
         }
     }
+}
+
+/// The models the settings offer: those switched on, in the providers' order
+/// (tracked where it is read).
+pub(crate) fn enabled_models() -> Vec<Choice> {
+    settings().with(|settings| {
+        let mut choices: Vec<Choice> = Vec::new();
+        for model in settings.providers.iter().flat_map(|p| p.models.shown()) {
+            if !model.enabled || choices.iter().any(|choice| choice.id == model.id) {
+                continue;
+            }
+            choices.push(Choice {
+                id: model.id.clone(),
+                label: model.label.clone(),
+            });
+        }
+        choices
+    })
+}
+
+/// The model the next reply asks: the one picked, named as its provider does
+/// (tracked where it is read).
+pub(crate) fn selected() -> Choice {
+    let id = settings().with(|settings| settings.selected.clone());
+    let known = settings().with(|settings| {
+        settings
+            .providers
+            .iter()
+            .flat_map(|p| p.models.shown())
+            .find(|model| model.id == id)
+            .map(|model| Choice {
+                id: model.id.clone(),
+                label: model.label.clone(),
+            })
+    });
+    known.unwrap_or_else(|| Choice {
+        label: id.clone(),
+        id,
+    })
+}
+
+/// Asks `model` for the replies from now on.
+pub(crate) fn select_model(model: &str) {
+    let model: SharedString = model.to_owned().into();
+    settings().update(|settings| settings.selected = model.clone());
 }
 
 /// Hides the settings.

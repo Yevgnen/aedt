@@ -58,6 +58,10 @@ fn native(registry: &mut Registry) {
 #[component]
 pub fn App() -> impl IntoElement {
     apply_theme();
+    // The composer's picker names the models a provider lists: ask for them
+    // once, after the first pass, so the first reply does not wait for the
+    // settings to be opened.
+    effect(|| untracked(settings::load));
 
     // A code block draws its border in the token's border color, which reads as
     // an outline around its fill: the fill's own color leaves no outline while

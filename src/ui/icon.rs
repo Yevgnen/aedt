@@ -79,6 +79,25 @@ const DATABASE: &str = concat!(
     r#"</svg>"#,
 );
 
+/// A check (Lucide's `check`): the one a picker has chosen.
+const CHECK: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M20 6 9 17l-5-5"/>"#,
+    r#"</svg>"#,
+);
+
+/// A chevron pointing up (Lucide's `chevron-up`): the picker opens above the
+/// row it names.
+const CHEVRON_UP: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="m18 15-6-6-6 6"/>"#,
+    r#"</svg>"#,
+);
+
 /// The menu mark, `size` points square, in the caller's text color.
 pub(crate) fn more(size: f32) -> impl IntoElement {
     icon(MORE, size)
@@ -97,6 +116,16 @@ pub(crate) fn refresh(size: f32) -> impl IntoElement {
 /// The models mark, `size` points square, in the caller's text color.
 pub(crate) fn database(size: f32) -> impl IntoElement {
     icon(DATABASE, size)
+}
+
+/// The check mark, `size` points square, in the caller's text color.
+pub(crate) fn check(size: f32) -> impl IntoElement {
+    icon(CHECK, size)
+}
+
+/// The chevron pointing up, `size` points square, in the caller's text color.
+pub(crate) fn chevron_up(size: f32) -> impl IntoElement {
+    icon(CHEVRON_UP, size)
 }
 
 /// `markup` drawn at `size` points square.

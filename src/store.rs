@@ -433,7 +433,8 @@ pub(crate) fn send(session_id: u32, text: &str) {
     workspace().update(|workspace| started = append_sent(workspace, session_id, text));
 
     if let Some((reply_id, history)) = started {
-        crate::llm::reply(session_id, reply_id, history);
+        let model = crate::settings::selected();
+        crate::llm::reply(session_id, reply_id, history, &model);
     }
 }
 
