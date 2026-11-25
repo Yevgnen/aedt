@@ -208,11 +208,19 @@ fn model_rows(id: u32) -> impl IntoElement {
 /// and the switch that offers it.
 fn model_row(provider: u32, at: Position) -> impl IntoElement {
     let model = computed(move || settings::model_at(provider, at.index()));
-    let name = move || {
+    let id = move || {
         model.with(|model| {
             model
                 .as_ref()
                 .map(|model| model.id.clone())
+                .unwrap_or_default()
+        })
+    };
+    let label = move || {
+        model.with(|model| {
+            model
+                .as_ref()
+                .map(|model| model.label.clone())
                 .unwrap_or_default()
         })
     };
@@ -227,15 +235,14 @@ fn model_row(provider: u32, at: Position) -> impl IntoElement {
         .px_2()
         .rounded(move || theme().radius)
         .child(
-            text(name)
+            text(label)
                 .flex_1()
                 .min_w(px(0.0))
                 .number_of_lines(1)
                 .text_sm()
                 .text_color(move || theme().foreground),
         )
-        .child(switch::toggle(name, enabled, move |on| {
-            let name = name();
-            settings::set_model_enabled(provider, name.as_str(), on);
+        .child(switch::toggle(label, enabled, move |on| {
+            settings::set_model_enabled(provider, id().as_str(), on);
         }))
 }

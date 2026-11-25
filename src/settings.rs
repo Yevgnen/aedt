@@ -19,6 +19,9 @@ pub(crate) enum ProviderKind {
 pub(crate) struct Model {
     /// Its id, as the provider names it: what a chat asks for.
     pub(crate) id: SharedString,
+    /// What the app calls it: the provider's own name for it, or its id when
+    /// the provider gives none.
+    pub(crate) label: SharedString,
     /// Whether the app offers it; everything a provider lists starts offered.
     pub(crate) enabled: bool,
 }
@@ -292,19 +295,22 @@ pub(crate) fn refresh_models(id: u32) {
     });
 }
 
-/// `ids` as the models to show, keeping the choice made of the models shown
-/// before: one it did not have joins offered.
-fn merged(shown: &[Model], ids: Vec<String>) -> Vec<Model> {
-    ids.into_iter()
-        .map(|id| {
+/// `listed` as the models to show, keeping the choice made of the models
+/// shown before: one it did not have joins offered.
+fn merged(shown: &[Model], listed: Vec<ListedModel>) -> Vec<Model> {
+    listed
+        .into_iter()
+        .map(|listed| {
             let enabled = shown
                 .iter()
-                .find(|m| m.id.as_str() == id)
+                .find(|m| m.id.as_str() == listed.id.as_str())
                 .is_none_or(|m| m.enabled);
-            Model {
-                id: id.into(),
-                enabled,
-            }
+            let id: SharedString = listed.id.into();
+            let label = match listed.name {
+                Some(name) if !name.trim().is_empty() => name.into(),
+                _ => id.clone(),
+            };
+            Model { id, label, enabled }
         })
         .collect()
 }
@@ -312,7 +318,7 @@ fn merged(shown: &[Model], ids: Vec<String>) -> Vec<Model> {
 /// The models `base_url` lists, by id, in order. It reads the answer's `data`
 /// and each model's `id` only, so whatever else a provider adds or leaves out
 /// of a model does not fail the whole list.
-async fn list_models(base_url: &str, api_key: &str) -> Result<Vec<String>, SharedString> {
+async fn list_models(base_url: &str, api_key: &str) -> Result<Vec<ListedModel>, SharedString> {
     let url = format!("{}/models", base_url.trim_end_matches('/'));
     let request = HttpRequest::get(url).header("Authorization", format!("Bearer {api_key}"));
     let response = fetch(request).await.map_err(SharedString::from)?;
@@ -323,10 +329,10 @@ async fn list_models(base_url: &str, api_key: &str) -> Result<Vec<String>, Share
 
     let listed: Listed = serde_json::from_str(&body)
         .map_err(|error| SharedString::from(format!("模型列表解析失败：{error}")))?;
-    let mut ids: Vec<String> = listed.data.into_iter().map(|model| model.id).collect();
-    ids.sort();
-    ids.dedup();
-    Ok(ids)
+    let mut models = listed.data;
+    models.sort_by(|a, b| a.id.cmp(&b.id));
+    models.dedup_by(|a, b| a.id == b.id);
+    Ok(models)
 }
 
 /// What a refused answer says: its status, and the API's own message when the
@@ -359,6 +365,8 @@ struct Listed {
 #[derive(Deserialize)]
 struct ListedModel {
     id: String,
+    /// The provider's own name for it (DeepSeek gives one, `OpenAI` does not).
+    name: Option<String>,
 }
 
 /// What an answer that failed says.
