@@ -7,6 +7,7 @@ mod shell;
 mod store;
 mod ui;
 
+use nsh_base::{TextViewPart, TextViewParts, theme};
 use nsh_core::{
     desktop::{TitleBarOptions, TitleBarStyle, WindowAttributes},
     element::desktop::window as app_window,
@@ -48,6 +49,13 @@ fn native(registry: &mut Registry) {
 #[component]
 pub fn App() -> impl IntoElement {
     apply_theme();
+
+    // A code block draws its border in the token's border color, which reads as
+    // an outline around its fill; the fill's own color leaves no outline while
+    // the 1pt width stays.
+    provide_context(TextViewParts::new().part(TextViewPart::CodeBlock, |s| {
+        s.border_color(move || theme().muted)
+    }));
 
     let mut title_bar = TitleBarOptions::default();
     title_bar.style = TitleBarStyle::Hidden;
