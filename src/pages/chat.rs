@@ -1,6 +1,6 @@
 //! The conversation: its header, its message timeline and its composer.
 
-use nsh_base::{MarkdownOptions, TextViewClasses, text_view, theme};
+use nsh_base::{MarkdownOptions, SubmenuEvent, TextViewClasses, text_view, theme};
 use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::{
@@ -555,31 +555,99 @@ fn composer_card(
             view()
                 .flex_row()
                 .items_center()
-                .justify_between()
+                .justify_end()
+                .gap_2()
                 .child(model_picker())
                 .child(button::icon("↑", "发送", can_send).on_press(submit)),
         )
 }
 
-/// The model the next reply asks: its name at the composer's edge, and above it
-/// the models the settings offer, the chosen one checked.
+/// The model and the effort the next reply asks: each row names what it holds,
+/// and the list it opens holds the choices.
 fn model_picker() -> impl IntoElement {
+    let query = signal(String::new());
+
     menu::menu(
-        menu::label_trigger(move || settings::selected().label)
-            .disabled(move || settings::enabled_models().is_empty()),
-        each(
-            settings::enabled_models,
-            |choice| choice.id.clone(),
-            |choice, _| {
-                menu::choice(
-                    move || choice.with(|choice| choice.label.clone()),
-                    move || choice.with(|choice| choice.id == settings::selected().id),
+        menu::label_trigger(
+            move || settings::selected().label,
+            move || SharedString::from(effort_label(settings::effort())),
+        )
+        .disabled(move || settings::enabled_models().is_empty()),
+        view()
+            .child(
+                menu::submenu(
+                    "模型",
+                    move || settings::selected().label,
+                    view()
+                        .min_w(px(240.0))
+                        .gap_1()
+                        .child(menu::search(query, "搜索模型…"))
+                        .child(model_choices(query)),
                 )
-                .on_select(move || {
-                    let id = choice.with(|choice| choice.id.clone());
-                    settings::select_model(id.as_str());
-                })
-            },
-        ),
+                .on_open_change(move |event: &SubmenuEvent| {
+                    // Each opening searches from the start of the list again.
+                    if let SubmenuEvent::OpenChange(false, _) = event {
+                        query.set(String::new());
+                    }
+                }),
+            )
+            .child(menu::submenu(
+                "推理强度",
+                move || SharedString::from(effort_label(settings::effort())),
+                effort_choices(),
+            )),
     )
+}
+
+/// The models the settings offer, narrowed to `query` (every one while it is
+/// empty), the chosen one checked.
+fn model_choices(query: Signal<String>) -> impl IntoElement {
+    each(
+        move || {
+            let query = query.with(|query| query.trim().to_lowercase());
+            settings::enabled_models()
+                .into_iter()
+                .filter(|choice| {
+                    query.is_empty() || choice.label.as_str().to_lowercase().contains(&query)
+                })
+                .collect::<Vec<_>>()
+        },
+        |choice| choice.id.clone(),
+        |choice, _| {
+            menu::choice(
+                move || choice.with(|choice| choice.label.clone()),
+                move || choice.with(|choice| choice.id == settings::selected().id),
+            )
+            .on_select(move || {
+                let id = choice.with(|choice| choice.id.clone());
+                settings::select_model(id.as_str());
+            })
+        },
+    )
+}
+
+/// The efforts a reply can ask for, the weakest first.
+fn effort_choices() -> impl IntoElement {
+    view()
+        .min_w(px(160.0))
+        .gap_1()
+        .child(effort_choice(settings::Effort::Default))
+        .child(effort_choice(settings::Effort::Low))
+        .child(effort_choice(settings::Effort::Medium))
+        .child(effort_choice(settings::Effort::High))
+}
+
+fn effort_choice(effort: settings::Effort) -> impl IntoElement {
+    menu::choice(effort_label(effort), move || settings::effort() == effort)
+        .on_select(move || settings::select_effort(effort))
+}
+
+/// What `effort` is called in the picker.
+fn effort_label(effort: settings::Effort) -> &'static str {
+    match effort {
+        settings::Effort::Default => "默认",
+        settings::Effort::Low => "低",
+        settings::Effort::Medium => "中",
+        settings::Effort::High => "高",
+    }
 }

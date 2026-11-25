@@ -19,7 +19,7 @@ use futures_util::StreamExt;
 use nsh_core::prelude::*;
 
 use crate::{
-    settings::Choice,
+    settings::{Choice, Effort},
     store::{self, Author, Message},
 };
 
@@ -38,23 +38,30 @@ pub(crate) const API_KEY: &str = "DEEPSEEK_API_KEY";
 /// DeepSeek serves OpenAI's Responses API at `POST /responses` and streams it
 /// as semantic server-sent events, so this asks for a response with `stream:
 /// true` rather than a chat completion.
-pub(crate) fn reply(session_id: u32, reply_id: u32, history: Vec<Message>, model: &Choice) {
+pub(crate) fn reply(
+    session_id: u32,
+    reply_id: u32,
+    history: Vec<Message>,
+    model: &Choice,
+    effort: Effort,
+) {
     let Ok(key) = std::env::var(API_KEY) else {
         store::fail_reply(session_id, reply_id, &format!("未设置环境变量 {API_KEY}"));
         return;
     };
 
-    let request = match CreateResponseArgs::default()
-        .model(model.id.as_str())
-        .input(InputParam::Items(input(&history)))
-        // DeepSeek thinks by default; the app asks for the high effort its API
-        // names (`reasoning.effort: "high"`).
-        .reasoning(Reasoning {
-            effort: Some(ReasoningEffort::High),
+    let mut args = CreateResponseArgs::default();
+    args.model(model.id.as_str());
+    args.input(InputParam::Items(input(&history)));
+    // The provider thinks without being asked; the app asks for the effort
+    // its picker names, and for none while that is the provider's default.
+    if let Some(effort) = reasoning_effort(effort) {
+        args.reasoning(Reasoning {
+            effort: Some(effort),
             ..Reasoning::default()
-        })
-        .build()
-    {
+        });
+    }
+    let request = match args.build() {
         Ok(request) => request,
         Err(error) => {
             store::fail_reply(session_id, reply_id, &error.to_string());
@@ -70,6 +77,17 @@ pub(crate) fn reply(session_id: u32, reply_id: u32, history: Vec<Message>, model
         spawn(answer(key, request, reveal.clone()));
         spawn(reveal_answer(session_id, reply_id, reveal, name));
     });
+}
+
+/// What `effort` asks the API for: no effort at all for the provider's own
+/// default.
+fn reasoning_effort(effort: Effort) -> Option<ReasoningEffort> {
+    match effort {
+        Effort::Default => None,
+        Effort::Low => Some(ReasoningEffort::Low),
+        Effort::Medium => Some(ReasoningEffort::Medium),
+        Effort::High => Some(ReasoningEffort::High),
+    }
 }
 
 /// What has arrived of an answer but is not shown yet. The network task fills

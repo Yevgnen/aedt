@@ -71,6 +71,19 @@ pub(crate) struct Choice {
     pub(crate) label: SharedString,
 }
 
+/// How hard a reply's model thinks before it answers (`reasoning.effort`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Effort {
+    /// The provider's own default: the request asks for no effort.
+    Default,
+    /// A little.
+    Low,
+    /// Some: more than the low effort, less than the high one.
+    Medium,
+    /// As much as the provider offers.
+    High,
+}
+
 /// A category of the settings: a row of its dialog's left column.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Section {
@@ -88,6 +101,8 @@ struct Settings {
     /// The model the next reply asks, by id: the picker's choice, and the one
     /// the chat sends until another is picked.
     selected: SharedString,
+    /// How hard that model thinks: the picker's other choice.
+    effort: Effort,
 }
 
 impl Default for Settings {
@@ -107,6 +122,7 @@ impl Default for Settings {
                 ask: 0,
             }],
             selected: crate::llm::MODEL.into(),
+            effort: Effort::High,
         }
     }
 }
@@ -185,6 +201,16 @@ pub(crate) fn selected() -> Choice {
 pub(crate) fn select_model(model: &str) {
     let model: SharedString = model.to_owned().into();
     settings().update(|settings| settings.selected = model.clone());
+}
+
+/// How hard the next reply's model thinks (tracked where it is read).
+pub(crate) fn effort() -> Effort {
+    settings().with(|settings| settings.effort)
+}
+
+/// Asks for `effort` from the replies from now on.
+pub(crate) fn select_effort(effort: Effort) {
+    settings().update(|settings| settings.effort = effort);
 }
 
 /// Hides the settings.

@@ -434,7 +434,8 @@ pub(crate) fn send(session_id: u32, text: &str) {
 
     if let Some((reply_id, history)) = started {
         let model = crate::settings::selected();
-        crate::llm::reply(session_id, reply_id, history, &model);
+        let effort = crate::settings::effort();
+        crate::llm::reply(session_id, reply_id, history, &model, effort);
     }
 }
 

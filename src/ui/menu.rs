@@ -3,8 +3,8 @@
 //! (placement, focus, keyboard navigation, dismissal); the look is here.
 
 use nsh_base::{
-    ButtonElement, MenuElement, MenuItemElement, button, menu as base_menu, menu_item as base_item,
-    theme,
+    ButtonElement, Input, MenuElement, MenuItemElement, SubmenuElement, button, input,
+    menu as base_menu, menu_item as base_item, submenu as base_submenu, theme,
 };
 use nsh_core::prelude::*;
 
@@ -56,9 +56,13 @@ pub(crate) fn trigger(
         .child(text(label).text_sm())
 }
 
-/// The row at a control's edge that names its value and opens its picker: a
-/// small quiet label with a chevron. The menu opens it as it does [`trigger`].
-pub(crate) fn label_trigger(label: impl IntoReactive<SharedString>) -> ButtonElement {
+/// The row at a control's edge that names its picker's value and a note beside
+/// it: a small quiet label, the note, and the chevron that opens the picker.
+/// The menu opens it as it does [`trigger`].
+pub(crate) fn label_trigger(
+    value: impl IntoReactive<SharedString>,
+    note: impl IntoReactive<SharedString>,
+) -> ButtonElement {
     button()
         .flex_row()
         .items_center()
@@ -74,8 +78,9 @@ pub(crate) fn label_trigger(label: impl IntoReactive<SharedString>) -> ButtonEle
         .transition_colors()
         .duration(motion::row_duration())
         .ease_out()
-        .child(text(label).text_xs())
-        .child(icon::chevron_up(12.0))
+        .child(text(value).text_xs())
+        .child(text(note).text_xs().text_color(tokens::meta))
+        .child(icon::chevron_down(12.0))
 }
 
 /// An item of one of those menus: a mark and its label, in the app's row look.
@@ -104,6 +109,56 @@ pub(crate) fn choice(
                 .text_sm(),
         )
         .child(when(chosen, || icon::check(14.0)))
+}
+
+/// A row of a menu that opens its `items` beside it: its label, the value it
+/// holds, and a chevron. Its items open in the menu's own card.
+pub(crate) fn submenu(
+    label: impl IntoReactive<SharedString>,
+    value: impl IntoReactive<SharedString>,
+    items: impl IntoElement,
+) -> SubmenuElement {
+    base_submenu()
+        .offset(px(4.0))
+        .trigger(
+            button()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .min_h(px(sizes::LIST_ROW))
+                .px(px(sizes::LIST_ROW_INSET))
+                .rounded(move || theme().radius)
+                .text_color(move || theme().muted_foreground)
+                .hover(|s| s.bg(move || theme().muted))
+                .focus(|s| s.bg(move || theme().muted))
+                .expanded(|s| s.bg(move || theme().accent))
+                .transition_colors()
+                .duration(motion::row_duration())
+                .ease_out()
+                .child(
+                    text(label)
+                        .flex_1()
+                        .text_sm()
+                        .text_color(move || theme().foreground),
+                )
+                .child(text(value).text_sm())
+                .child(icon::chevron_right(12.0)),
+        )
+        .child(items)
+}
+
+/// The field over a picker's rows: one quiet line that narrows the list as it
+/// is typed, with no frame of its own.
+pub(crate) fn search(query: Signal<String>, placeholder: &'static str) -> Input {
+    input()
+        .value(move || query.get())
+        .on_change(move |text: &str| query.set(text.to_owned()))
+        .placeholder(placeholder)
+        .auto_correct(false)
+        .min_h(px(sizes::LIST_ROW))
+        .px(px(sizes::LIST_ROW_INSET))
+        .text_sm()
+        .text_color(move || theme().foreground)
 }
 
 /// A menu row's look, whichever content it holds.
