@@ -131,12 +131,12 @@ fn user_message(message: Memo<Option<Message>>) -> impl IntoElement {
                 .justify_end()
                 .gap_1()
                 .child(message_meta(message))
-                .child(copy_bubble(message)),
+                .child(copy_message(message)),
         )
 }
 
-/// The bubble's trailing action: puts its text on the clipboard.
-fn copy_bubble(message: Memo<Option<Message>>) -> impl IntoElement {
+/// A message's trailing action: puts its text on the clipboard.
+fn copy_message(message: Memo<Option<Message>>) -> impl IntoElement {
     let copy = move || {
         let body = message.with(|message| {
             message
@@ -199,7 +199,16 @@ fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
                 .line_height(LineHeight::Multiple(MESSAGE_LINE))
                 .text_color(move || theme().foreground),
         )
-        .child(message_meta(message))
+        .child(
+            view()
+                .w_full()
+                .flex_row()
+                .items_center()
+                .justify_between()
+                .gap_1()
+                .child(message_meta(message))
+                .child(copy_message(message)),
+        )
 }
 
 /// The composer's shadow: two wide, faint layers, so the card seems to float
