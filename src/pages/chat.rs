@@ -174,15 +174,18 @@ fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
     };
 
     view()
+        .w_full()
+        .max_w(px(sizes::COMPOSER_MAX))
+        .self_center()
         .px_6()
-        .pt_6()
-        .pb_6()
+        .pt_4()
+        .pb_3()
         .gap_2()
         .child(composer_card(draft, can_send, submit))
         .child(
             view()
                 .h_5()
-                .pl_4()
+                .pl_3()
                 .justify_center()
                 .child(when(can_send, move || echo_status(draft))),
         )
@@ -197,7 +200,7 @@ fn composer_card(
     submit: impl Fn() + Copy + 'static,
 ) -> impl IntoElement {
     view()
-        .p_4()
+        .p_3()
         .gap_2()
         .rounded_3xl()
         .border_1()
@@ -210,11 +213,11 @@ fn composer_card(
         .ease_out()
         .child(input::composer(draft).label("消息"))
         .child(
-            view().flex_row().items_center().justify_end().child(
-                button::icon("↑", "发送")
-                    .disabled(move || !can_send())
-                    .on_press(submit),
-            ),
+            view()
+                .flex_row()
+                .items_center()
+                .justify_end()
+                .child(button::icon("↑", "发送", can_send).on_press(submit)),
         )
 }
 

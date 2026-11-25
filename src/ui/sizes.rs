@@ -14,10 +14,13 @@ pub(crate) const LIST_ROW: f32 = 36.0;
 pub(crate) const AVATAR: f32 = 28.0;
 
 /// The composer's smallest height, before it grows with its text.
-pub(crate) const COMPOSER_MIN: f32 = 76.0;
+pub(crate) const COMPOSER_MIN: f32 = 44.0;
+
+/// The floating composer's widest block, so it stays a composer on wide windows.
+pub(crate) const COMPOSER_MAX: f32 = 760.0;
 
 /// The round send button's diameter.
-pub(crate) const SEND: f32 = 36.0;
+pub(crate) const SEND: f32 = 28.0;
 
 /// A user message's widest line, so a bubble does not become a page.
 pub(crate) const MESSAGE_MAX: f32 = 560.0;

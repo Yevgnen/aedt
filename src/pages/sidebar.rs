@@ -5,11 +5,7 @@ use nsh_core::prelude::*;
 
 use crate::{
     store::{self, Session},
-    ui::{
-        avatar,
-        button::{self, Variant},
-        list_item, separator, sizes,
-    },
+    ui::{avatar, button, list_item, separator, sizes},
 };
 
 pub(crate) fn sidebar() -> View {
@@ -22,7 +18,7 @@ pub(crate) fn sidebar() -> View {
         .child(brand())
         .child(
             view().px_3().pb_3().child(
-                button::action(Variant::Secondary, "＋  新建会话")
+                button::secondary("＋  新建会话")
                     .w_full()
                     .on_press(store::create_session),
             ),
