@@ -201,13 +201,11 @@ fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
         )
         .child(
             view()
-                .w_full()
                 .flex_row()
                 .items_center()
-                .justify_between()
                 .gap_1()
-                .child(message_meta(message))
-                .child(copy_message(message)),
+                .child(copy_message(message))
+                .child(message_meta(message)),
         )
 }
 
@@ -261,7 +259,7 @@ fn composer_card(
         .border_color(move || theme().border.opacity(0.6))
         .bg(move || theme().card)
         .shadow(composer_shadow())
-        .child(input::composer(draft).label("消息"))
+        .child(input::composer(draft, submit).label("消息"))
         .child(
             view()
                 .flex_row()

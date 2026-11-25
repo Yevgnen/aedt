@@ -23,7 +23,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 功能代码只用 `src/ui` 与布局原语（`view`、`text`、`virtual_list`、`text_view`）：
 
 - `button`：`secondary` 标签按钮与 `icon` 圆形图标按钮，统一的按压反馈、焦点环与禁用态；圆形按钮 28pt，带 6pt 热区。
-- `input`：受控多行输入，无边框；卡片只是它的外框，聚焦时不换边框色（光标本身就是焦点提示，光标色不指定，用系统默认）。
+- `input`：受控多行输入，无边框；回车发送、Shift+回车与 Ctrl+回车换行（`submit_behavior(SubmitBehavior::Submit)`，macOS 下 IME 回车上字不会被当成发送）；发送后输入框保留焦点；卡片只是它的外框，聚焦时不换边框色（光标本身就是焦点提示，光标色不指定，用系统默认）。
 - `list_item::session`：侧栏会话行，selected 由调用方提供；标题在选中与未选中都用 `foreground`，选中只靠 `accent` 底色表达；NSH 的 `hover:` 排在 `selected:` 之后（`rank::HOVER` 34 > `rank::SELECTED` 32），所以选中行的 hover 底色直接取 `accent`（与选中同色），悬停时不换色。
 - `badge`、`avatar`、`separator`、`empty`。
 
@@ -64,4 +64,4 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 
 - 会话重命名、删除、搜索。
 - 停止生成、重试、超时与错误细分（目前错误文案直接写在回复位置）。
-- 键盘快捷键（⌘↵ 发送）与移动端布局。
+- 其它键盘快捷键与移动端布局。
