@@ -32,7 +32,6 @@ pub(crate) fn session(
                 .min_w(px(0.0))
                 .text_sm()
                 .number_of_lines(1)
-                .font_weight(FontWeight::MEDIUM)
                 .text_color(move || {
                     if selected() {
                         theme().foreground
