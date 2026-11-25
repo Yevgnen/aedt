@@ -1,6 +1,6 @@
 //! The conversation: its header, its message timeline and its composer.
 
-use nsh_base::{TextViewClasses, text_view, theme};
+use nsh_base::{MarkdownOptions, TextViewClasses, text_view, theme};
 use nsh_core::{Color, LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::{
@@ -191,6 +191,13 @@ fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
                 .classes(TextViewClasses {
                     link: Some("text-link".into()),
                     ..TextViewClasses::default()
+                })
+                // While the reply is still arriving, the text view shows its
+                // open syntax as closed and again only the blocks that changed.
+                .options(move || MarkdownOptions {
+                    streaming: message
+                        .with(|message| message.as_ref().is_some_and(|message| message.streaming)),
+                    ..MarkdownOptions::default()
                 })
                 .selectable(true)
                 .code_block_scrollbar(false)

@@ -111,7 +111,7 @@ pub(crate) fn ghost_icon(
         .ease_out()
         .child(
             text(glyph)
-                .text_xs()
+                .text_sm()
                 .text_color(move || theme().muted_foreground),
         )
 }

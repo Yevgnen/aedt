@@ -20,6 +20,10 @@ pub(crate) struct Message {
     /// The muted line under the message: when it was sent, and for a reply what
     /// it ran on and how long it took. `None` shows no line at all.
     pub(crate) meta: Option<SharedString>,
+    /// Whether the text is still arriving: a reply's text view then reads it as
+    /// one being written, so only the blocks that changed are shown again
+    /// instead of the whole document on every token.
+    pub(crate) streaming: bool,
 }
 
 /// One conversation in the sidebar.
@@ -204,6 +208,7 @@ fn message(
         author,
         body: body.into(),
         meta: meta.map(SharedString::from),
+        streaming: false,
     };
     *next_id += 1;
     message
@@ -363,6 +368,7 @@ fn append_sent(
         author: Author::User,
         body: text.to_owned().into(),
         meta: Some(sent_at.clone()),
+        streaming: false,
     });
     let history = session.messages.clone();
     session.messages.push(Message {
@@ -370,6 +376,7 @@ fn append_sent(
         author: Author::Assistant,
         body: SharedString::default(),
         meta: Some(sent_at),
+        streaming: true,
     });
 
     Some((reply_id, history))
@@ -398,6 +405,7 @@ pub(crate) fn finish_reply(session_id: u32, message_id: u32, model: &str, second
             return;
         };
         let sent_at = message.meta.take().unwrap_or_default();
+        message.streaming = false;
         message.meta = Some(if sent_at.is_empty() {
             format!("{model} · {seconds:.1} s").into()
         } else {
@@ -413,6 +421,7 @@ pub(crate) fn fail_reply(session_id: u32, message_id: u32, error: &str) {
             return;
         };
         message.body = format!("请求失败：{error}").into();
+        message.streaming = false;
     });
 }
 

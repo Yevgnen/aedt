@@ -36,7 +36,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 - 会话面板：header（标题 + 模型 badge）、`virtual_list` 消息流（底部对齐、垂直 24pt、水平 12pt、16pt 行距；助手消息不带头像与昵称；用户气泡右对齐到右柱）。每条消息下面都有一行 12pt `muted_foreground` 元信息：先是发送/回复时间（`14:02`），助手再接模型与耗时（`deepseek-flash · 3.2 s`）；用户那行右对齐到气泡右沿，助手那行左对齐。时间取发送时的本机时钟（`chrono::Local`），示例数据里的时间是写死的。
 - 代码块由 `text_view` 自己画（1pt 边框 + 底色）；应用层在根组件用 `TextViewParts` 把 `CodeBlock` 的底色与边框色都设成 `code` token（明色 `#FCFCFC`，比 `muted` 的 `oklch(0.97 0 0)` 更接近页面底色；暗色显式写成同一个 `oklch(0.269 0 0)`）。
 - composer 放在同一列内：卡片顶边直接接消息视口，滚动内容在卡片上沿截断，中间不再留空白；卡片填满列宽，`rounded_3xl`、1pt `border`（`border` 色的 60%，存在感很弱）、两层自定义柔和阴影（0 1px 2px 4%、0 6px 20px 5%，比 Tailwind 的 `shadow_md` 更散更淡）、`card` 底色；卡片内 12pt 内边距，上面是最小 44pt 的输入框，下面是右对齐的 28pt 圆形发送键。卡片下方 8pt 后保留 20pt 状态栏高度（暂空），再留 8pt 到窗口底边。
-- 会话切换用 `dynamic` 按会话 id 重建面板，草稿与滚动位置随之重置；消息与侧栏由 store 的 signal 驱动。
+- 会话切换用 `dynamic` 按会话 id 重建面板，草稿与滚动位置随之重置；重建由 `computed(selected_session_id)` 驱动，所以流式回复写 store 时不会重建面板（否则每来一个 token 都重做面板、重播淡入）。消息与侧栏由 store 的 signal 驱动。
 
 ## 动效清单
 
@@ -59,6 +59,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 - 请求跑在 `spawn` 的异步任务里、挂在 detached owner 下（NSH 的任务在 tokio runtime 上下文里轮询，见 `nsh-core-0.7.0/src/element/task.rs:748`），所以切会话不会中断回答。
 - 上下文是整段会话：用户与助手的历史消息按顺序发出。
 - 回复结束（或出错）时补上元信息：`16:40 · deepseek-flash · 3.2 s`。
+- 回复流式期间，消息的 `streaming` 为真，`text_view` 用 `MarkdownOptions::streaming` 读取：未闭合的语法按闭合渲染，且只重绘变化的块。
 
 ## 尚未做
 

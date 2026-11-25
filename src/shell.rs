@@ -9,6 +9,11 @@ use crate::{
 };
 
 pub(crate) fn shell() -> View {
+    // Whose pane shows: a memo of the selected id, so a reply streaming into
+    // the current session (which writes the store on every token) does not
+    // make the pane again — only selecting another session does.
+    let selected = computed(store::selected_session_id);
+
     view()
         .flex_1()
         .flex_row()
@@ -21,7 +26,7 @@ pub(crate) fn shell() -> View {
                 .min_w(px(0.0))
                 // A new conversation replaces the pane and its state.
                 .child(dynamic(move || {
-                    let id = store::selected_session_id();
+                    let id = selected.get();
                     untracked(|| chat::pane(id).key(format!("chat-{id}")))
                 })),
         )
