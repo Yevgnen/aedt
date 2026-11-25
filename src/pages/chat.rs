@@ -371,7 +371,7 @@ fn copy_message(message: Memo<Option<Message>>) -> impl IntoElement {
     };
 
     button::ghost_icon(icon::copy(14.0), "复制消息")
-        .text_color(move || theme().muted_foreground)
+        .text_color(move || tokens::caption().opacity(0.8))
         .on_press(copy)
 }
 
