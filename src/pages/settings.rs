@@ -143,14 +143,21 @@ fn add_provider() -> impl IntoElement {
     })
 }
 
-/// The provider being added: its kind, its fields, the models they can list,
-/// and the commands that keep it or drop it.
+/// The provider being added: its name and kind, its fields, the models they can
+/// list, and the commands that keep it or drop it.
 fn add_form(id: u32) -> impl IntoElement {
     view()
         .w_full()
         .gap_5()
-        .child(type_field(id))
-        .child(provider_body(id))
+        .child(
+            view()
+                .w_full()
+                .gap_3()
+                .child(name_field(id))
+                .child(type_field(id))
+                .child(provider_fields(id)),
+        )
+        .child(models(id))
         .child(
             view()
                 .w_full()
@@ -161,10 +168,21 @@ fn add_form(id: u32) -> impl IntoElement {
                 .child(button::ghost("Cancel").on_press(move || settings::cancel_provider(id)))
                 .child(
                     button::secondary("Save")
-                        .disabled(move || !settings::can_refresh(id))
+                        .disabled(move || !settings::can_save(id))
                         .on_press(move || settings::save_provider(id)),
                 ),
         )
+}
+
+/// What the provider being added is called, which it keeps once saved.
+fn name_field(id: u32) -> impl IntoElement {
+    field::field(
+        "Name",
+        move || settings::name(id).as_str().to_owned(),
+        move |name| settings::set_name(id, name),
+        || {},
+        field::Mask::Plain,
+    )
 }
 
 /// What kind of provider is being added: a field that opens the kinds the app
@@ -183,7 +201,7 @@ fn type_field(id: u32) -> impl IntoElement {
             Placement::Bottom,
             Align::Start,
             menu::item(icon::database(14.0), "OpenAI compatible").on_select(move || {
-                settings::select_kind(id, ProviderKind::OpenAiCompatible, "OpenAI compatible");
+                settings::select_kind(id, ProviderKind::OpenAiCompatible);
             }),
         ))
 }
@@ -203,30 +221,33 @@ fn provider_card(id: u32) -> impl IntoElement {
     .w_full()
 }
 
+/// How a provider is reached: its URL and the key its requests carry.
+fn provider_fields(id: u32) -> impl IntoElement {
+    view()
+        .w_full()
+        .gap_3()
+        .child(field::field(
+            "API URL",
+            move || settings::base_url(id),
+            move |url| settings::set_base_url(id, url),
+            move || settings::refresh_models(id),
+            field::Mask::Plain,
+        ))
+        .child(field::field(
+            "API Key",
+            move || settings::api_key(id),
+            move |key| settings::set_api_key(id, key),
+            move || settings::refresh_models(id),
+            field::Mask::Secret,
+        ))
+}
+
 /// What a provider's section holds once it opens.
 fn provider_body(id: u32) -> impl IntoElement {
     view()
         .w_full()
         .gap_4()
-        .child(
-            view()
-                .w_full()
-                .gap_3()
-                .child(field::field(
-                    "API URL",
-                    move || settings::base_url(id),
-                    move |url| settings::set_base_url(id, url),
-                    move || settings::refresh_models(id),
-                    field::Mask::Plain,
-                ))
-                .child(field::field(
-                    "API Key",
-                    move || settings::api_key(id),
-                    move |key| settings::set_api_key(id, key),
-                    move || settings::refresh_models(id),
-                    field::Mask::Secret,
-                )),
-        )
+        .child(provider_fields(id))
         .child(models(id))
 }
 

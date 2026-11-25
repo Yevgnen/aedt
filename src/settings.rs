@@ -283,9 +283,9 @@ pub(crate) fn add_provider(kind: ProviderKind, name: &str) {
     });
 }
 
-/// Makes `id` a provider of `kind`, called `name`, while it is being added.
-pub(crate) fn select_kind(id: u32, kind: ProviderKind, name: &str) {
-    let name: SharedString = name.to_owned().into();
+/// Makes `id` a provider of `kind`, while it is being added. Its name stays
+/// what it was: the reader's, or the kind's until they name it.
+pub(crate) fn select_kind(id: u32, kind: ProviderKind) {
     settings().update(|settings| {
         let Some(provider) = settings
             .providers
@@ -295,7 +295,6 @@ pub(crate) fn select_kind(id: u32, kind: ProviderKind, name: &str) {
             return;
         };
         provider.kind = kind;
-        provider.name = name;
     });
 }
 
@@ -335,6 +334,21 @@ pub(crate) fn api_key(id: u32) -> String {
     with_provider(id, |p| p.api_key.clone()).unwrap_or_default()
 }
 
+/// Names the provider `id`, while it is being added.
+pub(crate) fn set_name(id: u32, name: &str) {
+    let name: SharedString = name.to_owned().into();
+    settings().update(|settings| {
+        let Some(provider) = settings
+            .providers
+            .iter_mut()
+            .find(|provider| provider.id == id && !provider.saved)
+        else {
+            return;
+        };
+        provider.name = name;
+    });
+}
+
 /// Sets the URL `id` is reached at.
 pub(crate) fn set_base_url(id: u32, url: &str) {
     settings().update(|settings| {
@@ -357,6 +371,14 @@ pub(crate) fn set_api_key(id: u32, key: &str) {
 pub(crate) fn can_refresh(id: u32) -> bool {
     with_provider(id, |p| {
         !p.base_url.trim().is_empty() && !p.api_key.trim().is_empty()
+    })
+    .unwrap_or(false)
+}
+
+/// Whether `id` has what it takes to be kept: a name, a URL and a key.
+pub(crate) fn can_save(id: u32) -> bool {
+    with_provider(id, |p| {
+        !p.name.trim().is_empty() && !p.base_url.trim().is_empty() && !p.api_key.trim().is_empty()
     })
     .unwrap_or(false)
 }
