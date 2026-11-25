@@ -198,7 +198,12 @@ fn tick(
     };
 
     button::bare()
-        .accessibility_label("跳转到该消息")
+        .accessibility_label(move || {
+            Some(SharedString::from(format!(
+                "跳转到第 {} 个问题",
+                row.get() + 1
+            )))
+        })
         .w_full()
         .items_end()
         // The hit area fills the pitch, so sliding along the column never
