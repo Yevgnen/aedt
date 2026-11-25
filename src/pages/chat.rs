@@ -180,7 +180,10 @@ fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
     view()
         .w_full()
         .gap_1()
-        .child(when(has_reasoning(message), move || reasoning(message)))
+        .child(when(
+            move || has_reasoning(message),
+            move || reasoning(message),
+        ))
         .child(
             text_view()
                 .markdown(move || {
