@@ -217,7 +217,8 @@ fn provider_card(id: u32) -> impl IntoElement {
     .w_full()
 }
 
-/// How a provider is reached: its URL and the key its requests carry.
+/// How a provider is reached: its URL and the key its requests carry, with the
+/// environment variable the key came from when it came from one.
 fn provider_fields(id: u32) -> impl IntoElement {
     view()
         .w_full()
@@ -229,13 +230,34 @@ fn provider_fields(id: u32) -> impl IntoElement {
             move || settings::refresh_models(id),
             field::Mask::Plain,
         ))
-        .child(field::field(
-            "API Key",
-            move || settings::api_key(id),
-            move |key| settings::set_api_key(id, key),
-            move || settings::refresh_models(id),
-            field::Mask::Secret,
-        ))
+        .child(
+            view()
+                .w_full()
+                .gap_1()
+                .child(field::field_with_trailing(
+                    "API Key",
+                    move || settings::api_key(id),
+                    move |key| settings::set_api_key(id, key),
+                    move || settings::refresh_models(id),
+                    field::Mask::Secret,
+                    button::ghost_icon(icon::rotate_ccw(14.0), "Reset the key")
+                        .on_press(move || settings::reset_api_key(id)),
+                ))
+                .child(when(
+                    move || settings::env_key(id).is_some(),
+                    move || {
+                        text(move || {
+                            settings::env_key(id)
+                                .map(|variable| {
+                                    format!("Using the {variable} environment variable")
+                                })
+                                .unwrap_or_default()
+                        })
+                        .text_xs()
+                        .text_color(tokens::meta)
+                    },
+                )),
+        )
 }
 
 /// What a provider's section holds once it opens.

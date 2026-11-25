@@ -56,6 +56,17 @@ const SETTINGS: &str = concat!(
     r#"</svg>"#,
 );
 
+/// A mark turning back on itself (Lucide's `rotate-ccw`): puts a value back as
+/// it was.
+const ROTATE_CCW: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>"#,
+    r#"<path d="M3 3v5h5"/>"#,
+    r#"</svg>"#,
+);
+
 /// A refresh mark (Lucide's `refresh-cw`): asks a list to load again.
 const REFRESH: &str = concat!(
     r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
@@ -131,6 +142,12 @@ pub fn settings(size: f32) -> impl IntoElement {
 /// The refresh mark, `size` points square, in the caller's text color.
 pub fn refresh(size: f32) -> impl IntoElement {
     icon(REFRESH, size)
+}
+
+/// The mark a value resets by, `size` points square, in the caller's text
+/// color.
+pub fn rotate_ccw(size: f32) -> impl IntoElement {
+    icon(ROTATE_CCW, size)
 }
 
 /// The models mark, `size` points square, in the caller's text color.

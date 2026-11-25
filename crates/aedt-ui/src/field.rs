@@ -1,6 +1,6 @@
 //! The app's form field: one visible label over one single-line input.
 
-use nsh_base::{input, theme};
+use nsh_base::{Input, input, theme};
 use nsh_core::prelude::*;
 
 use crate::{motion, sizes};
@@ -31,23 +31,64 @@ pub fn field(
     on_submit: impl Fn() + Copy + 'static,
     mask: Mask,
 ) -> impl IntoElement {
+    view()
+        .w_full()
+        .gap_1()
+        .child(label(name))
+        .child(control(value, on_change, on_submit, mask))
+}
+
+/// The same field with `trailing` at the end of its edge, where a reset of the
+/// value sits: the input keeps its own box, and its text stops short of the
+/// control.
+pub fn field_with_trailing(
+    name: &'static str,
+    value: impl Fn() -> String + Copy + 'static,
+    on_change: impl Fn(&str) + Copy + 'static,
+    on_submit: impl Fn() + Copy + 'static,
+    mask: Mask,
+    trailing: impl IntoElement,
+) -> impl IntoElement {
     view().w_full().gap_1().child(label(name)).child(
-        input()
-            .value(value)
-            .on_change(on_change)
-            .on_submit(move |_: &str| on_submit())
-            .masked(matches!(mask, Mask::Secret))
-            .auto_correct(false)
-            .min_h(px(sizes::CONTROL))
-            .px_2()
-            .rounded(move || theme().radius)
-            .border_1()
-            .border_color(move || theme().border)
-            .bg(move || theme().background)
-            .text_sm()
-            .text_color(move || theme().foreground)
-            .focus(|s| s.border_color(move || theme().ring))
-            .transition_colors()
-            .duration(motion::control_duration()),
+        view()
+            .relative()
+            .w_full()
+            .child(control(value, on_change, on_submit, mask).pr(px(sizes::CONTROL)))
+            .child(
+                view()
+                    .absolute()
+                    .right(px(4.0))
+                    .top(px(0.0))
+                    .h(px(sizes::CONTROL))
+                    .items_center()
+                    .justify_center()
+                    .child(trailing),
+            ),
     )
+}
+
+/// A field's input, in the app's field look.
+fn control(
+    value: impl Fn() -> String + Copy + 'static,
+    on_change: impl Fn(&str) + Copy + 'static,
+    on_submit: impl Fn() + Copy + 'static,
+    mask: Mask,
+) -> Input {
+    input()
+        .value(value)
+        .on_change(on_change)
+        .on_submit(move |_: &str| on_submit())
+        .masked(matches!(mask, Mask::Secret))
+        .auto_correct(false)
+        .min_h(px(sizes::CONTROL))
+        .px_2()
+        .rounded(move || theme().radius)
+        .border_1()
+        .border_color(move || theme().border)
+        .bg(move || theme().background)
+        .text_sm()
+        .text_color(move || theme().foreground)
+        .focus(|s| s.border_color(move || theme().ring))
+        .transition_colors()
+        .duration(motion::control_duration())
 }
