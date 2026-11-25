@@ -1,0 +1,54 @@
+# Aedt 设计基线
+
+Agent IDE 骨架的设计约定。改动界面时先读这份，再动 `src/ui`。
+
+## 平台
+
+- 本轮交付 Desktop：macOS 用 `cargo run` 或 `nsh run --target macos`，GPUI 后端用 `nsh run --target gpui`。
+- 移动端、Web、TUI 未纳入本轮；布局按桌面密度（32pt 控件、44pt 双行列表行）搭建，侧栏在窄窗口下应改为可折叠，属于后续工作。
+
+## 颜色与尺度
+
+- 颜色全部来自 `nsh_base::theme()`，只用语义角色：`background`、`foreground`、`card`、`sidebar*`、`muted*`、`accent`、`input`、`ring`、`border`、`primary*`。
+- 圆角只有一个来源：`theme().radius`。胶囊（badge、avatar）用 `rounded_full()`。
+- 尺寸是 app token，集中在 `src/ui/sizes.rs`：侧栏 264、控件 32、列表行 44、头像 28、输入框最小 76、用户消息最大宽 560。
+- 间距走 Tailwind 的 4pt 刻度（`p_3` = 12pt、`gap_2` = 8pt、`p_6` = 24pt）。
+- 字号只用 `text_xs`（12）与 `text_sm`（14）；消息正文用 `text_view` 的 `text_size(14)`。
+
+## 组件层
+
+功能代码只用 `src/ui` 与布局原语（`view`、`text`、`virtual_list`、`text_view`）：
+
+- `button`：`Variant::{Primary, Secondary}`，一种按压反馈、一种焦点环、一种禁用态。
+- `input`：受控多行输入，聚焦时边框转为 `ring`。
+- `list_item::session`：侧栏会话行，selected 由调用方提供。
+- `badge`、`avatar`、`separator`、`empty`。
+
+## 布局
+
+- 一级结构：`sidebar`（264pt，`sidebar` 底色，右边框）+ 会话面板（`flex_1`）。
+- 会话面板：header（标题 + 消息数 + 模型 badge）、`virtual_list` 消息流（底部对齐、24pt 内容内边距、16pt 行距）、composer（回显条 + 输入框 + 发送行）。
+- 会话切换用 `dynamic` 按会话 id 重建面板，草稿与滚动位置随之重置；消息与侧栏由 store 的 signal 驱动。
+
+## 动效清单
+
+| 变化 | 工具与 token | 减少动态 |
+| --- | --- | --- |
+| 按钮 hover | 颜色过渡，`transition_all` + `FAST`(180ms) ease-out | 时长归零 |
+| 按钮按下 | 缩放 0.97 + 颜色加深，同为 `FAST` | 不缩放，颜色立即变化 |
+| 会话行 hover / 选中 | 背景 wash，`transition_colors` + `INSTANT`(120ms) | 时长归零 |
+| 输入框获得焦点 | 边框转 `ring`，颜色过渡 `FAST` | 时长归零 |
+| 切换会话 | 面板淡入，`motion().entering(fade)`，`BASE`(240ms) ease-out | 直接显示终态 |
+| 回显条首次出现 | 淡入并上移 4pt，`motion().entering(fade_rise)`，`BASE` | 直接显示终态 |
+| 回显数值变化 | 无动效：每次按键更新的实时读数，动画只会拖慢反馈 | — |
+| 发送后的新消息 | 无动效：Mock 回复同步插入，列表保持阅读位置；接入流式模型后补光标呼吸与行进入动画 | — |
+| 窗口缩放 | 无动效：原生布局 | — |
+
+每条“无动效”都写明了理由；其余在运行中的应用里逐条核对。
+
+## 尚未做
+
+- 自绘标题栏（当前保留系统标题栏）。
+- 会话重命名、删除、搜索。
+- 真实模型接入、流式回复、停止生成。
+- 键盘快捷键（⌘↵ 发送）与移动端布局。

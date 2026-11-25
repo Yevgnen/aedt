@@ -1,0 +1,7 @@
+{
+  "name": "Aedt",
+  "id": "com.example.aedt",
+  "appearance": "system",
+  "rust": ".",
+  "root": "App"
+}
