@@ -331,6 +331,21 @@ pub(crate) fn message_at(session_id: u32, index: usize) -> Option<Message> {
     })
 }
 
+/// The last user message among the rows `first..=last`: the one the rail marks
+/// as the reader's current place.
+pub(crate) fn last_user_index(session_id: u32, first: usize, last: usize) -> Option<usize> {
+    workspace().with(|workspace| {
+        let session = workspace
+            .sessions
+            .iter()
+            .find(|session| session.id == session_id)?;
+        let last = last.min(session.messages.len().checked_sub(1)?);
+        (first..=last)
+            .rev()
+            .find(|index| session.messages[*index].author == Author::User)
+    })
+}
+
 /// Sends `text`: appends the user's message and an empty reply, then streams
 /// the model's answer into that reply. A blank message sends nothing.
 pub(crate) fn send(session_id: u32, text: &str) {

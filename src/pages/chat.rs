@@ -17,6 +17,8 @@ pub(crate) fn pane(session_id: u32) -> View {
     let open = signal(Vec::<u32>::new());
     // The timeline's handle: the rail's ticks scroll it to their message.
     let timeline = element_ref();
+    // The reader's place: the last user message the list shows.
+    let current = signal(store::last_user_index(session_id, 0, usize::MAX));
     let enter = motion().entering(motion::fade());
 
     view()
@@ -47,11 +49,11 @@ pub(crate) fn pane(session_id: u32) -> View {
                                 .max_w(px(sizes::COMPOSER_MAX))
                                 .min_h(px(0.0))
                                 .px(px(sizes::COMPOSER_SIDE))
-                                .child(timeline_view(session_id, open, &timeline))
+                                .child(timeline_view(session_id, open, &timeline, current))
                                 .child(composer(session_id, draft)),
                         ),
                 )
-                .child(rail(session_id, timeline)),
+                .child(rail(session_id, timeline, current)),
         )
 }
 
@@ -82,7 +84,12 @@ fn header(session_id: u32) -> impl IntoElement {
         .child(badge::badge(crate::llm::MODEL))
 }
 
-fn timeline_view(session_id: u32, open: Signal<Vec<u32>>, handle: &ElementRef) -> impl IntoElement {
+fn timeline_view(
+    session_id: u32,
+    open: Signal<Vec<u32>>,
+    handle: &ElementRef,
+    current: Signal<Option<usize>>,
+) -> impl IntoElement {
     virtual_list(
         move || store::message_count(session_id),
         move |at| message_row(session_id, open, at),
@@ -95,14 +102,23 @@ fn timeline_view(session_id: u32, open: Signal<Vec<u32>>, handle: &ElementRef) -
     .content_padding_y(px(24.0))
     .estimated_item_size(px(96.0))
     .row_gap(px(16.0))
+    // The reader's place follows what the list shows as it scrolls.
+    .on_viewable_items_change(move |items: &ViewableItems| {
+        let place = items
+            .viewable
+            .and_then(|(first, last)| store::last_user_index(session_id, first, last));
+        if current.get_untracked() != place {
+            current.set(place);
+        }
+    })
     .empty(empty::empty("说点什么…"))
     .flex_1()
 }
 
 /// The column of message ticks at the pane's right edge: one per message, all
-/// light and short at rest; the one under the pointer grows dark and long, and
-/// a press jumps the timeline to its message.
-fn rail(session_id: u32, timeline: ElementRef) -> impl IntoElement {
+/// light and short at rest. The lit ones — under the pointer, and the last user
+/// message the list shows — are dark and long; a press jumps to its message.
+fn rail(session_id: u32, timeline: ElementRef, current: Signal<Option<usize>>) -> impl IntoElement {
     view()
         .w(px(sizes::RAIL))
         .pr(px(sizes::RAIL_INSET))
@@ -114,14 +130,21 @@ fn rail(session_id: u32, timeline: ElementRef) -> impl IntoElement {
         .child(each(
             move || store::message_ids(session_id),
             |id| *id,
-            move |_id, at| tick(session_id, at, timeline),
+            move |_id, at| tick(session_id, at, timeline, current),
         ))
 }
 
 /// One message's tick.
-fn tick(session_id: u32, at: ReadSignal<usize>, timeline: ElementRef) -> impl IntoElement {
+fn tick(
+    session_id: u32,
+    at: ReadSignal<usize>,
+    timeline: ElementRef,
+    current: Signal<Option<usize>>,
+) -> impl IntoElement {
     let message = computed(move || store::message_at(session_id, at.get()));
     let hovered = signal(false);
+    // Lit: the tick under the pointer, and the reader's place in the list.
+    let lit = move || hovered.get() || current.get() == Some(at.get());
 
     let jump = move || {
         timeline.scroll_to_index(at.get() as u32, percentage(0.0), Points::ZERO, true);
@@ -136,14 +159,14 @@ fn tick(session_id: u32, at: ReadSignal<usize>, timeline: ElementRef) -> impl In
         .on_mouse_leave(move |_: &MouseEvent| hovered.set(false))
         .on_press(jump)
         .child(
-            // Every tick rests light and short; the one under the pointer is
-            // the dark, long one.
+            // Every tick rests light and short; the lit ones — under the
+            // pointer, or where the reader is — are dark and long.
             view()
                 .h(px(2.0))
-                .w(move || px(if hovered.get() { 16.0 } else { 8.0 }))
+                .w(move || px(if lit() { 16.0 } else { 8.0 }))
                 .rounded_full()
                 .bg(move || {
-                    if hovered.get() {
+                    if lit() {
                         theme().foreground
                     } else {
                         theme().border
