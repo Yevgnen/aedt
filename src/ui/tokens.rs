@@ -2,7 +2,7 @@
 //! read here so a page names the role instead of a string and a fallback.
 
 use nsh_base::theme;
-use nsh_core::prelude::*;
+use nsh_core::{Color, prelude::*};
 
 /// A user message's bubble.
 pub(crate) fn bubble() -> AdaptiveColor {
@@ -30,4 +30,19 @@ pub(crate) fn caption() -> AdaptiveColor {
     theme()
         .color("caption")
         .unwrap_or_else(|| theme().muted_foreground)
+}
+
+/// A floating card's shadow: two wide, faint layers, so the card seems to rest
+/// on haze instead of sitting inside a dark edge. A theme file carries colors,
+/// not shadows, so the app's one shadow is a token here with the rest.
+pub(crate) fn floating_shadow() -> Vec<BoxShadow> {
+    let layer = |offset_y: f32, blur: f32, alpha: u8| BoxShadow {
+        offset_x: Points(0.0),
+        offset_y: Points(offset_y),
+        blur: Points(blur),
+        spread: Points(0.0),
+        color: Color::rgba(0, 0, 0, alpha),
+        inset: false,
+    };
+    vec![layer(1.0, 2.0, 10), layer(6.0, 20.0, 13)]
 }

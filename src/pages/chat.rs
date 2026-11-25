@@ -1,7 +1,7 @@
 //! The conversation: its header, its message timeline and its composer.
 
 use nsh_base::{MarkdownOptions, TextViewClasses, text_view, theme};
-use nsh_core::{Color, LineHeight, element::desktop::title_bar, prelude::*};
+use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::{
     store::{self, Author, Message},
@@ -262,7 +262,7 @@ fn message_preview(
         .border_1()
         .border_color(move || theme().border)
         .bg(move || theme().card)
-        .shadow(composer_shadow())
+        .shadow(tokens::floating_shadow())
         .child(
             text(body_of(question))
                 .text_sm()
@@ -432,20 +432,6 @@ fn assistant_message(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> 
         )
 }
 
-/// The composer's shadow: two wide, faint layers, so the card seems to float
-/// on haze instead of sitting inside a dark edge.
-fn composer_shadow() -> Vec<BoxShadow> {
-    let layer = |offset_y: f32, blur: f32, alpha: u8| BoxShadow {
-        offset_x: Points(0.0),
-        offset_y: Points(offset_y),
-        blur: Points(blur),
-        spread: Points(0.0),
-        color: Color::rgba(0, 0, 0, alpha),
-        inset: false,
-    };
-    vec![layer(1.0, 2.0, 10), layer(6.0, 20.0, 13)]
-}
-
 /// Whether the reply reasoned before answering.
 fn has_reasoning(message: Memo<Option<Message>>) -> bool {
     message.with(|message| {
@@ -552,7 +538,7 @@ fn composer_card(
         .border_1()
         .border_color(move || theme().border.opacity(0.6))
         .bg(move || theme().card)
-        .shadow(composer_shadow())
+        .shadow(tokens::floating_shadow())
         .child(input::composer(draft, submit).label("消息"))
         .child(
             view()
