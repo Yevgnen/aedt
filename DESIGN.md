@@ -14,6 +14,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 - 尺寸是 app token，集中在 `src/ui/sizes.rs`：侧栏 264、控件 32、列表行 44、头像 28、输入框最小 76、用户消息最大宽 560。
 - 间距走 Tailwind 的 4pt 刻度（`p_3` = 12pt、`gap_2` = 8pt、`p_6` = 24pt）。
 - 字号只用 `text_xs`（12）与 `text_sm`（14）；消息正文用 `text_view` 的 `text_size(14)`。
+- 编程字体（代码块、行内代码、`font-mono`）默认 `Berkeley Mono, SF Mono, Menlo, monospace`：CoreText 取第一个已安装的族，缺 Berkeley Mono 的机器落到 SF Mono / Menlo，不会退回比例字体。`cargo run` 不读 `nsh.json`，所以由根组件在启动时设置 `font-mono` token。
 
 ## 组件层
 
