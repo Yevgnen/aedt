@@ -148,6 +148,22 @@ fn with_provider<R>(id: u32, f: impl FnOnce(&Provider) -> R) -> Option<R> {
     settings().with(|settings| settings.providers.iter().find(|p| p.id == id).map(f))
 }
 
+/// Provider `id` of `settings`, to change.
+fn provider_mut(settings: &mut Settings, id: u32) -> Option<&mut Provider> {
+    settings
+        .providers
+        .iter_mut()
+        .find(|provider| provider.id == id)
+}
+
+/// Provider `id` of `settings` while it is being added, to change.
+fn draft_mut(settings: &mut Settings, id: u32) -> Option<&mut Provider> {
+    settings
+        .providers
+        .iter_mut()
+        .find(|provider| provider.id == id && !provider.saved)
+}
+
 /// Whether the settings dialog shows (tracked where it is read).
 pub(crate) fn is_open() -> bool {
     settings().with(|settings| settings.open)
@@ -303,11 +319,7 @@ pub(crate) fn add_provider(kind: ProviderKind) {
 /// what it was: the reader's, or none until they name it.
 pub(crate) fn select_kind(id: u32, kind: ProviderKind) {
     settings().update(|settings| {
-        let Some(provider) = settings
-            .providers
-            .iter_mut()
-            .find(|provider| provider.id == id && !provider.saved)
-        else {
+        let Some(provider) = draft_mut(settings, id) else {
             return;
         };
         provider.kind = kind;
@@ -318,7 +330,7 @@ pub(crate) fn select_kind(id: u32, kind: ProviderKind) {
 /// models it lists are asked for so the composer's picker has them.
 pub(crate) fn save_provider(id: u32) {
     settings().update(|settings| {
-        if let Some(provider) = settings.providers.iter_mut().find(|p| p.id == id) {
+        if let Some(provider) = provider_mut(settings, id) {
             provider.saved = true;
         }
     });
@@ -356,11 +368,7 @@ pub(crate) fn api_key(id: u32) -> String {
 pub(crate) fn set_name(id: u32, name: &str) {
     let name: SharedString = name.to_owned().into();
     settings().update(|settings| {
-        let Some(provider) = settings
-            .providers
-            .iter_mut()
-            .find(|provider| provider.id == id && !provider.saved)
-        else {
+        let Some(provider) = draft_mut(settings, id) else {
             return;
         };
         provider.name = name;
@@ -370,7 +378,7 @@ pub(crate) fn set_name(id: u32, name: &str) {
 /// Sets the URL `id` is reached at.
 pub(crate) fn set_base_url(id: u32, url: &str) {
     settings().update(|settings| {
-        if let Some(provider) = settings.providers.iter_mut().find(|p| p.id == id) {
+        if let Some(provider) = provider_mut(settings, id) {
             provider.base_url = url.to_owned();
         }
     });
@@ -379,7 +387,7 @@ pub(crate) fn set_base_url(id: u32, url: &str) {
 /// Sets the key `id`'s requests carry.
 pub(crate) fn set_api_key(id: u32, key: &str) {
     settings().update(|settings| {
-        if let Some(provider) = settings.providers.iter_mut().find(|p| p.id == id) {
+        if let Some(provider) = provider_mut(settings, id) {
             provider.api_key = key.to_owned();
         }
     });
@@ -432,7 +440,7 @@ pub(crate) fn models(id: u32) -> Vec<Model> {
 /// Offers the model called `model`, or stops offering it.
 pub(crate) fn set_model_enabled(id: u32, model: &str, on: bool) {
     settings().update(|settings| {
-        let Some(provider) = settings.providers.iter_mut().find(|p| p.id == id) else {
+        let Some(provider) = provider_mut(settings, id) else {
             return;
         };
         let (Models::Loading(models) | Models::Ready(models) | Models::Failed(models, _)) =
@@ -460,7 +468,7 @@ pub(crate) fn refresh_models(id: u32) {
 
     let mut asked = 0;
     settings().update(|settings| {
-        if let Some(provider) = settings.providers.iter_mut().find(|p| p.id == id) {
+        if let Some(provider) = provider_mut(settings, id) {
             provider.ask += 1;
             let shown = provider.models.shown().to_vec();
             provider.models = Models::Loading(shown);
@@ -477,7 +485,7 @@ pub(crate) fn refresh_models(id: u32) {
         spawn(async move {
             let listed = list_models(&base_url, &api_key).await;
             settings().update(|settings| {
-                let Some(provider) = settings.providers.iter_mut().find(|p| p.id == id) else {
+                let Some(provider) = provider_mut(settings, id) else {
                     return;
                 };
                 if provider.ask != asked {
