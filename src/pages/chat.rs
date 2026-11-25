@@ -354,9 +354,15 @@ fn copy_message(message: Memo<Option<Message>>) -> impl IntoElement {
                 .map(|message| message.body.to_string())
                 .unwrap_or_default()
         });
-        if !body.is_empty() {
-            drop(set_clipboard(body));
+        if body.is_empty() {
+            return;
         }
+        let write = set_clipboard(body);
+        spawn(async move {
+            if write.await == ClipboardWrite::Failed {
+                eprintln!("copy message: the clipboard refused the write");
+            }
+        });
     };
 
     button::ghost_icon(icon::copy(14.0), "复制消息")
