@@ -15,7 +15,7 @@ pub(crate) fn dialog() -> impl IntoElement {
     when(settings::is_open, || {
         base_dialog()
             .animation(ModalAnimation::Fade)
-            .label("设置")
+            .label("Settings")
             .on_cancel(settings::close)
             .flex_1()
             .child(
@@ -57,7 +57,7 @@ fn categories() -> impl IntoElement {
         .border_r_1()
         .border_r_color(move || theme().border)
         .child(
-            text("设置")
+            text("Settings")
                 .px(px(sizes::LIST_ROW_INSET))
                 .pt_2()
                 .pb_3()
@@ -66,7 +66,7 @@ fn categories() -> impl IntoElement {
                 .text_color(move || theme().foreground),
         )
         .child(
-            list_item::nav_with_mark(icon::database(14.0), "模型", move || {
+            list_item::nav_with_mark(icon::database(14.0), "Models", move || {
                 settings::section() == Section::Models
             })
             .on_press(|| {
@@ -114,7 +114,7 @@ fn provider_card(id: u32) -> impl IntoElement {
                 .w_full()
                 .gap_3()
                 .child(field::field(
-                    "API 地址",
+                    "API URL",
                     move || settings::base_url(id),
                     move |url| settings::set_base_url(id, url),
                     move || settings::refresh_models(id),
@@ -134,7 +134,7 @@ fn provider_card(id: u32) -> impl IntoElement {
 /// What API a provider of `kind` speaks, as its badge says it.
 fn kind_label(kind: Option<ProviderKind>) -> SharedString {
     match kind {
-        Some(ProviderKind::OpenAiCompatible) => "OpenAI 兼容".into(),
+        Some(ProviderKind::OpenAiCompatible) => "OpenAI compatible".into(),
         None => SharedString::default(),
     }
 }
@@ -152,21 +152,21 @@ fn models(id: u32) -> impl IntoElement {
                 .items_center()
                 .gap_2()
                 .child(
-                    text("模型")
+                    text("Models")
                         .flex_1()
                         .text_sm()
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(move || theme().foreground),
                 )
                 .child(
-                    button::ghost_icon(icon::refresh(14.0), "刷新模型列表")
+                    button::ghost_icon(icon::refresh(14.0), "Refresh models")
                         .disabled(move || !settings::can_refresh(id))
                         .on_press(move || settings::refresh_models(id)),
                 ),
         )
         .child(when(
             move || settings::loading(id),
-            || note("正在获取模型…"),
+            || note("Loading models…"),
         ))
         .child(when(
             move || settings::error(id).is_some(),
@@ -180,7 +180,7 @@ fn models(id: u32) -> impl IntoElement {
         ))
         .child(when(
             move || settings::listed_none(id),
-            || note("没有可用的模型"),
+            || note("No models"),
         ))
         .child(model_rows(id))
 }

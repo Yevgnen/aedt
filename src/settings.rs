@@ -417,7 +417,7 @@ async fn list_models(base_url: &str, api_key: &str) -> Result<Vec<ListedModel>, 
     }
 
     let listed: Listed = serde_json::from_str(&body)
-        .map_err(|error| SharedString::from(format!("模型列表解析失败：{error}")))?;
+        .map_err(|error| SharedString::from(format!("Couldn't read the model list: {error}")))?;
     let mut models = listed.data;
     models.sort_by(|a, b| a.id.cmp(&b.id));
     models.dedup_by(|a, b| a.id == b.id);

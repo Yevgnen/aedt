@@ -577,12 +577,12 @@ fn model_picker() -> impl IntoElement {
         view()
             .child(
                 menu::submenu(
-                    "模型",
+                    "Model",
                     move || settings::selected().label,
                     view()
                         .min_w(px(240.0))
                         .gap_1()
-                        .child(menu::search(query, "搜索模型…"))
+                        .child(menu::search(query, "Search models…"))
                         .child(model_choices(query)),
                 )
                 .on_open_change(move |event: &SubmenuEvent| {
@@ -593,7 +593,7 @@ fn model_picker() -> impl IntoElement {
                 }),
             )
             .child(menu::submenu(
-                "推理强度",
+                "Effort",
                 move || SharedString::from(effort_label(settings::effort())),
                 effort_choices(),
             )),
@@ -646,9 +646,9 @@ fn effort_choice(effort: settings::Effort) -> impl IntoElement {
 /// What `effort` is called in the picker.
 fn effort_label(effort: settings::Effort) -> &'static str {
     match effort {
-        settings::Effort::Default => "默认",
-        settings::Effort::Low => "低",
-        settings::Effort::Medium => "中",
-        settings::Effort::High => "高",
+        settings::Effort::Default => "Default",
+        settings::Effort::Low => "Low",
+        settings::Effort::Medium => "Medium",
+        settings::Effort::High => "High",
     }
 }

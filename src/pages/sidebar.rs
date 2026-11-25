@@ -32,9 +32,9 @@ pub(crate) fn sidebar() -> View {
 /// app-wide commands.
 fn footer() -> impl IntoElement {
     view().px_3().pb_3().child(menu::menu(
-        menu::trigger(icon::more(14.0), "更多"),
+        menu::trigger(icon::more(14.0), "More"),
         Align::Start,
-        menu::item(icon::settings(14.0), "设置").on_select(settings::open),
+        menu::item(icon::settings(14.0), "Settings").on_select(settings::open),
     ))
 }
 
