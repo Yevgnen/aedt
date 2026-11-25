@@ -36,3 +36,6 @@ pub(crate) const SEND: f32 = 28.0;
 
 /// A user message's widest line, so a bubble does not become a page.
 pub(crate) const MESSAGE_MAX: f32 = 560.0;
+
+/// A meta row's trailing icon button: small enough to sit beside 12pt text.
+pub(crate) const META_ACTION: f32 = 20.0;

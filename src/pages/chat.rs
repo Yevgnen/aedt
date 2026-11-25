@@ -127,9 +127,29 @@ fn user_message(message: Memo<Option<Message>>) -> impl IntoElement {
             view()
                 .w_full()
                 .flex_row()
+                .items_center()
                 .justify_end()
-                .child(message_meta(message)),
+                .gap_1()
+                .child(message_meta(message))
+                .child(copy_bubble(message)),
         )
+}
+
+/// The bubble's trailing action: puts its text on the clipboard.
+fn copy_bubble(message: Memo<Option<Message>>) -> impl IntoElement {
+    let copy = move || {
+        let body = message.with(|message| {
+            message
+                .as_ref()
+                .map(|message| message.body.to_string())
+                .unwrap_or_default()
+        });
+        if !body.is_empty() {
+            drop(set_clipboard(body));
+        }
+    };
+
+    button::ghost_icon("⧉", "复制消息").on_press(copy)
 }
 
 /// The muted line under a message: when it was sent, and for a reply the model
