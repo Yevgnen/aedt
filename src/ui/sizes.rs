@@ -44,7 +44,7 @@ pub(crate) const META_ACTION: f32 = 20.0;
 pub(crate) const RAIL: f32 = 32.0;
 
 /// The rail's inset from the window's edge: the ticks do not touch it.
-pub(crate) const RAIL_INSET: f32 = 10.0;
+pub(crate) const RAIL_INSET: f32 = 14.0;
 
 /// A code block's font size: two points under the 13pt an inline code keeps,
 /// so a block reads as a quotation of code rather than as louder body text.
