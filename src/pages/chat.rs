@@ -4,7 +4,7 @@ use nsh_base::{MarkdownOptions, SubmenuEvent, TextViewClasses, text_view, theme}
 use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::{
-    settings,
+    llm, settings,
     store::{self, Author, Message},
     ui::{self, button, empty, icon, input, menu, motion, sizes, tokens},
 };
@@ -547,7 +547,7 @@ fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
         if text.trim().is_empty() {
             return;
         }
-        store::send(session_id, &text);
+        llm::ask(session_id, &text);
         draft.set(String::new());
     };
 

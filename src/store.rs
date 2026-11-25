@@ -438,22 +438,25 @@ pub(crate) fn reply_at(session_id: u32, index: usize) -> Option<Message> {
     })
 }
 
-/// Sends `text`: appends the user's message and an empty reply, then streams
-/// the model's answer into that reply. A blank message sends nothing.
-pub(crate) fn send(session_id: u32, text: &str) {
+/// What sending a message left to answer: the reply waiting for it, and the
+/// conversation the model reads.
+pub(crate) struct Sent {
+    pub(crate) reply_id: u32,
+    pub(crate) history: Vec<Message>,
+}
+
+/// Sends `text`: appends the user's message and an empty reply. A blank message
+/// sends nothing, and returns nothing to answer.
+pub(crate) fn send(session_id: u32, text: &str) -> Option<Sent> {
     let text = text.trim();
     if text.is_empty() {
-        return;
+        return None;
     }
 
     let mut started = None;
     workspace().update(|workspace| started = append_sent(workspace, session_id, text));
 
-    if let Some((reply_id, history)) = started {
-        let model = crate::settings::selected();
-        let effort = crate::settings::effort();
-        crate::llm::reply(session_id, reply_id, history, &model, effort);
-    }
+    started.map(|(reply_id, history)| Sent { reply_id, history })
 }
 
 /// The user's message, the reply left empty, and what the model gets to read:

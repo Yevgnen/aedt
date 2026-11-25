@@ -19,9 +19,20 @@ use futures_util::StreamExt;
 use nsh_core::prelude::*;
 
 use crate::{
-    settings::{Choice, Effort},
+    settings::{self, Choice, Effort},
     store::{self, Author, Message},
 };
+
+/// Sends `text` to the conversation and starts the reply its model writes: the
+/// store keeps the conversation, the settings name the model.
+pub(crate) fn ask(session_id: u32, text: &str) {
+    let Some(sent) = store::send(session_id, text) else {
+        return;
+    };
+    let model = settings::selected();
+    let effort = settings::effort();
+    reply(session_id, sent.reply_id, sent.history, &model, effort);
+}
 
 /// DeepSeek's base URL: their docs' `base_url (OpenAI)`.
 pub(crate) const BASE_URL: &str = "https://api.deepseek.com";
@@ -39,13 +50,7 @@ pub(crate) const API_KEY: &str = "DEEPSEEK_API_KEY";
 /// DeepSeek serves OpenAI's Responses API at `POST /responses` and streams it
 /// as semantic server-sent events, so this asks for a response with `stream:
 /// true` rather than a chat completion.
-pub(crate) fn reply(
-    session_id: u32,
-    reply_id: u32,
-    history: Vec<Message>,
-    model: &Choice,
-    effort: Effort,
-) {
+fn reply(session_id: u32, reply_id: u32, history: Vec<Message>, model: &Choice, effort: Effort) {
     let base_url = model.base_url.trim().to_owned();
     let key = model.api_key.trim().to_owned();
     if base_url.is_empty() || key.is_empty() {
