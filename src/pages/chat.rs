@@ -5,11 +5,7 @@ use nsh_core::prelude::*;
 
 use crate::{
     store::{self, Author, Message},
-    ui::{
-        avatar, badge,
-        button::{self, Variant},
-        empty, input, motion, sizes,
-    },
+    ui::{avatar, badge, button, empty, input, motion, sizes},
 };
 
 /// One session's conversation. The caller keys it by the session, so
@@ -182,22 +178,49 @@ fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
         .pt_6()
         .pb_6()
         .gap_2()
-        .border_t_1()
-        .border_t_color(move || theme().border)
-        .child(when(can_send, move || echo_strip(draft)))
+        .child(composer_card(draft, can_send, submit))
+        .child(
+            view()
+                .h_5()
+                .pl_4()
+                .justify_center()
+                .child(when(can_send, move || echo_status(draft))),
+        )
+}
+
+/// The floating composer: a rounded card whose input sits on top and whose
+/// round send button sits in the toolbar row below. The card carries the focus
+/// edge, since the input itself is borderless.
+fn composer_card(
+    draft: Signal<String>,
+    can_send: impl Fn() -> bool + Copy + 'static,
+    submit: impl Fn() + Copy + 'static,
+) -> impl IntoElement {
+    view()
+        .p_4()
+        .gap_2()
+        .rounded_3xl()
+        .border_1()
+        .border_color(move || theme().border)
+        .bg(move || theme().card)
+        .shadow_sm()
+        .focus_within(|s| s.border_color(move || theme().ring))
+        .transition_colors()
+        .duration(motion::control_duration())
+        .ease_out()
         .child(input::composer(draft).label("消息"))
         .child(
             view().flex_row().items_center().justify_end().child(
-                button::action(Variant::Primary, "发送")
+                button::icon("↑", "发送")
                     .disabled(move || !can_send())
                     .on_press(submit),
             ),
         )
 }
 
-/// The live readout under the composer: what the mock model reports about
-/// the draft while it changes, so the round trip is visible before sending.
-fn echo_strip(draft: Signal<String>) -> impl IntoElement {
+/// The live readout under the card: what the mock model reports about the
+/// draft while it changes, so the round trip is visible before sending.
+fn echo_status(draft: Signal<String>) -> impl IntoElement {
     let chars = computed(move || draft.with(|draft| draft.chars().count()));
     let tokens = computed(move || chars.get() / 3 + 1);
     let enter = motion().entering(motion::fade_rise());
@@ -206,40 +229,17 @@ fn echo_strip(draft: Signal<String>) -> impl IntoElement {
         .flex_row()
         .items_center()
         .gap_2()
-        .px_3()
-        .py_2()
-        .rounded(move || theme().radius)
-        .bg(move || theme().muted)
         .bind_motion(&enter)
-        .child(badge::badge("回显"))
         .child(
-            text(move || format!("{} 字 · {} tokens", chars.get(), tokens.get()))
-                .text_xs()
-                .text_color(move || theme().muted_foreground),
+            text(move || {
+                format!(
+                    "回显 {} 字 · {} tokens · {} ms",
+                    chars.get(),
+                    tokens.get(),
+                    40 + chars.get() % 60
+                )
+            })
+            .text_xs()
+            .text_color(move || theme().muted_foreground),
         )
-        .child(
-            text(move || draft.with(|draft| preview(draft)))
-                .flex_1()
-                .min_w(px(0.0))
-                .number_of_lines(1)
-                .text_xs()
-                .text_color(move || theme().foreground),
-        )
-        .child(
-            text(move || format!("{} ms", 40 + chars.get() % 60))
-                .text_xs()
-                .text_color(move || theme().muted_foreground),
-        )
-}
-
-/// The draft on one line, cut after `48` characters.
-fn preview(text: &str) -> String {
-    let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    let mut chars = flat.chars();
-    let head: String = chars.by_ref().take(48).collect();
-    if chars.next().is_some() {
-        format!("{head}…")
-    } else {
-        head
-    }
 }

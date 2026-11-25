@@ -10,8 +10,8 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 ## 颜色与尺度
 
 - 颜色全部来自 `nsh_base::theme()`，只用语义角色：`background`、`foreground`、`card`、`sidebar*`、`muted*`、`accent`、`input`、`ring`、`border`、`primary*`。
-- 圆角只有一个来源：`theme().radius`。胶囊（badge、avatar）用 `rounded_full()`。
-- 尺寸是 app token，集中在 `src/ui/sizes.rs`：侧栏 264、控件 32、列表行 44、头像 28、输入框最小 76、用户消息最大宽 560。
+- 圆角来自 `theme().radius` 与 Tailwind 的 `rounded-*` 阶梯：浮起的 composer 用 `rounded_3xl`，胶囊（badge、avatar）与圆形发送键用 `rounded_full()`。
+- 尺寸是 app token，集中在 `src/ui/sizes.rs`：侧栏 264、控件 32、列表行 36、头像 28、输入框最小 76、圆形发送 36、用户消息最大宽 560。
 - 间距走 Tailwind 的 4pt 刻度（`p_3` = 12pt、`gap_2` = 8pt、`p_6` = 24pt）。
 - 字号只用 `text_xs`（12）与 `text_sm`（14）；消息正文用 `text_view` 的 `text_size(14)`。
 - 编程字体（代码块、行内代码、`font-mono`）默认 `Berkeley Mono, SF Mono, Menlo, monospace`：CoreText 取第一个已安装的族，缺 Berkeley Mono 的机器落到 SF Mono / Menlo，不会退回比例字体。`cargo run` 不读 `nsh.json`，所以由根组件在启动时设置 `font-mono` token。
@@ -20,8 +20,8 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 
 功能代码只用 `src/ui` 与布局原语（`view`、`text`、`virtual_list`、`text_view`）：
 
-- `button`：`Variant::{Primary, Secondary}`，一种按压反馈、一种焦点环、一种禁用态。
-- `input`：受控多行输入，聚焦时边框转为 `ring`。
+- `button`：`Variant::{Primary, Secondary}`，一种按压反馈、一种焦点环、一种禁用态；`icon` 是 36pt 圆形图标按钮。
+- `input`：受控多行输入，无边框；焦点由外层 composer 卡片的 `focus_within` 边框承接。
 - `list_item::session`：侧栏会话行，selected 由调用方提供。
 - `badge`、`avatar`、`separator`、`empty`。
 
@@ -29,7 +29,8 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 
 - 一级结构：`sidebar`（264pt，`sidebar` 底色，右边框）+ 会话面板（`flex_1`）。
 - 内容脊柱：侧栏外边距 12pt、行内再留 12pt，会话标题文字落在 24pt；会话面板的 header、消息流、composer 统一 24pt 内边距；两栏顶部统一 16pt。
-- 会话面板：header（标题 + 消息数 + 模型 badge）、`virtual_list` 消息流（底部对齐、24pt 内容内边距、16pt 行距）、composer（回显条 + 输入框 + 发送行）。
+- 会话面板：header（标题 + 模型 badge）、`virtual_list` 消息流（底部对齐、24pt 内容内边距、16pt 行距）。
+- composer 是浮在面板上的卡片：`rounded_3xl`、1pt `border`、`shadow_sm`、`card` 底色；卡片内上面是输入框，下面是右对齐的圆形发送键；卡片下方固定 20pt 状态行显示 mock 回显。
 - 会话切换用 `dynamic` 按会话 id 重建面板，草稿与滚动位置随之重置；消息与侧栏由 store 的 signal 驱动。
 
 ## 动效清单
@@ -39,10 +40,10 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 | 按钮 hover | 颜色过渡，`transition_all` + `FAST`(180ms) ease-out | 时长归零 |
 | 按钮按下 | 缩放 0.97 + 颜色加深，同为 `FAST` | 不缩放，颜色立即变化 |
 | 会话行 hover / 选中 | 背景 wash，`transition_colors` + `INSTANT`(120ms) | 时长归零 |
-| 输入框获得焦点 | 边框转 `ring`，颜色过渡 `FAST` | 时长归零 |
+| composer 卡片获得焦点 | `focus_within` 边框转 `ring`，颜色过渡 `FAST` | 时长归零 |
 | 切换会话 | 面板淡入，`motion().entering(fade)`，`BASE`(240ms) ease-out | 直接显示终态 |
-| 回显条首次出现 | 淡入并上移 4pt，`motion().entering(fade_rise)`，`BASE` | 直接显示终态 |
-| 回显数值变化 | 无动效：每次按键更新的实时读数，动画只会拖慢反馈 | — |
+| 状态行首次出现 | 淡入并上移 4pt，`motion().entering(fade_rise)`，`BASE` | 直接显示终态 |
+| 状态行数值变化 | 无动效：每次按键更新的实时读数，动画只会拖慢反馈 | — |
 | 发送后的新消息 | 无动效：Mock 回复同步插入，列表保持阅读位置；接入流式模型后补光标呼吸与行进入动画 | — |
 | 窗口缩放 | 无动效：原生布局 | — |
 

@@ -59,3 +59,12 @@ pub(crate) fn action(variant: Variant, label: impl IntoReactive<SharedString>) -
             ),
     }
 }
+
+/// A circular icon button for one well-known action.
+pub(crate) fn icon(glyph: &'static str, accessibility_label: &'static str) -> ButtonElement {
+    action(Variant::Primary, glyph)
+        .accessibility_label(accessibility_label)
+        .size(px(sizes::SEND))
+        .px(px(0.0))
+        .rounded_full()
+}
