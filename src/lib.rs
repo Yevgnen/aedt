@@ -7,8 +7,8 @@ mod pages;
 mod settings;
 mod shell;
 mod store;
-mod ui;
 
+use aedt_ui::{MESSAGE_LINE, sizes, tokens};
 use nsh_base::{TextViewPart, TextViewParts};
 use nsh_core::{
     LineHeight,
@@ -67,10 +67,10 @@ pub fn App() -> impl IntoElement {
     // an outline around its fill: the fill's own color leaves no outline while
     // the 1pt width stays. Its lines are as tight as a message's prose.
     provide_context(TextViewParts::new().part(TextViewPart::CodeBlock, |s| {
-        s.bg(ui::tokens::code)
-            .border_color(ui::tokens::code)
-            .text_size(px(ui::sizes::CODE_FONT))
-            .line_height(LineHeight::Multiple(ui::MESSAGE_LINE))
+        s.bg(tokens::code)
+            .border_color(tokens::code)
+            .text_size(px(sizes::CODE_FONT))
+            .line_height(LineHeight::Multiple(MESSAGE_LINE))
     }));
 
     let mut title_bar = TitleBarOptions::default();

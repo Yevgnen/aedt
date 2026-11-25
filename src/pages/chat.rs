@@ -1,12 +1,12 @@
 //! The conversation: its header, its message timeline and its composer.
 
+use aedt_ui::{MESSAGE_LINE, button, empty, icon, input, menu, motion, sizes, tokens};
 use nsh_base::{MarkdownOptions, SubmenuEvent, TextViewClasses, text_view, theme};
 use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::{
     llm, settings,
     store::{self, Author, Message},
-    ui::{self, button, empty, icon, input, menu, motion, sizes, tokens},
 };
 
 /// A tick's bar height, and the padding that fills its pitch: adjacent ticks'
@@ -328,7 +328,7 @@ fn user_message(message: Memo<Option<Message>>) -> impl IntoElement {
                             })
                         })
                         .text_sm()
-                        .line_height(LineHeight::Multiple(ui::MESSAGE_LINE))
+                        .line_height(LineHeight::Multiple(MESSAGE_LINE))
                         .selectable(true)
                         .text_color(move || theme().primary_foreground),
                     ),
@@ -443,7 +443,7 @@ fn assistant_message(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> 
                 .code_block_scrollbar(false)
                 .gap_2()
                 .text_sm()
-                .line_height(LineHeight::Multiple(ui::MESSAGE_LINE))
+                .line_height(LineHeight::Multiple(MESSAGE_LINE))
                 .text_color(move || theme().foreground),
         )
         .child(
@@ -536,7 +536,7 @@ fn thinking_text(message: Memo<Option<Message>>) -> impl IntoElement {
     })
     .w_full()
     .text_size(px(13.0))
-    .line_height(LineHeight::Multiple(ui::MESSAGE_LINE))
+    .line_height(LineHeight::Multiple(MESSAGE_LINE))
     .text_color(tokens::meta)
 }
 

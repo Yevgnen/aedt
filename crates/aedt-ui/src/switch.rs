@@ -3,12 +3,12 @@
 use nsh_base::{SwitchElement, switch, theme};
 use nsh_core::prelude::*;
 
-use crate::ui::{motion, tokens};
+use crate::{motion, tokens};
 
 /// A setting's on/off switch: the app's track and thumb. `label` is what
 /// screen readers call it (the row beside it says it in words); `checked` is
 /// the value the app owns, and `on_change` hears the one the press asks for.
-pub(crate) fn toggle(
+pub fn toggle(
     label: impl Fn() -> SharedString + Copy + 'static,
     checked: impl Fn() -> bool + Copy + 'static,
     on_change: impl Fn(bool) + Copy + 'static,

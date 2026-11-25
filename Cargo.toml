@@ -3,7 +3,11 @@ name = "aedt"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+members = ["crates/aedt-ui"]
+
 [dependencies]
+aedt-ui = { version = "0.1.0", path = "crates/aedt-ui" }
 async-openai = { version = "0.43.0", default-features = false, features = ["responses", "rustls"] }
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 env_logger = "0.11.12"

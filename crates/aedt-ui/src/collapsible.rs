@@ -3,11 +3,11 @@
 use nsh_base::{CollapsibleElement, collapsible, theme};
 use nsh_core::prelude::*;
 
-use crate::ui::{icon, motion};
+use crate::{icon, motion};
 
 /// A section: `title` and a `mark` beside it always show; pressing the header
 /// opens `content` and pressing it again closes it. It starts closed.
-pub(crate) fn section(
+pub fn section(
     title: impl IntoReactive<SharedString>,
     mark: impl IntoElement,
     content: impl IntoElement,

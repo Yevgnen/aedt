@@ -3,10 +3,10 @@
 use nsh_base::{ButtonElement, button, theme};
 use nsh_core::prelude::*;
 
-use crate::ui::{motion, sizes};
+use crate::{motion, sizes};
 
 /// A navigation row: its title, selected by the caller, which adds `.on_press`.
-pub(crate) fn nav(
+pub fn nav(
     title: impl IntoReactive<SharedString>,
     selected: impl Fn() -> bool + Copy + 'static,
 ) -> ButtonElement {
@@ -15,7 +15,7 @@ pub(crate) fn nav(
 
 /// A navigation row with a mark before its title, as a settings destination
 /// has; the caller adds `.on_press` as it does for [`nav`].
-pub(crate) fn nav_with_mark(
+pub fn nav_with_mark(
     mark: impl IntoElement,
     title: impl IntoReactive<SharedString>,
     selected: impl Fn() -> bool + Copy + 'static,

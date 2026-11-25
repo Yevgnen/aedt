@@ -4,26 +4,26 @@
 use nsh_core::prelude::*;
 
 /// A hover wash or a color change.
-pub(crate) const INSTANT: f32 = 120.0;
+pub const INSTANT: f32 = 120.0;
 
 /// A control's press and focus feedback.
-pub(crate) const FAST: f32 = 180.0;
+pub const FAST: f32 = 180.0;
 
 /// Moving into place: an echo panel entering, a selection following.
-pub(crate) const BASE: f32 = 240.0;
+pub const BASE: f32 = 240.0;
 
 /// How long a control's transition lasts, honoring reduced motion.
-pub(crate) fn control_duration() -> impl Fn() -> f32 + Copy {
+pub fn control_duration() -> impl Fn() -> f32 + Copy {
     || if reduce_motion() { 0.0 } else { FAST }
 }
 
 /// How long a row's hover and selection wash lasts, honoring reduced motion.
-pub(crate) fn row_duration() -> impl Fn() -> f32 + Copy {
+pub fn row_duration() -> impl Fn() -> f32 + Copy {
     || if reduce_motion() { 0.0 } else { INSTANT }
 }
 
 /// A conversation opening: fade in only, `BASE` with ease-out.
-pub(crate) fn fade() -> MotionSpec {
+pub fn fade() -> MotionSpec {
     MotionSpec::new(KeyframeTiming::new(BASE).easing(Easing::EaseOut))
         .values(MotionChannel::Opacity, [0.0, 1.0])
 }

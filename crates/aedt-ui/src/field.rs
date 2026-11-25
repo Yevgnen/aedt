@@ -3,10 +3,10 @@
 use nsh_base::{input, theme};
 use nsh_core::prelude::*;
 
-use crate::ui::{motion, sizes};
+use crate::{motion, sizes};
 
 /// What a field does with what is typed.
-pub(crate) enum Mask {
+pub enum Mask {
     /// The text shows.
     Plain,
     /// The text is hidden, as a key's is.
@@ -17,7 +17,7 @@ pub(crate) enum Mask {
 /// `value` is what it holds, `on_change` hears the new text, and `on_submit`
 /// hears return. The edge takes the focus color while the field has the
 /// keyboard, so the field says where the keys are.
-pub(crate) fn field(
+pub fn field(
     label: &'static str,
     value: impl Fn() -> String + Copy + 'static,
     on_change: impl Fn(&str) + Copy + 'static,

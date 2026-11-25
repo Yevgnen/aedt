@@ -26,13 +26,13 @@ const BULB: &str = concat!(
 
 /// The copy mark, `size` points square. It is stroked in `currentColor`, so the
 /// color is the caller's `text_color`.
-pub(crate) fn copy(size: f32) -> impl IntoElement {
+pub fn copy(size: f32) -> impl IntoElement {
     icon(COPY, size)
 }
 
 /// The bulb beside a thought the reader can open, `size` points square, in the
 /// caller's text color.
-pub(crate) fn bulb(size: f32) -> impl IntoElement {
+pub fn bulb(size: f32) -> impl IntoElement {
     icon(BULB, size)
 }
 
@@ -119,44 +119,44 @@ const PLUS: &str = concat!(
 );
 
 /// The menu mark, `size` points square, in the caller's text color.
-pub(crate) fn more(size: f32) -> impl IntoElement {
+pub fn more(size: f32) -> impl IntoElement {
     icon(MORE, size)
 }
 
 /// The settings mark, `size` points square, in the caller's text color.
-pub(crate) fn settings(size: f32) -> impl IntoElement {
+pub fn settings(size: f32) -> impl IntoElement {
     icon(SETTINGS, size)
 }
 
 /// The refresh mark, `size` points square, in the caller's text color.
-pub(crate) fn refresh(size: f32) -> impl IntoElement {
+pub fn refresh(size: f32) -> impl IntoElement {
     icon(REFRESH, size)
 }
 
 /// The models mark, `size` points square, in the caller's text color.
-pub(crate) fn database(size: f32) -> impl IntoElement {
+pub fn database(size: f32) -> impl IntoElement {
     icon(DATABASE, size)
 }
 
 /// The check mark, `size` points square, in the caller's text color.
-pub(crate) fn check(size: f32) -> impl IntoElement {
+pub fn check(size: f32) -> impl IntoElement {
     icon(CHECK, size)
 }
 
 /// The chevron pointing down, `size` points square, in the caller's text
 /// color.
-pub(crate) fn chevron_down(size: f32) -> impl IntoElement {
+pub fn chevron_down(size: f32) -> impl IntoElement {
     icon(CHEVRON_DOWN, size)
 }
 
 /// The chevron pointing right, `size` points square, in the caller's text
 /// color.
-pub(crate) fn chevron_right(size: f32) -> impl IntoElement {
+pub fn chevron_right(size: f32) -> impl IntoElement {
     icon(CHEVRON_RIGHT, size)
 }
 
 /// The plus, `size` points square, in the caller's text color.
-pub(crate) fn plus(size: f32) -> impl IntoElement {
+pub fn plus(size: f32) -> impl IntoElement {
     icon(PLUS, size)
 }
 

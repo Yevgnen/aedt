@@ -4,10 +4,10 @@
 use nsh_base::{ButtonElement, button, theme};
 use nsh_core::{element::StyleRefinement, prelude::*};
 
-use crate::ui::{icon, motion, sizes};
+use crate::{icon, motion, sizes};
 
 /// An ordinary labeled action. The caller adds `.on_press` and its layout.
-pub(crate) fn secondary(label: impl IntoReactive<SharedString>) -> ButtonElement {
+pub fn secondary(label: impl IntoReactive<SharedString>) -> ButtonElement {
     let reduce = reduce_motion();
     let press = move |s: StyleRefinement| {
         let s = s.bg(move || theme().muted);
@@ -38,7 +38,7 @@ pub(crate) fn secondary(label: impl IntoReactive<SharedString>) -> ButtonElement
 
 /// A circular icon button for one well-known action, enabled while `enabled`
 /// holds.
-pub(crate) fn icon(
+pub fn icon(
     glyph: &'static str,
     accessibility_label: &'static str,
     enabled: impl Fn() -> bool + Copy + 'static,
@@ -86,10 +86,7 @@ pub(crate) fn icon(
 
 /// A quiet action: a mark and its label on one line, no fill at rest, a wash on
 /// hover. The caller adds `.on_press`, its ink and its place in the layout.
-pub(crate) fn quiet(
-    mark: impl IntoElement,
-    label: impl IntoReactive<SharedString>,
-) -> ButtonElement {
+pub fn quiet(mark: impl IntoElement, label: impl IntoReactive<SharedString>) -> ButtonElement {
     button()
         .flex_row()
         .items_center()
@@ -108,7 +105,7 @@ pub(crate) fn quiet(
 
 /// A control whose children draw all of its appearance, for a row whose hover
 /// is its child's own: the shared focus ring and nothing else.
-pub(crate) fn bare() -> ButtonElement {
+pub fn bare() -> ButtonElement {
     button()
         .rounded(move || theme().radius)
         .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
@@ -116,7 +113,7 @@ pub(crate) fn bare() -> ButtonElement {
 
 /// A button that adds to the list it stands before: a dashed edge around a
 /// centered label, in the app's quiet ink.
-pub(crate) fn add(label: impl IntoReactive<SharedString>) -> ButtonElement {
+pub fn add(label: impl IntoReactive<SharedString>) -> ButtonElement {
     button()
         .w_full()
         .flex_row()
@@ -142,7 +139,7 @@ pub(crate) fn add(label: impl IntoReactive<SharedString>) -> ButtonElement {
 
 /// A command that is only its label: no edge, no fill, a wash on hover — the
 /// text form of [`ghost_icon`].
-pub(crate) fn ghost(label: impl IntoReactive<SharedString>) -> ButtonElement {
+pub fn ghost(label: impl IntoReactive<SharedString>) -> ButtonElement {
     button()
         .min_h(px(sizes::CONTROL))
         .px_3()
@@ -162,10 +159,7 @@ pub(crate) fn ghost(label: impl IntoReactive<SharedString>) -> ButtonElement {
 
 /// A quiet icon button for a row's trailing action: no fill at rest, a wash on
 /// hover, and the same press and focus feedback as the other buttons.
-pub(crate) fn ghost_icon(
-    icon: impl IntoElement,
-    accessibility_label: &'static str,
-) -> ButtonElement {
+pub fn ghost_icon(icon: impl IntoElement, accessibility_label: &'static str) -> ButtonElement {
     let reduce = reduce_motion();
     let press = move |s: StyleRefinement| {
         let s = s.bg(move || theme().muted);

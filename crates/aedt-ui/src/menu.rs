@@ -8,12 +8,12 @@ use nsh_base::{
 };
 use nsh_core::prelude::*;
 
-use crate::ui::{icon, motion, sizes, tokens};
+use crate::{icon, motion, sizes, tokens};
 
 /// A menu that `trigger` opens, its `items` in the app's floating card, on the
 /// side of the trigger `placement` names and lined up with the edge `align`
 /// names (the other side, when only that one has room).
-pub(crate) fn menu(
+pub fn menu(
     trigger: impl IntoElement,
     placement: Placement,
     align: Align,
@@ -38,10 +38,7 @@ pub(crate) fn menu(
 /// A row that opens a menu: a mark and its label, in the app's quiet chrome.
 /// The menu opens it on a press and with the keyboard; it takes no press of
 /// its own.
-pub(crate) fn trigger(
-    mark: impl IntoElement,
-    label: impl IntoReactive<SharedString>,
-) -> ButtonElement {
+pub fn trigger(mark: impl IntoElement, label: impl IntoReactive<SharedString>) -> ButtonElement {
     button()
         .w_full()
         .flex_row()
@@ -66,7 +63,7 @@ pub(crate) fn trigger(
 /// A row at a control's edge that names its value and opens its picker: a
 /// small quiet label, the note, and the chevron that opens the picker.
 /// The menu opens it as it does [`trigger`].
-pub(crate) fn label_trigger(
+pub fn label_trigger(
     value: impl IntoReactive<SharedString>,
     note: impl IntoReactive<SharedString>,
 ) -> ButtonElement {
@@ -92,16 +89,13 @@ pub(crate) fn label_trigger(
 
 /// An item of one of those menus: a mark and its label, in the app's row look.
 /// Choosing it closes the menu.
-pub(crate) fn item(
-    mark: impl IntoElement,
-    label: impl IntoReactive<SharedString>,
-) -> MenuItemElement {
+pub fn item(mark: impl IntoElement, label: impl IntoReactive<SharedString>) -> MenuItemElement {
     row(base_item()).child(mark).child(text(label).text_sm())
 }
 
 /// A picker's row: its label, and a check at its end while `chosen` holds. The
 /// caller adds `.on_select`, which closes the menu as an item's does.
-pub(crate) fn choice(
+pub fn choice(
     label: impl IntoReactive<SharedString>,
     chosen: impl Fn() -> bool + Copy + 'static,
 ) -> MenuItemElement {
@@ -120,7 +114,7 @@ pub(crate) fn choice(
 
 /// A value that opens a menu of values, shaped like a form field: the value,
 /// then a chevron, in the field's edge.
-pub(crate) fn select_trigger(value: impl IntoReactive<SharedString>) -> ButtonElement {
+pub fn select_trigger(value: impl IntoReactive<SharedString>) -> ButtonElement {
     button()
         .w_full()
         .flex_row()
@@ -150,7 +144,7 @@ pub(crate) fn select_trigger(value: impl IntoReactive<SharedString>) -> ButtonEl
 
 /// A row of a menu that opens its `items` beside it: its label, the value it
 /// holds, and a chevron. Its items open in the menu's own card.
-pub(crate) fn submenu(
+pub fn submenu(
     label: impl IntoReactive<SharedString>,
     value: impl IntoReactive<SharedString>,
     items: impl IntoElement,
@@ -186,7 +180,7 @@ pub(crate) fn submenu(
 
 /// The field over a picker's rows: one quiet line that narrows the list as it
 /// is typed, with no frame of its own.
-pub(crate) fn search(query: Signal<String>, placeholder: &'static str) -> Input {
+pub fn search(query: Signal<String>, placeholder: &'static str) -> Input {
     input()
         .value(move || query.get())
         .on_change(move |text: &str| query.set(text.to_owned()))

@@ -1,13 +1,11 @@
 //! The settings dialog: its categories on the left, the chosen one's content
 //! on the right. Every provider is configured here, with the models it lists.
 
+use aedt_ui::{badge, button, collapsible, field, icon, list_item, menu, sizes, switch, tokens};
 use nsh_base::{dialog as base_dialog, theme};
 use nsh_core::prelude::*;
 
-use crate::{
-    settings::{self, ProviderKind, Section},
-    ui::{badge, button, collapsible, field, icon, list_item, menu, sizes, switch, tokens},
-};
+use crate::settings::{self, ProviderKind, Section};
 
 /// The settings, presented while they are open and dismissed when they close,
 /// by Escape, a press on the dim behind them, or the app.
