@@ -6,7 +6,7 @@ use nsh_core::prelude::*;
 
 use crate::{
     settings::{self, ProviderKind, Section},
-    ui::{badge, button, field, icon, list_item, sizes, switch, tokens},
+    ui::{badge, button, collapsible, field, icon, list_item, sizes, switch, tokens},
 };
 
 /// The settings, presented while they are open and dismissed when they close,
@@ -75,40 +75,56 @@ fn categories() -> impl IntoElement {
         )
 }
 
-/// The chosen category's content.
+/// The chosen category's content: its heading, then the providers, in a page
+/// that scrolls as their sections open.
 fn content() -> impl IntoElement {
     view()
         .flex_1()
         .min_w(px(0.0))
         .min_h(px(0.0))
-        .p_6()
-        .child(view().flex_1().min_h(px(0.0)).child(each(
-            settings::provider_ids,
-            |id| *id,
-            |id, _| provider_card(id.get()),
-        )))
+        .child(scroll().flex_1().min_h(px(0.0)).child(
+            view().w_full().p_6().gap_5().child(heading()).child(each(
+                settings::provider_ids,
+                |id| *id,
+                |id, _| provider_card(id.get()),
+            )),
+        ))
 }
 
-/// One provider: what it is, how to reach it, and the models it lists.
-fn provider_card(id: u32) -> impl IntoElement {
+/// The pane's heading: what it is, and what it asks the reader for.
+fn heading() -> impl IntoElement {
     view()
         .w_full()
-        .flex_1()
-        .min_h(px(0.0))
-        .gap_4()
+        .gap_1()
         .child(
-            view()
-                .flex_row()
-                .items_center()
-                .gap_2()
-                .child(
-                    text(move || settings::name(id))
-                        .text_sm()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(move || theme().foreground),
-                )
-                .child(badge::badge(move || kind_label(settings::kind(id)))),
+            text("Models")
+                .text_lg()
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(move || theme().foreground),
         )
+        .child(
+            text("Enter your API keys to use models from the following providers.")
+                .text_sm()
+                .text_color(move || theme().muted_foreground),
+        )
+}
+
+/// One provider, folded to its name until it is asked for: what it is, how to
+/// reach it, and the models it lists.
+fn provider_card(id: u32) -> impl IntoElement {
+    collapsible::section(
+        move || settings::name(id),
+        badge::badge(move || kind_label(settings::kind(id))),
+        provider_body(id),
+    )
+    .w_full()
+}
+
+/// What a provider's section holds once it opens.
+fn provider_body(id: u32) -> impl IntoElement {
+    view()
+        .w_full()
+        .gap_4()
         .child(
             view()
                 .w_full()
@@ -143,8 +159,7 @@ fn kind_label(kind: Option<ProviderKind>) -> SharedString {
 /// then a row per model with its switch.
 fn models(id: u32) -> impl IntoElement {
     view()
-        .flex_1()
-        .min_h(px(0.0))
+        .w_full()
         .gap_2()
         .child(
             view()
@@ -182,7 +197,11 @@ fn models(id: u32) -> impl IntoElement {
             move || settings::listed_none(id),
             || note("No models"),
         ))
-        .child(model_rows(id))
+        .child(view().w_full().gap_1().child(each(
+            move || settings::models(id),
+            |model| model.id.clone(),
+            move |model, _| model_row(id, model),
+        )))
 }
 
 /// A quiet line about the models: loading, or none to show.
@@ -190,41 +209,10 @@ fn note(line: &'static str) -> impl IntoElement {
     text(line).text_sm().text_color(tokens::meta)
 }
 
-/// One row per model, in the list the models scroll in.
-fn model_rows(id: u32) -> impl IntoElement {
-    virtual_list(
-        move || settings::model_count(id),
-        move |at| model_row(id, at),
-    )
-    .keys(move || settings::model_ids(id))
-    .estimated_item_size(px(sizes::LIST_ROW))
-    .row_gap(px(2.0))
-    .scrollbar(false)
-    .flex_1()
-    .min_h(px(0.0))
-}
-
-/// A cell, made once and given other models as it is reused: the model's id
-/// and the switch that offers it.
-fn model_row(provider: u32, at: Position) -> impl IntoElement {
-    let model = computed(move || settings::model_at(provider, at.index()));
-    let id = move || {
-        model.with(|model| {
-            model
-                .as_ref()
-                .map(|model| model.id.clone())
-                .unwrap_or_default()
-        })
-    };
-    let label = move || {
-        model.with(|model| {
-            model
-                .as_ref()
-                .map(|model| model.label.clone())
-                .unwrap_or_default()
-        })
-    };
-    let enabled = move || model.with(|model| model.as_ref().is_some_and(|model| model.enabled));
+/// A row of that list: the model's name, and the switch that offers it.
+fn model_row(provider: u32, model: ReadSignal<settings::Model>) -> impl IntoElement {
+    let label = move || model.with(|model| model.label.clone());
+    let enabled = move || model.with(|model| model.enabled);
 
     view()
         .w_full()
@@ -243,6 +231,7 @@ fn model_row(provider: u32, at: Position) -> impl IntoElement {
                 .text_color(move || theme().foreground),
         )
         .child(switch::toggle(label, enabled, move |on| {
-            settings::set_model_enabled(provider, id().as_str(), on);
+            let id = model.with(|model| model.id.clone());
+            settings::set_model_enabled(provider, id.as_str(), on);
         }))
 }

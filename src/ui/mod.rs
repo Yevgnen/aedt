@@ -4,6 +4,7 @@
 pub(crate) mod avatar;
 pub(crate) mod badge;
 pub(crate) mod button;
+pub(crate) mod collapsible;
 pub(crate) mod empty;
 pub(crate) mod field;
 pub(crate) mod icon;

@@ -302,22 +302,9 @@ pub(crate) fn listed_none(id: u32) -> bool {
     .unwrap_or(false)
 }
 
-/// How many models `id` shows (tracked where it is read).
-pub(crate) fn model_count(id: u32) -> usize {
-    with_provider(id, |p| p.models.shown().len()).unwrap_or(0)
-}
-
-/// The models' ids, in order (tracked where it is read).
-pub(crate) fn model_ids(id: u32) -> Vec<SharedString> {
-    with_provider(id, |p| {
-        p.models.shown().iter().map(|m| m.id.clone()).collect()
-    })
-    .unwrap_or_default()
-}
-
-/// The model at `index`, or none past the end (tracked where it is read).
-pub(crate) fn model_at(id: u32, index: usize) -> Option<Model> {
-    with_provider(id, |p| p.models.shown().get(index).cloned()).flatten()
+/// The models `id` shows, in order (tracked where it is read).
+pub(crate) fn models(id: u32) -> Vec<Model> {
+    with_provider(id, |p| p.models.shown().to_vec()).unwrap_or_default()
 }
 
 /// Offers the model called `model`, or stops offering it.
