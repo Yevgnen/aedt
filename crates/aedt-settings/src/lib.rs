@@ -6,7 +6,7 @@ use std::env;
 
 use aedt_provider::models::{ListedModel, list_models};
 use aedt_provider::responses::Effort;
-use aedt_provider::{DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL};
+use aedt_provider::{DEEPSEEK_BASE_URL, DEEPSEEK_MODEL};
 use nsh_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -66,6 +66,9 @@ struct Provider {
     base_url: String,
     /// The key its requests carry.
     api_key: String,
+    /// The environment variable `api_key` came from, while it came from one:
+    /// what the form tells the reader, and what a reset goes back to.
+    env_key: Option<SharedString>,
     /// The models the reader switched off, by id: their choice outlives the list
     /// a provider answers with.
     disabled: Vec<SharedString>,
@@ -142,21 +145,25 @@ impl Settings {
         })
     }
 
-    /// The settings a new install starts from: DeepSeek, whose key the app reads
-    /// from its environment, so its models arrive unasked.
+    /// The settings a new install starts from: DeepSeek, whose key its name's
+    /// environment variable may hold, so its models arrive unasked.
     fn seeded() -> Self {
+        let mut provider = Provider {
+            id: 1,
+            name: "DeepSeek".into(),
+            kind: ProviderKind::OpenAiCompatible,
+            base_url: DEEPSEEK_BASE_URL.to_owned(),
+            api_key: String::new(),
+            env_key: None,
+            disabled: Vec::new(),
+            models: Models::Idle,
+            ask: 0,
+            saved: true,
+        };
+        adopt_environment_key(&mut provider);
+
         Self {
-            providers: vec![Provider {
-                id: 1,
-                name: "DeepSeek".into(),
-                kind: ProviderKind::OpenAiCompatible,
-                base_url: DEEPSEEK_BASE_URL.to_owned(),
-                api_key: env::var(DEEPSEEK_API_KEY).unwrap_or_default(),
-                disabled: Vec::new(),
-                models: Models::Idle,
-                ask: 0,
-                saved: true,
-            }],
+            providers: vec![provider],
             next_provider_id: 2,
             selected: DEEPSEEK_MODEL.into(),
             effort: Effort::High,
@@ -187,35 +194,63 @@ impl Settings {
 
 impl Provider {
     /// The provider `kept` names: reachable again with the key it kept, or the
-    /// environment's while it is DeepSeek's.
+    /// environment's while it keeps none.
     fn restored(kept: stored::Provider, keys: &secrets::Keys) -> Self {
-        let kept_key = keys.get(&kept.id.to_string()).cloned().unwrap_or_default();
-        let api_key = if is_deepseek(&kept.base_url) {
-            env::var(DEEPSEEK_API_KEY)
-                .ok()
-                .filter(|key| !key.trim().is_empty())
-                .unwrap_or(kept_key)
-        } else {
-            kept_key
-        };
-
-        Self {
+        let mut provider = Self {
             id: kept.id,
             name: kept.name.into(),
             kind: kept.kind,
             base_url: kept.base_url,
-            api_key,
+            api_key: keys.get(&kept.id.to_string()).cloned().unwrap_or_default(),
+            env_key: None,
             disabled: kept.disabled.into_iter().map(SharedString::from).collect(),
             models: Models::Idle,
             ask: 0,
             saved: true,
+        };
+        if provider.api_key.is_empty() {
+            adopt_environment_key(&mut provider);
         }
+
+        provider
     }
 }
 
-/// Whether `base_url` is DeepSeek's, whose key the environment may name.
-fn is_deepseek(base_url: &str) -> bool {
-    base_url.trim_end_matches('/') == DEEPSEEK_BASE_URL
+/// Gives `provider` the key its own environment variable holds, and forgets
+/// any it held: the variable is named after it, all capitals with everything
+/// else one underscore (`DeepSeek` reads `DEEPSEEK_API_KEY`).
+fn adopt_environment_key(provider: &mut Provider) {
+    provider.api_key.clear();
+    provider.env_key = None;
+
+    let mut variable = String::new();
+    for character in provider.name.chars() {
+        if character.is_ascii_alphanumeric() {
+            variable.push(character.to_ascii_uppercase());
+        } else if !variable.is_empty() && !variable.ends_with('_') {
+            variable.push('_');
+        }
+    }
+    let variable = variable.trim_end_matches('_');
+    if variable.is_empty() {
+        return;
+    }
+    let variable = format!("{variable}_API_KEY");
+
+    let Ok(key) = env::var(&variable) else {
+        return;
+    };
+    if key.trim().is_empty() {
+        return;
+    }
+    provider.api_key = key;
+    provider.env_key = Some(variable.into());
+}
+
+/// The environment variable `id`'s key came from, while it did (tracked where
+/// it is read).
+pub fn env_key(id: u32) -> Option<SharedString> {
+    with_provider(id, |provider| provider.env_key.clone()).flatten()
 }
 
 fn settings() -> Signal<Settings> {
@@ -372,6 +407,7 @@ pub fn add_provider(kind: ProviderKind) {
             kind,
             base_url: String::new(),
             api_key: String::new(),
+            env_key: None,
             disabled: Vec::new(),
             models: Models::Idle,
             ask: 0,
@@ -442,7 +478,8 @@ pub fn api_key(id: u32) -> String {
     with_provider(id, |p| p.api_key.clone()).unwrap_or_default()
 }
 
-/// Names the provider `id`, while it is being added.
+/// Names the provider `id`, while it is being added: its key follows the name
+/// while that key is the environment's, or while it has none.
 pub fn set_name(id: u32, name: &str) {
     let name: SharedString = name.to_owned().into();
     settings().update(|settings| {
@@ -450,7 +487,26 @@ pub fn set_name(id: u32, name: &str) {
             return;
         };
         provider.name = name;
+        if provider.env_key.is_some() || provider.api_key.is_empty() {
+            adopt_environment_key(provider);
+        }
     });
+}
+
+/// Takes `id`'s key back to the one its name's environment variable holds, or
+/// to none when that holds none, whatever the reader typed before.
+pub fn reset_api_key(id: u32) {
+    let mut forgot = false;
+    settings().update(|settings| {
+        let Some(provider) = provider_mut(settings, id) else {
+            return;
+        };
+        adopt_environment_key(provider);
+        forgot = settings.keys.remove(&id.to_string()).is_some();
+    });
+    if forgot {
+        save_keys();
+    }
 }
 
 /// Sets the URL `id` is reached at.
@@ -463,12 +519,13 @@ pub fn set_base_url(id: u32, url: &str) {
     save();
 }
 
-/// Sets the key `id`'s requests carry.
+/// Sets the key `id`'s requests carry: the reader's own from now on.
 pub fn set_api_key(id: u32, key: &str) {
     let mut saved = false;
     settings().update(|settings| {
         if let Some(provider) = provider_mut(settings, id) {
             provider.api_key = key.to_owned();
+            provider.env_key = None;
             saved = provider.saved;
             if saved {
                 if key.trim().is_empty() {

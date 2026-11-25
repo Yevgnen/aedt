@@ -1,7 +1,8 @@
 //! The keys that reach the providers, kept apart from the settings: one JSON
 //! object of provider id to key in the app's data directory, readable and
 //! writable by this user only. DeepSeek's own harness keeps its keys the same
-//! way; a key in the environment still wins for DeepSeek.
+//! way. A provider that keeps no key of its own takes the one its name's
+//! environment variable holds.
 
 use std::{
     collections::BTreeMap,
