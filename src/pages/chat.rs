@@ -1,6 +1,6 @@
 //! The conversation: its header, its message timeline and its composer.
 
-use nsh_base::{MarkdownOptions, TextViewClasses, text_view, theme};
+use nsh_base::{MarkdownOptions, TextViewClasses, button, text_view, theme};
 use nsh_core::{Color, LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::{
@@ -12,6 +12,9 @@ use crate::{
 /// switching conversations resets the draft and the scroll position.
 pub(crate) fn pane(session_id: u32) -> View {
     let draft = signal(String::new());
+    // The messages whose thinking the reader opened; closed again, a thought is
+    // one quiet row.
+    let open = signal(Vec::<u32>::new());
     let enter = motion().entering(motion::fade());
 
     view()
@@ -28,7 +31,7 @@ pub(crate) fn pane(session_id: u32) -> View {
                 .max_w(px(sizes::COMPOSER_MAX))
                 .self_center()
                 .px(px(sizes::COMPOSER_SIDE))
-                .child(timeline(session_id))
+                .child(timeline(session_id, open))
                 .child(composer(session_id, draft)),
         )
 }
@@ -60,10 +63,10 @@ fn header(session_id: u32) -> impl IntoElement {
         .child(badge::badge(crate::llm::MODEL))
 }
 
-fn timeline(session_id: u32) -> impl IntoElement {
+fn timeline(session_id: u32, open: Signal<Vec<u32>>) -> impl IntoElement {
     virtual_list(
         move || store::message_count(session_id),
-        move |at| message_row(session_id, at),
+        move |at| message_row(session_id, open, at),
     )
     .keys(move || store::message_ids(session_id))
     .alignment(ListAlignment::Bottom)
@@ -77,14 +80,14 @@ fn timeline(session_id: u32) -> impl IntoElement {
 }
 
 /// A cell, made once and given other messages as it is reused.
-fn message_row(session_id: u32, at: Position) -> impl IntoElement {
+fn message_row(session_id: u32, open: Signal<Vec<u32>>, at: Position) -> impl IntoElement {
     let message = computed(move || store::message_at(session_id, at.index()));
     let from_user =
         move || message.with(|message| message.as_ref().is_some_and(|m| m.author == Author::User));
 
     view().w_full().child(
         when(from_user, move || user_message(message))
-            .otherwise(move || assistant_message(message)),
+            .otherwise(move || assistant_message(message, open)),
     )
 }
 
@@ -142,7 +145,9 @@ fn copy_message(message: Memo<Option<Message>>) -> impl IntoElement {
         }
     };
 
-    button::ghost_icon(icon::copy(14.0), "复制消息").on_press(copy)
+    button::ghost_icon(icon::copy(14.0), "复制消息")
+        .text_color(move || theme().muted_foreground)
+        .on_press(copy)
 }
 
 /// The muted line under a message: when it was sent, and for a reply the model
@@ -176,13 +181,13 @@ fn message_meta(message: Memo<Option<Message>>) -> impl IntoElement {
     )
 }
 
-fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
+fn assistant_message(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> impl IntoElement {
     view()
         .w_full()
         .gap_1()
         .child(when(
             move || has_reasoning(message),
-            move || reasoning(message),
+            move || thinking(message, open),
         ))
         .child(
             text_view()
@@ -240,9 +245,67 @@ fn has_reasoning(message: Memo<Option<Message>>) -> bool {
     })
 }
 
-/// The chain of thought above the answer: smaller and quieter than the reply,
-/// so the answer stays the thing being read.
-fn reasoning(message: Memo<Option<Message>>) -> impl IntoElement {
+/// The chain of thought above the answer: its text while it arrives and while
+/// the reader keeps it open, else one quiet row that opens it again.
+fn thinking(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> impl IntoElement {
+    let id = move || message.with(|message| message.as_ref().map(|message| message.id));
+    let shown = move || {
+        let opened = id().is_some_and(|id| open.with(|open| open.contains(&id)));
+        // Until the answer starts, the thought is what is being written.
+        let writing = message.with(|message| {
+            message
+                .as_ref()
+                .is_some_and(|message| message.streaming && message.body.is_empty())
+        });
+
+        opened || writing
+    };
+
+    view()
+        .w_full()
+        .gap_1()
+        .child(thinking_bar(id, open))
+        .child(when(shown, move || thinking_text(message)))
+}
+
+/// The row a thought folds into: a bulb and one word, pressed to open it.
+fn thinking_bar(
+    id: impl Fn() -> Option<u32> + Copy + 'static,
+    open: Signal<Vec<u32>>,
+) -> impl IntoElement {
+    let toggle = move || {
+        let Some(id) = id() else {
+            return;
+        };
+        open.update(|open| match open.iter().position(|shown| *shown == id) {
+            Some(at) => {
+                open.remove(at);
+            }
+            None => open.push(id),
+        });
+    };
+
+    button()
+        .accessibility_label("展开或收起思考")
+        .flex_row()
+        .items_center()
+        .gap_2()
+        .px_1()
+        .py(px(2.0))
+        .rounded(move || theme().radius)
+        .text_color(thinking_ink)
+        .hover(|s| s.bg(move || theme().muted))
+        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .transition_colors()
+        .duration(motion::control_duration())
+        .ease_out()
+        .on_press(toggle)
+        .child(icon::bulb(14.0))
+        .child(text("思考").text_xs())
+}
+
+/// The thought itself, quieter than the answer it led to.
+fn thinking_text(message: Memo<Option<Message>>) -> impl IntoElement {
     text(move || {
         message.with(|message| {
             message
@@ -254,7 +317,15 @@ fn reasoning(message: Memo<Option<Message>>) -> impl IntoElement {
     .w_full()
     .text_size(px(13.0))
     .line_height(LineHeight::Multiple(ui::MESSAGE_LINE))
-    .text_color(move || theme().muted_foreground)
+    .text_color(thinking_ink)
+}
+
+/// A thought's ink: the theme's `meta` (the quietest text the app has), or the
+/// muted one when the theme leaves it out.
+fn thinking_ink() -> AdaptiveColor {
+    theme()
+        .color("meta")
+        .unwrap_or_else(|| theme().muted_foreground)
 }
 
 fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {

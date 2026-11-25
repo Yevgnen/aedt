@@ -46,6 +46,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 | 按钮 hover | 颜色过渡，`transition_all` + `FAST`(180ms) ease-out | 时长归零 |
 | 按钮按下 | 标签按钮缩放 0.97、圆形图标按钮 0.95，同为 `FAST` | 不缩放，颜色立即变化 |
 | 会话行 hover / 选中 | 背景 wash，`transition_colors` + `INSTANT`(120ms) | 时长归零 |
+| 思考折起 / 展开 | 无动效：分支直接切换，不给高度做动画 | — |
 | composer 卡片获得焦点 | 无动效：边框不随焦点变色，输入光标本身就是提示 | — |
 | 切换会话 | 面板淡入，`motion().entering(fade)`，`BASE`(240ms) ease-out | 直接显示终态 |
 | 发送后的新消息 | 匀速吐字：网络增量先进 `Reveal` 缓冲，每 33ms 出一段（`llm::REVEAL_TICK`）；无逐字淡入（`text_view` 不支持字符级样式），也没有流式光标 | 缓冲一次出完 |
@@ -57,7 +58,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 
 - 只接 DeepSeek 官方：`https://api.deepseek.com`，模型 `deepseek-flash`，key 读环境变量 `DEEPSEEK_API_KEY`（未设置时在回答位置直接显示错误）。没有配置界面，没有模型选择。
 - 用 `async-openai` 的 Responses API：DeepSeek 在 `POST /responses` 提供 Responses 格式（https://api-docs.deepseek.com/api/create-response/），请求带 `stream: true` 与 `reasoning.effort: "high"`（DeepSeek 的思考默认开，这里显式要 high），读 `response.output_text.delta` 与 `response.reasoning_text.delta` 两类事件。
-- 思维链显示在回复上方：13pt `muted_foreground`、同样的 1.25 行距，比正文小一号也浅一档；不折叠、不加标签。
+- 思维链显示在回复上方：思考进行中（正文还没开始）直接铺开 13pt 文字；正文一开始就折成一行“灯泡图标 + 思考”，点一下展开、再点收起。文字用 `meta` token（13pt、`Multiple(1.25)` 行距），是这个应用里最浅的一档文字；展开状态按消息 id 存在页面的 `open: Signal<Vec<u32>>` 里，切会话时重置。
 - 请求跑在 `spawn` 的异步任务里、挂在 detached owner 下（NSH 的任务在 tokio runtime 上下文里轮询，见 `nsh-core-0.7.0/src/element/task.rs:748`），所以切会话不会中断回答。
 - 网络任务只把增量写进 `Reveal::pending`（不碰 store）；另一个任务每 33ms 按积压量取 2–40 个字符写进 store，所以渲染与存储都是 ~30Hz，不随 token 频率增长，流结束即退出、不留空转定时器。
 - 上下文是整段会话：用户与助手的历史消息按顺序发出。
