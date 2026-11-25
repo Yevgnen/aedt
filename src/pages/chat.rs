@@ -1,7 +1,7 @@
 //! The conversation: its header, its message timeline and its composer.
 
 use nsh_base::{TextViewClasses, text_view, theme};
-use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
+use nsh_core::{Color, LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::{
     store::{self, Author, Message},
@@ -182,6 +182,20 @@ fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
         .child(message_meta(message))
 }
 
+/// The composer's shadow: two wide, faint layers, so the card seems to float
+/// on haze instead of sitting inside a dark edge.
+fn composer_shadow() -> Vec<BoxShadow> {
+    let layer = |offset_y: f32, blur: f32, alpha: u8| BoxShadow {
+        offset_x: Points(0.0),
+        offset_y: Points(offset_y),
+        blur: Points(blur),
+        spread: Points(0.0),
+        color: Color::rgba(0, 0, 0, alpha),
+        inset: false,
+    };
+    vec![layer(1.0, 2.0, 10), layer(6.0, 20.0, 13)]
+}
+
 fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
     let can_send = move || draft.with(|draft| !draft.trim().is_empty());
     let submit = move || {
@@ -217,7 +231,7 @@ fn composer_card(
         .border_1()
         .border_color(move || theme().border.opacity(0.6))
         .bg(move || theme().card)
-        .shadow_md()
+        .shadow(composer_shadow())
         .child(input::composer(draft).label("消息"))
         .child(
             view()
