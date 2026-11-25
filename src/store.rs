@@ -277,6 +277,19 @@ fn workspace() -> Signal<Workspace> {
     global::<Workspace>()
 }
 
+/// Session `id` of `workspace`.
+fn session(workspace: &Workspace, id: u32) -> Option<&Session> {
+    workspace.sessions.iter().find(|session| session.id == id)
+}
+
+/// Session `id` of `workspace`, to change.
+fn session_mut(workspace: &mut Workspace, id: u32) -> Option<&mut Session> {
+    workspace
+        .sessions
+        .iter_mut()
+        .find(|session| session.id == id)
+}
+
 /// How many sessions there are (tracked where it is read).
 pub(crate) fn session_count() -> usize {
     workspace().with(|workspace| workspace.sessions.len())
@@ -302,13 +315,7 @@ pub(crate) fn session_summary_at(index: usize) -> Option<SessionSummary> {
 /// What the session `id` shows, or none once it is gone (tracked where it is
 /// read).
 pub(crate) fn session_summary(id: u32) -> Option<SessionSummary> {
-    workspace().with(|workspace| {
-        workspace
-            .sessions
-            .iter()
-            .find(|session| session.id == id)
-            .map(Session::summary)
-    })
+    workspace().with(|workspace| session(workspace, id).map(Session::summary))
 }
 
 /// The session the conversation pane shows (tracked where it is read).
@@ -350,21 +357,14 @@ pub(crate) fn create_session() {
 /// How many messages a session has (tracked where it is read).
 pub(crate) fn message_count(session_id: u32) -> usize {
     workspace().with(|workspace| {
-        workspace
-            .sessions
-            .iter()
-            .find(|session| session.id == session_id)
-            .map_or(0, |session| session.messages.len())
+        session(workspace, session_id).map_or(0, |session| session.messages.len())
     })
 }
 
 /// The messages' ids, in order (tracked where it is read).
 pub(crate) fn message_ids(session_id: u32) -> Vec<u32> {
     workspace().with(|workspace| {
-        workspace
-            .sessions
-            .iter()
-            .find(|session| session.id == session_id)
+        session(workspace, session_id)
             .map(|session| session.messages.iter().map(|message| message.id).collect())
             .unwrap_or_default()
     })
@@ -373,10 +373,7 @@ pub(crate) fn message_ids(session_id: u32) -> Vec<u32> {
 /// The message at `index`, or none past the end (tracked where it is read).
 pub(crate) fn message_at(session_id: u32, index: usize) -> Option<Message> {
     workspace().with(|workspace| {
-        workspace
-            .sessions
-            .iter()
-            .find(|session| session.id == session_id)
+        session(workspace, session_id)
             .and_then(|session| session.messages.get(index))
             .cloned()
     })
@@ -386,10 +383,7 @@ pub(crate) fn message_at(session_id: u32, index: usize) -> Option<Message> {
 /// as the reader's current place.
 pub(crate) fn last_user_index(session_id: u32, first: usize, last: usize) -> Option<usize> {
     workspace().with(|workspace| {
-        let session = workspace
-            .sessions
-            .iter()
-            .find(|session| session.id == session_id)?;
+        let session = session(workspace, session_id)?;
         let last = last.min(session.messages.len().checked_sub(1)?);
         (first..=last)
             .rev()
@@ -401,17 +395,13 @@ pub(crate) fn last_user_index(session_id: u32, first: usize, last: usize) -> Opt
 /// is read).
 pub(crate) fn user_message_count(session_id: u32) -> usize {
     workspace().with(|workspace| {
-        workspace
-            .sessions
-            .iter()
-            .find(|session| session.id == session_id)
-            .map_or(0, |session| {
-                session
-                    .messages
-                    .iter()
-                    .filter(|message| message.author == Author::User)
-                    .count()
-            })
+        session(workspace, session_id).map_or(0, |session| {
+            session
+                .messages
+                .iter()
+                .filter(|message| message.author == Author::User)
+                .count()
+        })
     })
 }
 
@@ -419,10 +409,7 @@ pub(crate) fn user_message_count(session_id: u32) -> usize {
 /// each.
 pub(crate) fn user_message_indices(session_id: u32) -> Vec<usize> {
     workspace().with(|workspace| {
-        workspace
-            .sessions
-            .iter()
-            .find(|session| session.id == session_id)
+        session(workspace, session_id)
             .map(|session| {
                 session
                     .messages
@@ -440,10 +427,7 @@ pub(crate) fn user_message_indices(session_id: u32) -> Vec<usize> {
 /// up to the next question.
 pub(crate) fn reply_at(session_id: u32, index: usize) -> Option<Message> {
     workspace().with(|workspace| {
-        let session = workspace
-            .sessions
-            .iter()
-            .find(|session| session.id == session_id)?;
+        let session = session(workspace, session_id)?;
         session
             .messages
             .iter()
@@ -479,17 +463,12 @@ fn append_sent(
     session_id: u32,
     text: &str,
 ) -> Option<(u32, Vec<Message>)> {
-    let index = workspace
-        .sessions
-        .iter()
-        .position(|session| session.id == session_id)?;
-
     let user_id = workspace.next_message_id;
     let reply_id = user_id + 1;
     workspace.next_message_id += 2;
 
     let sent_at = now_label();
-    let session = &mut workspace.sessions[index];
+    let session = session_mut(workspace, session_id)?;
     if session.title.is_empty() {
         session.title = title_from(text);
     }
@@ -580,10 +559,7 @@ fn find_message(
     session_id: u32,
     message_id: u32,
 ) -> Option<&mut Message> {
-    workspace
-        .sessions
-        .iter_mut()
-        .find(|session| session.id == session_id)?
+    session_mut(workspace, session_id)?
         .messages
         .iter_mut()
         .find(|message| message.id == message_id)
