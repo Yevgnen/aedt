@@ -260,10 +260,9 @@ pub(crate) fn draft() -> Option<u32> {
     settings().with(|settings| settings.providers.iter().find(|p| !p.saved).map(|p| p.id))
 }
 
-/// Starts adding a provider of `kind`, called `name` until it is saved. A
-/// provider already being added is left as it is.
-pub(crate) fn add_provider(kind: ProviderKind, name: &str) {
-    let name: SharedString = name.to_owned().into();
+/// Starts adding a provider of `kind`, with no name yet. A provider already
+/// being added is left as it is.
+pub(crate) fn add_provider(kind: ProviderKind) {
     settings().update(|settings| {
         if settings.providers.iter().any(|p| !p.saved) {
             return;
@@ -272,7 +271,7 @@ pub(crate) fn add_provider(kind: ProviderKind, name: &str) {
         settings.next_provider_id += 1;
         settings.providers.push(Provider {
             id,
-            name,
+            name: SharedString::default(),
             kind,
             base_url: String::new(),
             api_key: String::new(),
@@ -284,7 +283,7 @@ pub(crate) fn add_provider(kind: ProviderKind, name: &str) {
 }
 
 /// Makes `id` a provider of `kind`, while it is being added. Its name stays
-/// what it was: the reader's, or the kind's until they name it.
+/// what it was: the reader's, or none until they name it.
 pub(crate) fn select_kind(id: u32, kind: ProviderKind) {
     settings().update(|settings| {
         let Some(provider) = settings

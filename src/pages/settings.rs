@@ -136,10 +136,10 @@ fn page() -> impl IntoElement {
 }
 
 /// The action that starts adding a provider: a press opens its form, where its
-/// kind is chosen.
+/// name and kind are chosen.
 fn add_provider() -> impl IntoElement {
     button::add("Add model provider").on_press(|| {
-        settings::add_provider(ProviderKind::OpenAiCompatible, "OpenAI compatible");
+        settings::add_provider(ProviderKind::OpenAiCompatible);
     })
 }
 
