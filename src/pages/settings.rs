@@ -40,12 +40,14 @@ fn card() -> impl IntoElement {
         .border_1()
         .border_color(move || theme().border)
         .bg(move || theme().card)
+        .text_color(move || theme().foreground)
         .shadow(tokens::floating_shadow())
         .child(categories())
         .child(content())
 }
 
-/// The left column: one row per category, the chosen one selected.
+/// The left column: the dialog's title, then one row per category, the chosen
+/// one selected.
 fn categories() -> impl IntoElement {
     view()
         .w(px(180.0))
@@ -55,7 +57,19 @@ fn categories() -> impl IntoElement {
         .border_r_1()
         .border_r_color(move || theme().border)
         .child(
-            list_item::nav("模型", move || settings::section() == Section::Models).on_press(|| {
+            text("设置")
+                .px(px(sizes::LIST_ROW_INSET))
+                .pt_2()
+                .pb_3()
+                .text_base()
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(move || theme().foreground),
+        )
+        .child(
+            list_item::nav_with_mark(icon::database(14.0), "模型", move || {
+                settings::section() == Section::Models
+            })
+            .on_press(|| {
                 settings::select_section(Section::Models);
             }),
         )

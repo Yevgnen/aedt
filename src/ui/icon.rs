@@ -68,6 +68,17 @@ const REFRESH: &str = concat!(
     r#"</svg>"#,
 );
 
+/// A database (Lucide's `database`): the models a provider lists.
+const DATABASE: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<ellipse cx="12" cy="5" rx="9" ry="3"/>"#,
+    r#"<path d="M3 5V19A9 3 0 0 0 21 19V5"/>"#,
+    r#"<path d="M3 12A9 3 0 0 0 21 12"/>"#,
+    r#"</svg>"#,
+);
+
 /// The menu mark, `size` points square, in the caller's text color.
 pub(crate) fn more(size: f32) -> impl IntoElement {
     icon(MORE, size)
@@ -81,6 +92,11 @@ pub(crate) fn settings(size: f32) -> impl IntoElement {
 /// The refresh mark, `size` points square, in the caller's text color.
 pub(crate) fn refresh(size: f32) -> impl IntoElement {
     icon(REFRESH, size)
+}
+
+/// The models mark, `size` points square, in the caller's text color.
+pub(crate) fn database(size: f32) -> impl IntoElement {
+    icon(DATABASE, size)
 }
 
 /// `markup` drawn at `size` points square.

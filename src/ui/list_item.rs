@@ -5,9 +5,26 @@ use nsh_core::prelude::*;
 
 use crate::ui::{motion, sizes};
 
-/// A navigation row: its title, selected by the caller, which adds `.on_press`
-/// and the label screen readers hear.
+/// A navigation row: its title, selected by the caller, which adds `.on_press`.
 pub(crate) fn nav(
+    title: impl IntoReactive<SharedString>,
+    selected: impl Fn() -> bool + Copy + 'static,
+) -> ButtonElement {
+    nav_row(None, title, selected)
+}
+
+/// A navigation row with a mark before its title, as a settings destination
+/// has; the caller adds `.on_press` as it does for [`nav`].
+pub(crate) fn nav_with_mark(
+    mark: impl IntoElement,
+    title: impl IntoReactive<SharedString>,
+    selected: impl Fn() -> bool + Copy + 'static,
+) -> ButtonElement {
+    nav_row(Some(mark.into_element()), title, selected)
+}
+
+fn nav_row(
+    mark: Option<AnyElement>,
     title: impl IntoReactive<SharedString>,
     selected: impl Fn() -> bool + Copy + 'static,
 ) -> ButtonElement {
@@ -17,6 +34,7 @@ pub(crate) fn nav(
         .min_h(px(sizes::LIST_ROW))
         .flex_row()
         .items_center()
+        .gap_2()
         .px(px(sizes::LIST_ROW_INSET))
         .py_1()
         .rounded(move || theme().radius)
@@ -38,6 +56,7 @@ pub(crate) fn nav(
         .transition_colors()
         .duration(motion::row_duration())
         .ease_out()
+        .when_some(mark, |row, mark| row.child(mark))
         .child(
             text(title)
                 .flex_1()
