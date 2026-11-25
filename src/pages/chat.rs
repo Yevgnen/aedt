@@ -230,30 +230,25 @@ fn message_preview(
         .border_color(move || theme().border)
         .bg(move || theme().card)
         .shadow(composer_shadow())
-        .child(preview_part("你", question, 3))
+        .child(preview_part(question, 3))
         .child(when(
             move || reply.with(|reply| reply.is_some()),
-            move || preview_part(crate::llm::MODEL, reply, 4),
+            move || preview_part(reply, 4),
         ))
 }
 
-/// One side of the preview card: who spoke, then the start of what they said.
-fn preview_part(who: &'static str, body: Memo<Option<Message>>, lines: u32) -> impl IntoElement {
-    view()
-        .gap_1()
-        .child(text(who).text_xs().text_color(thinking_ink))
-        .child(
-            text(move || {
-                body.with(|body| {
-                    body.as_ref()
-                        .map(|body| body.body.clone())
-                        .unwrap_or_default()
-                })
-            })
-            .text_sm()
-            .number_of_lines(lines)
-            .text_color(move || theme().foreground),
-        )
+/// One side of the preview card: the start of what was said.
+fn preview_part(body: Memo<Option<Message>>, lines: u32) -> impl IntoElement {
+    text(move || {
+        body.with(|body| {
+            body.as_ref()
+                .map(|body| body.body.clone())
+                .unwrap_or_default()
+        })
+    })
+    .text_sm()
+    .number_of_lines(lines)
+    .text_color(move || theme().foreground)
 }
 
 /// A cell, made once and given other messages as it is reused.
