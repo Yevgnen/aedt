@@ -1,0 +1,38 @@
+{
+  "name": "Aedt Blue",
+  "cssVars": {
+    "theme": {
+      "font-mono": "Berkeley Mono"
+    },
+    "light": {
+      "primary": "#BFDBFE",
+      "primary-foreground": "#0B3555",
+      "secondary": "#DCEBFF",
+      "secondary-foreground": "#0B3555",
+      "accent": "#E6F1FF",
+      "accent-foreground": "#0B3555",
+      "ring": "#3B82F6",
+      "link": "#1D4ED8",
+      "sidebar-primary": "#BFDBFE",
+      "sidebar-primary-foreground": "#0B3555",
+      "sidebar-accent": "#E6F1FF",
+      "sidebar-accent-foreground": "#0B3555",
+      "sidebar-ring": "#3B82F6"
+    },
+    "dark": {
+      "primary": "#93C5FD",
+      "primary-foreground": "#0B2545",
+      "secondary": "#152A4A",
+      "secondary-foreground": "#DBEAFE",
+      "accent": "#1B3358",
+      "accent-foreground": "#DBEAFE",
+      "ring": "#93C5FD",
+      "link": "#93C5FD",
+      "sidebar-primary": "#93C5FD",
+      "sidebar-primary-foreground": "#0B2545",
+      "sidebar-accent": "#1B3358",
+      "sidebar-accent-foreground": "#DBEAFE",
+      "sidebar-ring": "#93C5FD"
+    }
+  }
+}

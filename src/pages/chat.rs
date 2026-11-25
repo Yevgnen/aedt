@@ -1,6 +1,6 @@
 //! The conversation: its header, its message timeline and its composer.
 
-use nsh_base::{text_view, theme};
+use nsh_base::{TextViewClasses, text_view, theme};
 use nsh_core::{element::desktop::title_bar, prelude::*};
 
 use crate::{
@@ -123,6 +123,10 @@ fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
             text_view()
                 .markdown(move || {
                     message.with(|message| message.as_ref().map(|message| message.body.clone()))
+                })
+                .classes(TextViewClasses {
+                    link: Some("text-link".into()),
+                    ..TextViewClasses::default()
                 })
                 .selectable(true)
                 .code_block_scrollbar(false)

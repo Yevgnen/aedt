@@ -18,11 +18,21 @@ use nsh_core::{
 /// another monospaced family instead of the proportional system font.
 const MONO_FONT: &str = "Berkeley Mono, SF Mono, Menlo, monospace";
 
-/// Points the `font-mono` token at [`MONO_FONT`]; code blocks, inline code
-/// and any monospaced text read it. `cargo run` does not read `nsh.json`, so
-/// the app sets the token itself; a host theme naming `font-mono` still wins.
-fn set_mono_font() {
-    let mut tokens = nsh_core::element::tokens().as_ref().clone();
+/// The app's theme, the same file `nsh.json` names for `nsh run`.
+const THEME: &str = include_str!("../theme.json");
+
+/// Applies the theme and the coding font. `cargo run` does not read
+/// `nsh.json`, so the app sets its own tokens at startup; a host theme naming
+/// the same tokens still wins.
+fn apply_theme() {
+    let current = nsh_core::element::tokens().as_ref().clone();
+    let mut tokens = match nsh_base::tokens_of(Some(THEME)) {
+        Ok(tokens) => tokens,
+        Err(error) => {
+            eprintln!("theme: {error}");
+            current
+        }
+    };
     tokens.set_font("font-mono", MONO_FONT);
     set_tokens(tokens);
 }
@@ -37,7 +47,7 @@ fn native(registry: &mut Registry) {
 /// the shell fills the app's one surface, as a phone's window is the app.
 #[component]
 pub fn App() -> impl IntoElement {
-    set_mono_font();
+    apply_theme();
 
     let mut title_bar = TitleBarOptions::default();
     title_bar.style = TitleBarStyle::Hidden;

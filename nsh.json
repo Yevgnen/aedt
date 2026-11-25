@@ -2,6 +2,7 @@
   "name": "Aedt",
   "id": "com.example.aedt",
   "appearance": "system",
+  "theme": "theme.json",
   "rust": ".",
   "root": "App"
 }
