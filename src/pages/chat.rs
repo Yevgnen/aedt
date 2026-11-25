@@ -118,6 +118,16 @@ fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
     view()
         .w_full()
         .gap_1()
+        .child(
+            text_view()
+                .markdown(move || {
+                    message.with(|message| message.as_ref().map(|message| message.body.clone()))
+                })
+                .selectable(true)
+                .gap_2()
+                .text_size(px(14.0))
+                .text_color(move || theme().foreground),
+        )
         .child(when(
             move || {
                 message.with(|message| {
@@ -139,16 +149,6 @@ fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
                 .text_color(move || theme().muted_foreground)
             },
         ))
-        .child(
-            text_view()
-                .markdown(move || {
-                    message.with(|message| message.as_ref().map(|message| message.body.clone()))
-                })
-                .selectable(true)
-                .gap_2()
-                .text_size(px(14.0))
-                .text_color(move || theme().foreground),
-        )
 }
 
 fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
