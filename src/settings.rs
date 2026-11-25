@@ -68,11 +68,15 @@ struct Provider {
     saved: bool,
 }
 
-/// A model a reply can ask: its id for the provider, its label for the reader.
+/// A model a reply can ask: its id for the provider, its label for the reader,
+/// and the provider that serves it, which the reply asks.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Choice {
     pub(crate) id: SharedString,
     pub(crate) label: SharedString,
+    /// The base URL and key of the provider that serves it.
+    pub(crate) base_url: String,
+    pub(crate) api_key: String,
 }
 
 /// How hard a reply's model thinks before it answers (`reasoning.effort`).
@@ -172,14 +176,18 @@ pub(crate) fn enabled_models() -> Vec<Choice> {
     settings().with(|settings| {
         let mut choices: Vec<Choice> = Vec::new();
         let offered = settings.providers.iter().filter(|provider| provider.saved);
-        for model in offered.flat_map(|provider| provider.models.shown()) {
-            if !model.enabled || choices.iter().any(|choice| choice.id == model.id) {
-                continue;
+        for provider in offered {
+            for model in provider.models.shown() {
+                if !model.enabled || choices.iter().any(|choice| choice.id == model.id) {
+                    continue;
+                }
+                choices.push(Choice {
+                    id: model.id.clone(),
+                    label: model.label.clone(),
+                    base_url: provider.base_url.clone(),
+                    api_key: provider.api_key.clone(),
+                });
             }
-            choices.push(Choice {
-                id: model.id.clone(),
-                label: model.label.clone(),
-            });
         }
         choices
     })
@@ -194,16 +202,25 @@ pub(crate) fn selected() -> Choice {
             .providers
             .iter()
             .filter(|provider| provider.saved)
-            .flat_map(|provider| provider.models.shown())
-            .find(|model| model.id == id)
-            .map(|model| Choice {
-                id: model.id.clone(),
-                label: model.label.clone(),
+            .find_map(|provider| {
+                provider
+                    .models
+                    .shown()
+                    .iter()
+                    .find(|model| model.id == id)
+                    .map(|model| Choice {
+                        id: model.id.clone(),
+                        label: model.label.clone(),
+                        base_url: provider.base_url.clone(),
+                        api_key: provider.api_key.clone(),
+                    })
             })
     });
     known.unwrap_or_else(|| Choice {
         label: id.clone(),
         id,
+        base_url: String::new(),
+        api_key: String::new(),
     })
 }
 
@@ -297,13 +314,15 @@ pub(crate) fn select_kind(id: u32, kind: ProviderKind) {
     });
 }
 
-/// Keeps the provider `id`: it is one of the reader's from now on.
+/// Keeps the provider `id`: it is one of the reader's from now on, and the
+/// models it lists are asked for so the composer's picker has them.
 pub(crate) fn save_provider(id: u32) {
     settings().update(|settings| {
         if let Some(provider) = settings.providers.iter_mut().find(|p| p.id == id) {
             provider.saved = true;
         }
     });
+    load();
 }
 
 /// Drops the provider `id` while it is one being added.

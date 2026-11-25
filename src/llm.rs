@@ -1,5 +1,5 @@
-//! The chat model: DeepSeek's Responses API, streamed into the conversation as
-//! it answers.
+//! The chat model: the provider the chosen model belongs to, spoken to as
+//! OpenAI's Responses API, streamed into the conversation as it answers.
 
 use std::{
     cell::RefCell,
@@ -33,7 +33,8 @@ pub(crate) const MODEL: &str = "deepseek-flash";
 pub(crate) const API_KEY: &str = "DEEPSEEK_API_KEY";
 
 /// Streams `model`'s answer into reply `reply_id` of `session_id`, from the
-/// conversation `history` (which ends with the message just sent).
+/// conversation `history` (which ends with the message just sent), at the
+/// provider the model belongs to.
 ///
 /// DeepSeek serves OpenAI's Responses API at `POST /responses` and streams it
 /// as semantic server-sent events, so this asks for a response with `stream:
@@ -45,10 +46,12 @@ pub(crate) fn reply(
     model: &Choice,
     effort: Effort,
 ) {
-    let Ok(key) = std::env::var(API_KEY) else {
-        store::fail_reply(session_id, reply_id, &format!("未设置环境变量 {API_KEY}"));
+    let base_url = model.base_url.trim().to_owned();
+    let key = model.api_key.trim().to_owned();
+    if base_url.is_empty() || key.is_empty() {
+        store::fail_reply(session_id, reply_id, "未设置 API URL 或 API Key");
         return;
-    };
+    }
 
     let mut args = CreateResponseArgs::default();
     args.model(model.id.as_str());
@@ -74,7 +77,7 @@ pub(crate) fn reply(
     let reveal = Rc::new(RefCell::new(Reveal::default()));
     let name = model.label.clone();
     Owner::detached().run(move || {
-        spawn(answer(key, request, reveal.clone()));
+        spawn(answer(base_url, key, request, reveal.clone()));
         spawn(reveal_answer(session_id, reply_id, reveal, name));
     });
 }
@@ -127,9 +130,14 @@ fn input(history: &[Message]) -> Vec<InputItem> {
 
 /// Reads the streamed answer into `reveal`, which the reveal task shows at its
 /// own pace; the reply is closed there once the last of it is out.
-async fn answer(key: String, request: CreateResponse, reveal: Rc<RefCell<Reveal>>) {
+async fn answer(
+    base_url: String,
+    key: String,
+    request: CreateResponse,
+    reveal: Rc<RefCell<Reveal>>,
+) {
     let config = OpenAIConfig::new()
-        .with_api_base(BASE_URL)
+        .with_api_base(base_url)
         .with_api_key(key);
     let client = Client::with_config(config);
 
