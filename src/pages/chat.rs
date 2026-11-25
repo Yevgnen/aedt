@@ -1,13 +1,11 @@
 //! The conversation: its header, its message timeline and its composer.
 
+use aedt_store::{self as store, Author, Message};
 use aedt_ui::{MESSAGE_LINE, button, empty, icon, input, menu, motion, sizes, tokens};
 use nsh_base::{MarkdownOptions, SubmenuEvent, TextViewClasses, text_view, theme};
 use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
 
-use crate::{
-    llm, settings,
-    store::{self, Author, Message},
-};
+use crate::{llm, settings};
 
 /// A tick's bar height, and the padding that fills its pitch: adjacent ticks'
 /// hit areas touch, so sliding along the column never leaves it between them.

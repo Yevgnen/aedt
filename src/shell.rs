@@ -1,12 +1,10 @@
 //! The app shell: the session sidebar beside the conversation, no page logic.
 
+use aedt_store as store;
 use nsh_base::theme;
 use nsh_core::prelude::*;
 
-use crate::{
-    pages::{chat, settings, sidebar},
-    store,
-};
+use crate::pages::{chat, settings, sidebar};
 
 pub(crate) fn shell() -> View {
     // Whose pane shows: a memo of the selected id, so a reply streaming into

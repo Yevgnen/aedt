@@ -1,10 +1,11 @@
 //! The session list: a persistent sidebar beside the conversation.
 
+use aedt_store as store;
 use aedt_ui::{avatar, button, icon, list_item, menu, separator, sizes};
 use nsh_base::theme;
 use nsh_core::{element::desktop::title_bar, prelude::*};
 
-use crate::{settings, store};
+use crate::settings;
 
 pub(crate) fn sidebar() -> View {
     view()

@@ -6,51 +6,51 @@ use nsh_core::prelude::*;
 
 /// Who wrote a message.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Author {
+pub enum Author {
     User,
     Assistant,
 }
 
 /// One message of a session.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Message {
-    pub(crate) id: u32,
-    pub(crate) author: Author,
-    pub(crate) body: SharedString,
+pub struct Message {
+    pub id: u32,
+    pub author: Author,
+    pub body: SharedString,
     /// The chain of thought the reply reasoned with, shown above it: empty for
     /// a message that did not think.
-    pub(crate) reasoning: SharedString,
+    pub reasoning: SharedString,
     /// The muted line under the message: when it was sent, and for a reply what
     /// it ran on and how long it took. `None` shows no line at all.
-    pub(crate) meta: Option<Meta>,
+    pub meta: Option<Meta>,
     /// Whether the text is still arriving: a reply's text view then reads it as
     /// one being written, so only the blocks that changed are shown again
     /// instead of the whole document on every token.
-    pub(crate) streaming: bool,
+    pub streaming: bool,
 }
 
 /// What a message's muted line says.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Meta {
+pub struct Meta {
     /// When it was sent, as the app writes it (`11/6 21:12`).
-    pub(crate) time: SharedString,
+    pub time: SharedString,
     /// What a reply adds of itself: the model it ran on and how long it took.
     /// A message the reader wrote has none.
-    pub(crate) detail: Option<SharedString>,
+    pub detail: Option<SharedString>,
 }
 
 /// One conversation in the sidebar.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Session {
-    pub(crate) id: u32,
-    pub(crate) title: SharedString,
-    pub(crate) messages: Vec<Message>,
+pub struct Session {
+    pub id: u32,
+    pub title: SharedString,
+    pub messages: Vec<Message>,
 }
 
 impl Session {
     /// What the sidebar and the header show: an untitled session keeps the
     /// placeholder until its first message names it.
-    pub(crate) fn display_title(&self) -> SharedString {
+    pub fn display_title(&self) -> SharedString {
         if self.title.is_empty() {
             "New chat".into()
         } else {
@@ -70,9 +70,9 @@ impl Session {
 /// A session as the sidebar and the header show it: its identity and title,
 /// never its messages, so reading one does not copy a whole conversation.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct SessionSummary {
-    pub(crate) id: u32,
-    pub(crate) title: SharedString,
+pub struct SessionSummary {
+    pub id: u32,
+    pub title: SharedString,
 }
 
 #[derive(Clone)]
@@ -291,12 +291,12 @@ fn session_mut(workspace: &mut Workspace, id: u32) -> Option<&mut Session> {
 }
 
 /// How many sessions there are (tracked where it is read).
-pub(crate) fn session_count() -> usize {
+pub fn session_count() -> usize {
     workspace().with(|workspace| workspace.sessions.len())
 }
 
 /// The sessions' ids, in order (tracked where it is read).
-pub(crate) fn session_ids() -> Vec<u32> {
+pub fn session_ids() -> Vec<u32> {
     workspace().with(|workspace| {
         workspace
             .sessions
@@ -308,23 +308,23 @@ pub(crate) fn session_ids() -> Vec<u32> {
 
 /// What the session at `index` shows, or none past the end (tracked where it is
 /// read).
-pub(crate) fn session_summary_at(index: usize) -> Option<SessionSummary> {
+pub fn session_summary_at(index: usize) -> Option<SessionSummary> {
     workspace().with(|workspace| workspace.sessions.get(index).map(Session::summary))
 }
 
 /// What the session `id` shows, or none once it is gone (tracked where it is
 /// read).
-pub(crate) fn session_summary(id: u32) -> Option<SessionSummary> {
+pub fn session_summary(id: u32) -> Option<SessionSummary> {
     workspace().with(|workspace| session(workspace, id).map(Session::summary))
 }
 
 /// The session the conversation pane shows (tracked where it is read).
-pub(crate) fn selected_session_id() -> u32 {
+pub fn selected_session_id() -> u32 {
     workspace().with(|workspace| workspace.selected)
 }
 
 /// Shows `id` in the conversation pane; an unknown id changes nothing.
-pub(crate) fn select_session(id: u32) {
+pub fn select_session(id: u32) {
     let (current, exists) = workspace().with(|workspace| {
         (
             workspace.selected,
@@ -338,7 +338,7 @@ pub(crate) fn select_session(id: u32) {
 }
 
 /// Adds an empty session above the others and shows it.
-pub(crate) fn create_session() {
+pub fn create_session() {
     let id = workspace().with(|workspace| workspace.next_session_id);
     workspace().update(|workspace| {
         workspace.next_session_id += 1;
@@ -355,14 +355,14 @@ pub(crate) fn create_session() {
 }
 
 /// How many messages a session has (tracked where it is read).
-pub(crate) fn message_count(session_id: u32) -> usize {
+pub fn message_count(session_id: u32) -> usize {
     workspace().with(|workspace| {
         session(workspace, session_id).map_or(0, |session| session.messages.len())
     })
 }
 
 /// The messages' ids, in order (tracked where it is read).
-pub(crate) fn message_ids(session_id: u32) -> Vec<u32> {
+pub fn message_ids(session_id: u32) -> Vec<u32> {
     workspace().with(|workspace| {
         session(workspace, session_id)
             .map(|session| session.messages.iter().map(|message| message.id).collect())
@@ -371,7 +371,7 @@ pub(crate) fn message_ids(session_id: u32) -> Vec<u32> {
 }
 
 /// The message at `index`, or none past the end (tracked where it is read).
-pub(crate) fn message_at(session_id: u32, index: usize) -> Option<Message> {
+pub fn message_at(session_id: u32, index: usize) -> Option<Message> {
     workspace().with(|workspace| {
         session(workspace, session_id)
             .and_then(|session| session.messages.get(index))
@@ -381,7 +381,7 @@ pub(crate) fn message_at(session_id: u32, index: usize) -> Option<Message> {
 
 /// The last user message among the rows `first..=last`: the one the rail marks
 /// as the reader's current place.
-pub(crate) fn last_user_index(session_id: u32, first: usize, last: usize) -> Option<usize> {
+pub fn last_user_index(session_id: u32, first: usize, last: usize) -> Option<usize> {
     workspace().with(|workspace| {
         let session = session(workspace, session_id)?;
         let last = last.min(session.messages.len().checked_sub(1)?);
@@ -393,7 +393,7 @@ pub(crate) fn last_user_index(session_id: u32, first: usize, last: usize) -> Opt
 
 /// How many user messages the session has: one rail tick each (tracked where it
 /// is read).
-pub(crate) fn user_message_count(session_id: u32) -> usize {
+pub fn user_message_count(session_id: u32) -> usize {
     workspace().with(|workspace| {
         session(workspace, session_id).map_or(0, |session| {
             session
@@ -407,7 +407,7 @@ pub(crate) fn user_message_count(session_id: u32) -> usize {
 
 /// The indices of the session's user messages, in order: one tick of the rail
 /// each.
-pub(crate) fn user_message_indices(session_id: u32) -> Vec<usize> {
+pub fn user_message_indices(session_id: u32) -> Vec<usize> {
     workspace().with(|workspace| {
         session(workspace, session_id)
             .map(|session| {
@@ -425,7 +425,7 @@ pub(crate) fn user_message_indices(session_id: u32) -> Vec<usize> {
 
 /// The reply that follows the user message at `index`: the assistant messages
 /// up to the next question.
-pub(crate) fn reply_at(session_id: u32, index: usize) -> Option<Message> {
+pub fn reply_at(session_id: u32, index: usize) -> Option<Message> {
     workspace().with(|workspace| {
         let session = session(workspace, session_id)?;
         session
@@ -440,14 +440,14 @@ pub(crate) fn reply_at(session_id: u32, index: usize) -> Option<Message> {
 
 /// What sending a message left to answer: the reply waiting for it, and the
 /// conversation the model reads.
-pub(crate) struct Sent {
-    pub(crate) reply_id: u32,
-    pub(crate) history: Vec<Message>,
+pub struct Sent {
+    pub reply_id: u32,
+    pub history: Vec<Message>,
 }
 
 /// Sends `text`: appends the user's message and an empty reply. A blank message
 /// sends nothing, and returns nothing to answer.
-pub(crate) fn send(session_id: u32, text: &str) -> Option<Sent> {
+pub fn send(session_id: u32, text: &str) -> Option<Sent> {
     let text = text.trim();
     if text.is_empty() {
         return None;
@@ -504,7 +504,7 @@ fn append_sent(
 
 /// Appends what arrived of the reply to `message_id`: its thinking first, then
 /// its answer.
-pub(crate) fn append_reply(session_id: u32, message_id: u32, thinking: &str, answer: &str) {
+pub fn append_reply(session_id: u32, message_id: u32, thinking: &str, answer: &str) {
     if thinking.is_empty() && answer.is_empty() {
         return;
     }
@@ -527,7 +527,7 @@ pub(crate) fn append_reply(session_id: u32, message_id: u32, thinking: &str, ans
 
 /// Closes the reply: its meta line gains the model and how long the answer
 /// took, after the time it was sent.
-pub(crate) fn finish_reply(session_id: u32, message_id: u32, model: &str, seconds: f32) {
+pub fn finish_reply(session_id: u32, message_id: u32, model: &str, seconds: f32) {
     workspace().update(|workspace| {
         let Some(message) = find_message(workspace, session_id, message_id) else {
             return;
@@ -546,7 +546,7 @@ pub(crate) fn finish_reply(session_id: u32, message_id: u32, model: &str, second
 }
 
 /// Shows what went wrong in place of the answer.
-pub(crate) fn fail_reply(session_id: u32, message_id: u32, error: &str) {
+pub fn fail_reply(session_id: u32, message_id: u32, error: &str) {
     workspace().update(|workspace| {
         let Some(message) = find_message(workspace, session_id, message_id) else {
             return;

@@ -7,6 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use aedt_store::{self as store, Author, Message};
 use async_openai::{
     Client,
     config::OpenAIConfig,
@@ -18,10 +19,7 @@ use async_openai::{
 use futures_util::StreamExt;
 use nsh_core::prelude::*;
 
-use crate::{
-    settings::{self, Choice, Effort},
-    store::{self, Author, Message},
-};
+use crate::settings::{self, Choice, Effort};
 
 /// Sends `text` to the conversation and starts the reply its model writes: the
 /// store keeps the conversation, the settings name the model.

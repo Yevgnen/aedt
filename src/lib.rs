@@ -6,7 +6,6 @@ mod llm;
 mod pages;
 mod settings;
 mod shell;
-mod store;
 
 use aedt_ui::{MESSAGE_LINE, sizes, tokens};
 use nsh_base::{TextViewPart, TextViewParts};
