@@ -165,7 +165,6 @@ fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
     };
 
     view()
-        .pt_4()
         .pb_2()
         .gap_2()
         .child(composer_card(draft, can_send, submit))
