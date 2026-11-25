@@ -428,18 +428,21 @@ pub fn select_kind(id: u32, kind: ProviderKind) {
 }
 
 /// Keeps the provider `id`: it is one of the reader's from now on, and the
-/// models it lists are asked for so the composer's picker has them.
+/// models it lists are asked for so the composer's picker has them. A key the
+/// environment gave stays the environment's: it is not written down.
 pub fn save_provider(id: u32) {
     let mut key = None;
+    let mut from_environment = false;
     settings().update(|settings| {
         if let Some(provider) = provider_mut(settings, id) {
             provider.saved = true;
+            from_environment = provider.env_key.is_some();
             key = Some(provider.api_key.trim().to_owned());
         }
     });
     if let Some(key) = key {
         settings().update(|settings| {
-            if key.is_empty() {
+            if from_environment || key.is_empty() {
                 settings.keys.remove(&id.to_string());
             } else {
                 settings.keys.insert(id.to_string(), key);
