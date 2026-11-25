@@ -55,7 +55,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 ## 模型
 
 - 只接 DeepSeek 官方：`https://api.deepseek.com`，模型 `deepseek-flash`，key 读环境变量 `DEEPSEEK_API_KEY`（未设置时在回答位置直接显示错误）。没有配置界面，没有模型选择。
-- 用 `async-openai` 的 chat completions 流式接口：DeepSeek 的 OpenAI 兼容文档只给 `/chat/completions`，没有 `/responses`，所以这里不是 response 请求；请求带 `stream: true`，逐块写进同一条回复。
+- 用 `async-openai` 的 Responses API：DeepSeek 在 `POST /responses` 提供 Responses 格式（https://api-docs.deepseek.com/api/create-response/），请求带 `stream: true`，读 `response.output_text.delta` 逐块写入同一条回复（思维链的 `reasoning_text` 事件不展示）。
 - 请求跑在 `spawn` 的异步任务里、挂在 detached owner 下（NSH 的任务在 tokio runtime 上下文里轮询，见 `nsh-core-0.7.0/src/element/task.rs:748`），所以切会话不会中断回答。
 - 上下文是整段会话：用户与助手的历史消息按顺序发出。
 - 回复结束（或出错）时补上元信息：`16:40 · deepseek-flash · 3.2 s`。
