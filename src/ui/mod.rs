@@ -11,6 +11,7 @@ pub(crate) mod list_item;
 pub(crate) mod motion;
 pub(crate) mod separator;
 pub(crate) mod sizes;
+pub(crate) mod tokens;
 
 /// A message's line height, a multiple of its font size: the prose and the
 /// code blocks it holds read at the same density.

@@ -8,7 +8,7 @@ mod shell;
 mod store;
 mod ui;
 
-use nsh_base::{TextViewPart, TextViewParts, theme};
+use nsh_base::{TextViewPart, TextViewParts};
 use nsh_core::{
     LineHeight,
     desktop::{TitleBarOptions, TitleBarStyle, WindowAttributes},
@@ -40,13 +40,6 @@ fn apply_theme() {
     set_tokens(tokens);
 }
 
-/// A code block's fill, the token `code` (the theme's `muted` when it leaves
-/// that out). It is lighter than `muted`, so a block reads as a soft inset
-/// rather than a gray box, and its border takes the same color.
-fn code_fill() -> AdaptiveColor {
-    theme().color("code").unwrap_or_else(|| theme().muted)
-}
-
 /// The app's UI set (`nsh.json` `"rust"`).
 #[native_module("aedt/native")]
 fn native(registry: &mut Registry) {
@@ -63,8 +56,8 @@ pub fn App() -> impl IntoElement {
     // an outline around its fill: the fill's own color leaves no outline while
     // the 1pt width stays. Its lines are as tight as a message's prose.
     provide_context(TextViewParts::new().part(TextViewPart::CodeBlock, |s| {
-        s.bg(code_fill)
-            .border_color(code_fill)
+        s.bg(ui::tokens::code)
+            .border_color(ui::tokens::code)
             .text_size(px(ui::sizes::CODE_FONT))
             .line_height(LineHeight::Multiple(ui::MESSAGE_LINE))
     }));

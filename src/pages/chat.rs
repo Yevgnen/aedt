@@ -5,7 +5,7 @@ use nsh_core::{Color, LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::{
     store::{self, Author, Message},
-    ui::{self, badge, button, empty, icon, input, motion, sizes},
+    ui::{self, badge, button, empty, icon, input, motion, sizes, tokens},
 };
 
 /// A tick's bar height, and the padding that fills its pitch: adjacent ticks'
@@ -277,7 +277,7 @@ fn message_preview(
                 text(body_of(reply))
                     .text_size(px(13.0))
                     .number_of_lines(4)
-                    .text_color(move || quiet_ink().opacity(0.55))
+                    .text_color(move || tokens::meta().opacity(0.55))
             },
         ))
 }
@@ -314,7 +314,7 @@ fn user_message(message: Memo<Option<Message>>) -> impl IntoElement {
                 view()
                     .max_w(px(sizes::MESSAGE_MAX))
                     .rounded(move || theme().radius)
-                    .bg(move || theme().color("bubble").unwrap_or_else(|| theme().primary))
+                    .bg(tokens::bubble)
                     .px_4()
                     .py_3()
                     .child(
@@ -386,11 +386,7 @@ fn message_meta(message: Memo<Option<Message>>) -> impl IntoElement {
                 })
             })
             .text_xs()
-            .text_color(move || {
-                theme()
-                    .color("caption")
-                    .unwrap_or_else(|| theme().muted_foreground)
-            })
+            .text_color(tokens::caption)
         },
     )
 }
@@ -501,7 +497,7 @@ fn thinking_bar(
 
     button::quiet(icon::bulb(14.0), "思考")
         .accessibility_label("展开或收起思考")
-        .text_color(quiet_ink)
+        .text_color(tokens::meta)
         .on_press(toggle)
 }
 
@@ -518,15 +514,7 @@ fn thinking_text(message: Memo<Option<Message>>) -> impl IntoElement {
     .w_full()
     .text_size(px(13.0))
     .line_height(LineHeight::Multiple(ui::MESSAGE_LINE))
-    .text_color(quiet_ink)
-}
-
-/// The quietest ink the app has: the theme's `meta`, or the muted one when the
-/// theme leaves it out. Thinking and the rail's answer read in it.
-fn quiet_ink() -> AdaptiveColor {
-    theme()
-        .color("meta")
-        .unwrap_or_else(|| theme().muted_foreground)
+    .text_color(tokens::meta)
 }
 
 fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
