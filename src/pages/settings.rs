@@ -5,26 +5,31 @@ use aedt_ui::{badge, button, collapsible, field, icon, list_item, menu, sizes, s
 use nsh_base::{dialog as base_dialog, theme};
 use nsh_core::prelude::*;
 
-use crate::settings::{self, ProviderKind, Section};
+use aedt_settings::{self as settings, ProviderKind};
 
-/// The settings, presented while they are open and dismissed when they close,
-/// by Escape, a press on the dim behind them, or the app.
-pub(crate) fn dialog() -> impl IntoElement {
-    when(settings::is_open, || {
-        base_dialog()
-            .animation(ModalAnimation::Fade)
-            .label("Settings")
-            .on_cancel(settings::close)
-            .flex_1()
-            .child(
-                view()
-                    .absolute()
-                    .inset_0()
-                    .bg(tokens::scrim())
-                    .on_press(settings::close),
-            )
-            .child(card())
-    })
+/// The settings, presented while `open` holds and dismissed when it is let go,
+/// by Escape or a press on the dim behind them.
+pub(crate) fn dialog(open: Signal<bool>) -> impl IntoElement {
+    let dismiss = move || open.set(false);
+
+    when(
+        move || open.get(),
+        move || {
+            base_dialog()
+                .animation(ModalAnimation::Fade)
+                .label("Settings")
+                .on_cancel(dismiss)
+                .flex_1()
+                .child(
+                    view()
+                        .absolute()
+                        .inset_0()
+                        .bg(tokens::scrim())
+                        .on_press(dismiss),
+                )
+                .child(card())
+        },
+    )
 }
 
 /// The dialog's card: the categories, then the chosen one.
@@ -44,8 +49,8 @@ fn card() -> impl IntoElement {
         .child(content())
 }
 
-/// The left column: the dialog's title, then one row per category, the chosen
-/// one selected.
+/// The left column: the dialog's title, then its categories. The only one so
+/// far is the providers', which is the chosen one.
 fn categories() -> impl IntoElement {
     view()
         .w(px(180.0))
@@ -63,14 +68,11 @@ fn categories() -> impl IntoElement {
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(move || theme().foreground),
         )
-        .child(
-            list_item::nav_with_mark(icon::database(14.0), "Models", move || {
-                settings::section() == Section::Models
-            })
-            .on_press(|| {
-                settings::select_section(Section::Models);
-            }),
-        )
+        .child(list_item::nav_with_mark(
+            icon::database(14.0),
+            "Models",
+            || true,
+        ))
 }
 
 /// The chosen category's content: its heading, then the page it shows.

@@ -11,13 +11,20 @@ pub(crate) fn shell() -> View {
     // the current session (which writes the store on every token) does not
     // make the pane again — only selecting another session does.
     let selected = computed(store::selected_session_id);
+    // Where the settings show. Opening them also asks every provider that has
+    // not listed its models yet, so what the app can know fills in unasked.
+    let settings_open = signal(false);
+    let open_settings = move || {
+        aedt_settings::load();
+        settings_open.set(true);
+    };
 
     view()
         .flex_1()
         .flex_row()
         .bg(move || theme().background)
         .text_color(move || theme().foreground)
-        .child(sidebar::sidebar())
+        .child(sidebar::sidebar(open_settings))
         .child(
             view()
                 .flex_1()
@@ -29,5 +36,5 @@ pub(crate) fn shell() -> View {
                 })),
         )
         // The settings, over everything while they are open.
-        .child(settings::dialog())
+        .child(settings::dialog(settings_open))
 }

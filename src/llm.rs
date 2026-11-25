@@ -11,7 +11,7 @@ use aedt_provider::responses::{self, Endpoint, ReplyEvent, Role, Turn};
 use aedt_store::{self as store, Author, Message};
 use nsh_core::prelude::*;
 
-use crate::settings;
+use aedt_settings as settings;
 
 /// Sends `text` to the conversation and starts the reply its model writes: the
 /// store keeps the conversation, the settings name the model and its provider.

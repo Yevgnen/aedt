@@ -11,21 +11,21 @@ use nsh_core::prelude::*;
 
 /// A provider's API: the shape of its requests and of its model list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ProviderKind {
+pub enum ProviderKind {
     /// OpenAI's API, as other providers serve it: `/models` lists the models.
     OpenAiCompatible,
 }
 
 /// One model a provider serves.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Model {
+pub struct Model {
     /// Its id, as the provider names it: what a chat asks for.
-    pub(crate) id: SharedString,
+    pub id: SharedString,
     /// What the app calls it: the provider's own name for it, or its id when
     /// the provider gives none.
-    pub(crate) label: SharedString,
+    pub label: SharedString,
     /// Whether the app offers it; everything a provider lists starts offered.
-    pub(crate) enabled: bool,
+    pub enabled: bool,
 }
 
 /// A provider's models, and how the last ask for them is going.
@@ -73,27 +73,17 @@ struct Provider {
 /// A model a reply can ask: its id for the provider, its label for the reader,
 /// and the provider that serves it, which the reply asks.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Choice {
-    pub(crate) id: SharedString,
-    pub(crate) label: SharedString,
+pub struct Choice {
+    pub id: SharedString,
+    pub label: SharedString,
     /// The base URL and key of the provider that serves it.
-    pub(crate) base_url: String,
-    pub(crate) api_key: String,
+    pub base_url: String,
+    pub api_key: String,
 }
 
-/// A category of the settings: a row of its dialog's left column.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Section {
-    /// The model providers and their models.
-    Models,
-}
-
-/// The settings: whether they show, which category does, its providers and the
-/// model the next reply asks.
+/// The settings: its providers and the model the next reply asks.
 #[derive(Clone)]
 struct Settings {
-    open: bool,
-    section: Section,
     providers: Vec<Provider>,
     /// The id the next provider added takes.
     next_provider_id: u32,
@@ -107,10 +97,8 @@ struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            open: false,
-            section: Section::Models,
-            // DeepSeek, whose key the app's chat already reads: its models
-            // arrive as soon as the settings open with that key set.
+            // DeepSeek, whose key the app reads at first: its models arrive as
+            // soon as the app asks for them with that key set.
             providers: vec![Provider {
                 id: 1,
                 name: "DeepSeek".into(),
@@ -153,21 +141,9 @@ fn draft_mut(settings: &mut Settings, id: u32) -> Option<&mut Provider> {
         .find(|provider| provider.id == id && !provider.saved)
 }
 
-/// Whether the settings dialog shows (tracked where it is read).
-pub(crate) fn is_open() -> bool {
-    settings().with(|settings| settings.open)
-}
-
-/// Shows the settings, and asks each provider that has not listed its models
-/// yet: what the app can know of them fills in without a press.
-pub(crate) fn open() {
-    settings().update(|settings| settings.open = true);
-    load();
-}
-
 /// Asks every provider still unasked for its models, so the composer's picker
 /// and the settings both have them without a press.
-pub(crate) fn load() {
+pub fn load() {
     for id in provider_ids() {
         if with_provider(id, |p| matches!(p.models, Models::Idle)).unwrap_or(false) {
             refresh_models(id);
@@ -177,7 +153,7 @@ pub(crate) fn load() {
 
 /// The models the settings offer: those switched on, in the providers' order
 /// (tracked where it is read).
-pub(crate) fn enabled_models() -> Vec<Choice> {
+pub fn enabled_models() -> Vec<Choice> {
     settings().with(|settings| {
         let mut choices: Vec<Choice> = Vec::new();
         let offered = settings.providers.iter().filter(|provider| provider.saved);
@@ -200,7 +176,7 @@ pub(crate) fn enabled_models() -> Vec<Choice> {
 
 /// The model the next reply asks: the one picked, named as its provider does
 /// (tracked where it is read).
-pub(crate) fn selected() -> Choice {
+pub fn selected() -> Choice {
     let id = settings().with(|settings| settings.selected.clone());
     let known = settings().with(|settings| {
         settings
@@ -230,43 +206,28 @@ pub(crate) fn selected() -> Choice {
 }
 
 /// Asks `model` for the replies from now on.
-pub(crate) fn select_model(model: &str) {
+pub fn select_model(model: &str) {
     let model: SharedString = model.to_owned().into();
     settings().update(|settings| settings.selected = model.clone());
 }
 
 /// How hard the next reply's model thinks (tracked where it is read).
-pub(crate) fn effort() -> Effort {
+pub fn effort() -> Effort {
     settings().with(|settings| settings.effort)
 }
 
 /// Asks for `effort` from the replies from now on.
-pub(crate) fn select_effort(effort: Effort) {
+pub fn select_effort(effort: Effort) {
     settings().update(|settings| settings.effort = effort);
 }
 
-/// Hides the settings.
-pub(crate) fn close() {
-    settings().update(|settings| settings.open = false);
-}
-
-/// The category the dialog shows (tracked where it is read).
-pub(crate) fn section() -> Section {
-    settings().with(|settings| settings.section)
-}
-
-/// Shows `section` in the dialog.
-pub(crate) fn select_section(next: Section) {
-    settings().update(|settings| settings.section = next);
-}
-
 /// The providers' ids, in order (tracked where it is read).
-pub(crate) fn provider_ids() -> Vec<u32> {
+pub fn provider_ids() -> Vec<u32> {
     settings().with(|settings| settings.providers.iter().map(|p| p.id).collect())
 }
 
 /// The providers the reader kept, in order (tracked where it is read).
-pub(crate) fn saved_providers() -> Vec<u32> {
+pub fn saved_providers() -> Vec<u32> {
     settings().with(|settings| {
         settings
             .providers
@@ -278,13 +239,13 @@ pub(crate) fn saved_providers() -> Vec<u32> {
 }
 
 /// The provider being added, while one is (tracked where it is read).
-pub(crate) fn draft() -> Option<u32> {
+pub fn draft() -> Option<u32> {
     settings().with(|settings| settings.providers.iter().find(|p| !p.saved).map(|p| p.id))
 }
 
 /// Starts adding a provider of `kind`, with no name yet. A provider already
 /// being added is left as it is.
-pub(crate) fn add_provider(kind: ProviderKind) {
+pub fn add_provider(kind: ProviderKind) {
     settings().update(|settings| {
         if settings.providers.iter().any(|p| !p.saved) {
             return;
@@ -306,7 +267,7 @@ pub(crate) fn add_provider(kind: ProviderKind) {
 
 /// Makes `id` a provider of `kind`, while it is being added. Its name stays
 /// what it was: the reader's, or none until they name it.
-pub(crate) fn select_kind(id: u32, kind: ProviderKind) {
+pub fn select_kind(id: u32, kind: ProviderKind) {
     settings().update(|settings| {
         let Some(provider) = draft_mut(settings, id) else {
             return;
@@ -317,7 +278,7 @@ pub(crate) fn select_kind(id: u32, kind: ProviderKind) {
 
 /// Keeps the provider `id`: it is one of the reader's from now on, and the
 /// models it lists are asked for so the composer's picker has them.
-pub(crate) fn save_provider(id: u32) {
+pub fn save_provider(id: u32) {
     settings().update(|settings| {
         if let Some(provider) = provider_mut(settings, id) {
             provider.saved = true;
@@ -327,34 +288,34 @@ pub(crate) fn save_provider(id: u32) {
 }
 
 /// Drops the provider `id` while it is one being added.
-pub(crate) fn cancel_provider(id: u32) {
+pub fn cancel_provider(id: u32) {
     settings().update(|settings| {
         settings.providers.retain(|p| p.id != id || p.saved);
     });
 }
 
 /// What `id` is called (tracked where it is read).
-pub(crate) fn name(id: u32) -> SharedString {
+pub fn name(id: u32) -> SharedString {
     with_provider(id, |p| p.name.clone()).unwrap_or_default()
 }
 
 /// What API `id` speaks, or none once it is gone (tracked where it is read).
-pub(crate) fn kind(id: u32) -> Option<ProviderKind> {
+pub fn kind(id: u32) -> Option<ProviderKind> {
     with_provider(id, |p| p.kind)
 }
 
 /// The URL `id` is reached at (tracked where it is read).
-pub(crate) fn base_url(id: u32) -> String {
+pub fn base_url(id: u32) -> String {
     with_provider(id, |p| p.base_url.clone()).unwrap_or_default()
 }
 
 /// The key `id`'s requests carry (tracked where it is read).
-pub(crate) fn api_key(id: u32) -> String {
+pub fn api_key(id: u32) -> String {
     with_provider(id, |p| p.api_key.clone()).unwrap_or_default()
 }
 
 /// Names the provider `id`, while it is being added.
-pub(crate) fn set_name(id: u32, name: &str) {
+pub fn set_name(id: u32, name: &str) {
     let name: SharedString = name.to_owned().into();
     settings().update(|settings| {
         let Some(provider) = draft_mut(settings, id) else {
@@ -365,7 +326,7 @@ pub(crate) fn set_name(id: u32, name: &str) {
 }
 
 /// Sets the URL `id` is reached at.
-pub(crate) fn set_base_url(id: u32, url: &str) {
+pub fn set_base_url(id: u32, url: &str) {
     settings().update(|settings| {
         if let Some(provider) = provider_mut(settings, id) {
             provider.base_url = url.to_owned();
@@ -374,7 +335,7 @@ pub(crate) fn set_base_url(id: u32, url: &str) {
 }
 
 /// Sets the key `id`'s requests carry.
-pub(crate) fn set_api_key(id: u32, key: &str) {
+pub fn set_api_key(id: u32, key: &str) {
     settings().update(|settings| {
         if let Some(provider) = provider_mut(settings, id) {
             provider.api_key = key.to_owned();
@@ -383,7 +344,7 @@ pub(crate) fn set_api_key(id: u32, key: &str) {
 }
 
 /// Whether `id` has what an ask needs: a URL and a key.
-pub(crate) fn can_refresh(id: u32) -> bool {
+pub fn can_refresh(id: u32) -> bool {
     with_provider(id, |p| {
         !p.base_url.trim().is_empty() && !p.api_key.trim().is_empty()
     })
@@ -391,7 +352,7 @@ pub(crate) fn can_refresh(id: u32) -> bool {
 }
 
 /// Whether `id` has what it takes to be kept: a name, a URL and a key.
-pub(crate) fn can_save(id: u32) -> bool {
+pub fn can_save(id: u32) -> bool {
     with_provider(id, |p| {
         !p.name.trim().is_empty() && !p.base_url.trim().is_empty() && !p.api_key.trim().is_empty()
     })
@@ -399,12 +360,12 @@ pub(crate) fn can_save(id: u32) -> bool {
 }
 
 /// Whether an ask for `id` is on its way (tracked where it is read).
-pub(crate) fn loading(id: u32) -> bool {
+pub fn loading(id: u32) -> bool {
     with_provider(id, |p| matches!(p.models, Models::Loading(_))).unwrap_or(false)
 }
 
 /// Why the last ask for `id` failed, while it did (tracked where it is read).
-pub(crate) fn error(id: u32) -> Option<SharedString> {
+pub fn error(id: u32) -> Option<SharedString> {
     with_provider(id, |p| match &p.models {
         Models::Failed(_, why) => Some(why.clone()),
         _ => None,
@@ -413,7 +374,7 @@ pub(crate) fn error(id: u32) -> Option<SharedString> {
 }
 
 /// Whether `id` answered with no models at all (tracked where it is read).
-pub(crate) fn listed_none(id: u32) -> bool {
+pub fn listed_none(id: u32) -> bool {
     with_provider(
         id,
         |p| matches!(&p.models, Models::Ready(models) if models.is_empty()),
@@ -422,12 +383,12 @@ pub(crate) fn listed_none(id: u32) -> bool {
 }
 
 /// The models `id` shows, in order (tracked where it is read).
-pub(crate) fn models(id: u32) -> Vec<Model> {
+pub fn models(id: u32) -> Vec<Model> {
     with_provider(id, |p| p.models.shown().to_vec()).unwrap_or_default()
 }
 
 /// Offers the model called `model`, or stops offering it.
-pub(crate) fn set_model_enabled(id: u32, model: &str, on: bool) {
+pub fn set_model_enabled(id: u32, model: &str, on: bool) {
     settings().update(|settings| {
         let Some(provider) = provider_mut(settings, id) else {
             return;
@@ -445,7 +406,7 @@ pub(crate) fn set_model_enabled(id: u32, model: &str, on: bool) {
 
 /// Asks `id` for its models, from the URL and key it holds. Its answer lands
 /// in the state; a newer ask makes an older answer drop.
-pub(crate) fn refresh_models(id: u32) {
+pub fn refresh_models(id: u32) {
     if !can_refresh(id) {
         return;
     }
@@ -468,8 +429,8 @@ pub(crate) fn refresh_models(id: u32) {
         return;
     }
 
-    // Under no owner, so switching sections or closing the settings does not
-    // cut the answer off: it belongs to the provider.
+    // Under no owner, so closing the dialog does not cut the answer off: it
+    // belongs to the provider.
     Owner::detached().run(|| {
         spawn(async move {
             let listed = list_models(&base_url, &api_key).await;

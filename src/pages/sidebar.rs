@@ -5,9 +5,8 @@ use aedt_ui::{avatar, button, icon, list_item, menu, separator, sizes};
 use nsh_base::theme;
 use nsh_core::{element::desktop::title_bar, prelude::*};
 
-use crate::settings;
-
-pub(crate) fn sidebar() -> View {
+/// The session list, with the action that opens the settings as its foot.
+pub(crate) fn sidebar(open_settings: impl Fn() + Copy + 'static) -> View {
     view()
         .w(px(sizes::SIDEBAR))
         .h_full()
@@ -24,17 +23,17 @@ pub(crate) fn sidebar() -> View {
         )
         .child(view().px_3().pb_2().child(separator::horizontal()))
         .child(sessions())
-        .child(footer())
+        .child(footer(open_settings))
 }
 
 /// The sidebar's foot, at the bottom edge it belongs to: the menu of the
 /// app-wide commands.
-fn footer() -> impl IntoElement {
+fn footer(open_settings: impl Fn() + Copy + 'static) -> impl IntoElement {
     view().px_3().pb_3().child(menu::menu(
         menu::trigger(icon::more(14.0), "More"),
         Placement::Top,
         Align::Start,
-        menu::item(icon::settings(14.0), "Settings").on_select(settings::open),
+        menu::item(icon::settings(14.0), "Settings").on_select(open_settings),
     ))
 }
 
