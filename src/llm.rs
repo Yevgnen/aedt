@@ -12,7 +12,7 @@ use async_openai::{
     config::OpenAIConfig,
     types::responses::{
         CreateResponse, CreateResponseArgs, EasyInputContent, EasyInputMessage, InputItem,
-        InputParam, MessageType, ResponseStreamEvent, Role,
+        InputParam, MessageType, Reasoning, ReasoningEffort, ResponseStreamEvent, Role,
     },
 };
 use futures_util::StreamExt;
@@ -44,6 +44,12 @@ pub(crate) fn reply(session_id: u32, reply_id: u32, history: Vec<Message>) {
     let request = match CreateResponseArgs::default()
         .model(MODEL)
         .input(InputParam::Items(input(&history)))
+        // DeepSeek thinks by default; the app asks for the high effort its API
+        // names (`reasoning.effort: "high"`).
+        .reasoning(Reasoning {
+            effort: Some(ReasoningEffort::High),
+            ..Reasoning::default()
+        })
         .build()
     {
         Ok(request) => request,
@@ -67,7 +73,10 @@ pub(crate) fn reply(session_id: u32, reply_id: u32, history: Vec<Message>) {
 /// landing in token-sized bursts.
 #[derive(Default)]
 struct Reveal {
-    pending: String,
+    /// The chain of thought, as it arrived.
+    thinking: String,
+    /// The answer, as it arrived.
+    answer: String,
     /// The stream ended (with nothing left to wait for).
     done: bool,
     /// It failed instead: this replaces the answer.
@@ -112,10 +121,13 @@ async fn answer(key: String, request: CreateResponse, reveal: Rc<RefCell<Reveal>
 
     while let Some(event) = stream.next().await {
         match event {
-            // The visible answer: the chain of thought arrives as its own
-            // `reasoning_text` deltas, which are left out.
+            // The chain of thought and the answer are streamed apart: each is
+            // read into the reply's own buffer, in its own place.
+            Ok(ResponseStreamEvent::ResponseReasoningTextDelta(delta)) => {
+                reveal.borrow_mut().thinking.push_str(&delta.delta);
+            }
             Ok(ResponseStreamEvent::ResponseOutputTextDelta(delta)) => {
-                reveal.borrow_mut().pending.push_str(&delta.delta);
+                reveal.borrow_mut().answer.push_str(&delta.delta);
             }
             Ok(ResponseStreamEvent::ResponseFailed(failed)) => {
                 let message = failed
@@ -153,25 +165,27 @@ async fn reveal_answer(session_id: u32, reply_id: u32, reveal: Rc<RefCell<Reveal
     let started = Instant::now();
 
     loop {
-        let (chunk, remaining, done, failed) = {
+        let (thinking, answer, remaining, done, failed) = {
             let mut reveal = reveal.borrow_mut();
-            let pending = reveal.pending.chars().count();
-            let step = if reveal.done {
-                pending
-            } else {
-                (pending / 8).clamp(2, REVEAL_STEP).min(pending)
-            };
-            let chunk = (pending > 0).then(|| take_chars(&mut reveal.pending, step));
+            let done = reveal.done;
+            let thinking = take_ready(&mut reveal.thinking, done);
+            let answer = take_ready(&mut reveal.answer, done);
             (
-                chunk,
-                reveal.pending.chars().count(),
-                reveal.done,
+                thinking,
+                answer,
+                reveal.thinking.chars().count() + reveal.answer.chars().count(),
+                done,
                 reveal.failed.take(),
             )
         };
 
-        if let Some(chunk) = chunk {
-            store::append_reply(session_id, reply_id, &chunk);
+        if thinking.is_some() || answer.is_some() {
+            store::append_reply(
+                session_id,
+                reply_id,
+                thinking.as_deref().unwrap_or_default(),
+                answer.as_deref().unwrap_or_default(),
+            );
         }
         if let Some(error) = failed {
             store::fail_reply(session_id, reply_id, &error);
@@ -185,6 +199,21 @@ async fn reveal_answer(session_id: u32, reply_id: u32, reveal: Rc<RefCell<Reveal
 
         timer(REVEAL_TICK).await;
     }
+}
+
+/// What of one buffer a tick shows: everything once the stream is over, else a
+/// share of the backlog (at least two characters, at most `REVEAL_STEP`).
+fn take_ready(pending: &mut String, done: bool) -> Option<String> {
+    let count = pending.chars().count();
+    if count == 0 {
+        return None;
+    }
+    let step = if done {
+        count
+    } else {
+        (count / 8).clamp(2, REVEAL_STEP).min(count)
+    };
+    Some(take_chars(pending, step))
 }
 
 /// Up to `max` characters off the front of `text`, whole ones only.

@@ -180,6 +180,7 @@ fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
     view()
         .w_full()
         .gap_1()
+        .child(when(has_reasoning(message), move || reasoning(message)))
         .child(
             text_view()
                 .markdown(move || {
@@ -225,6 +226,32 @@ fn composer_shadow() -> Vec<BoxShadow> {
         inset: false,
     };
     vec![layer(1.0, 2.0, 10), layer(6.0, 20.0, 13)]
+}
+
+/// Whether the reply reasoned before answering.
+fn has_reasoning(message: Memo<Option<Message>>) -> bool {
+    message.with(|message| {
+        message
+            .as_ref()
+            .is_some_and(|message| !message.reasoning.is_empty())
+    })
+}
+
+/// The chain of thought above the answer: smaller and quieter than the reply,
+/// so the answer stays the thing being read.
+fn reasoning(message: Memo<Option<Message>>) -> impl IntoElement {
+    text(move || {
+        message.with(|message| {
+            message
+                .as_ref()
+                .map(|message| message.reasoning.clone())
+                .unwrap_or_default()
+        })
+    })
+    .w_full()
+    .text_size(px(13.0))
+    .line_height(LineHeight::Multiple(ui::MESSAGE_LINE))
+    .text_color(move || theme().muted_foreground)
 }
 
 fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {

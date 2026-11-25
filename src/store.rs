@@ -17,6 +17,9 @@ pub(crate) struct Message {
     pub(crate) id: u32,
     pub(crate) author: Author,
     pub(crate) body: SharedString,
+    /// The chain of thought the reply reasoned with, shown above it: empty for
+    /// a message that did not think.
+    pub(crate) reasoning: SharedString,
     /// The muted line under the message: when it was sent, and for a reply what
     /// it ran on and how long it took. `None` shows no line at all.
     pub(crate) meta: Option<SharedString>,
@@ -207,6 +210,7 @@ fn message(
         id: *next_id,
         author,
         body: body.into(),
+        reasoning: SharedString::default(),
         meta: meta.map(SharedString::from),
         streaming: false,
     };
@@ -367,6 +371,7 @@ fn append_sent(
         id: user_id,
         author: Author::User,
         body: text.to_owned().into(),
+        reasoning: SharedString::default(),
         meta: Some(sent_at.clone()),
         streaming: false,
     });
@@ -375,6 +380,7 @@ fn append_sent(
         id: reply_id,
         author: Author::Assistant,
         body: SharedString::default(),
+        reasoning: SharedString::default(),
         meta: Some(sent_at),
         streaming: true,
     });
@@ -382,18 +388,26 @@ fn append_sent(
     Some((reply_id, history))
 }
 
-/// Appends what arrived of the streamed answer to reply `message_id`.
-pub(crate) fn append_reply(session_id: u32, message_id: u32, delta: &str) {
-    if delta.is_empty() {
+/// Appends what arrived of the reply to `message_id`: its thinking first, then
+/// its answer.
+pub(crate) fn append_reply(session_id: u32, message_id: u32, thinking: &str, answer: &str) {
+    if thinking.is_empty() && answer.is_empty() {
         return;
     }
     workspace().update(|workspace| {
         let Some(message) = find_message(workspace, session_id, message_id) else {
             return;
         };
-        let mut body = message.body.to_string();
-        body.push_str(delta);
-        message.body = body.into();
+        if !thinking.is_empty() {
+            let mut reasoned = message.reasoning.to_string();
+            reasoned.push_str(thinking);
+            message.reasoning = reasoned.into();
+        }
+        if !answer.is_empty() {
+            let mut body = message.body.to_string();
+            body.push_str(answer);
+            message.body = body.into();
+        }
     });
 }
 
