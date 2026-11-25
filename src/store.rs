@@ -346,6 +346,45 @@ pub(crate) fn last_user_index(session_id: u32, first: usize, last: usize) -> Opt
     })
 }
 
+/// The indices of the session's user messages, in order: one tick of the rail
+/// each.
+pub(crate) fn user_message_indices(session_id: u32) -> Vec<usize> {
+    workspace().with(|workspace| {
+        workspace
+            .sessions
+            .iter()
+            .find(|session| session.id == session_id)
+            .map(|session| {
+                session
+                    .messages
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, message)| message.author == Author::User)
+                    .map(|(index, _)| index)
+                    .collect()
+            })
+            .unwrap_or_default()
+    })
+}
+
+/// The reply that follows the user message at `index`: the assistant messages
+/// up to the next question.
+pub(crate) fn reply_after(session_id: u32, index: usize) -> Option<Message> {
+    workspace().with(|workspace| {
+        let session = workspace
+            .sessions
+            .iter()
+            .find(|session| session.id == session_id)?;
+        session
+            .messages
+            .iter()
+            .skip(index + 1)
+            .take_while(|message| message.author == Author::Assistant)
+            .next()
+            .cloned()
+    })
+}
+
 /// Sends `text`: appends the user's message and an empty reply, then streams
 /// the model's answer into that reply. A blank message sends nothing.
 pub(crate) fn send(session_id: u32, text: &str) {

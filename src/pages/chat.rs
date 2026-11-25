@@ -145,9 +145,9 @@ fn timeline_view(
     .flex_1()
 }
 
-/// The column of message ticks at the pane's right edge: one per message, all
-/// light and short at rest. The lit ones — under the pointer, and the last user
-/// message the list shows — are dark and long; a press jumps to its message.
+/// The column of question ticks at the pane's right edge: one per user message,
+/// all light and short at rest. The lit ones — under the pointer, and the last
+/// question the list shows — are dark and long; a press jumps to it.
 fn rail(session_id: u32, timeline: ElementRef, current: Signal<Option<usize>>) -> impl IntoElement {
     view()
         .w(px(sizes::RAIL))
@@ -158,13 +158,13 @@ fn rail(session_id: u32, timeline: ElementRef, current: Signal<Option<usize>>) -
         .justify_center()
         .gap(px(4.0))
         .child(each(
-            move || store::message_ids(session_id),
-            |id| *id,
-            move |_id, at| tick(session_id, at, timeline, current),
+            move || store::user_message_indices(session_id),
+            |index| *index,
+            move |index, _row| tick(session_id, index, timeline, current),
         ))
 }
 
-/// One message's tick.
+/// One question's tick.
 fn tick(
     session_id: u32,
     at: ReadSignal<usize>,
@@ -172,6 +172,7 @@ fn tick(
     current: Signal<Option<usize>>,
 ) -> impl IntoElement {
     let message = computed(move || store::message_at(session_id, at.get()));
+    let reply = computed(move || store::reply_after(session_id, at.get()));
     let hovered = signal(false);
     // Lit: the tick under the pointer, and the reader's place in the list.
     let lit = move || hovered.get() || current.get() == Some(at.get());
@@ -194,7 +195,7 @@ fn tick(
             // pointer, or where the reader is — are dark and long.
             view()
                 .h(px(2.0))
-                .w(move || px(if lit() { 16.0 } else { 8.0 }))
+                .w(move || px(if lit() { 18.0 } else { 10.0 }))
                 .rounded_full()
                 .bg(move || {
                     if lit() {
@@ -208,51 +209,49 @@ fn tick(
         )
         .child(when(
             move || hovered.get(),
-            move || message_preview(message),
+            move || message_preview(message, reply),
         ))
 }
 
-/// The card beside a hovered tick: who wrote it and the start of what they
-/// said.
-fn message_preview(message: Memo<Option<Message>>) -> impl IntoElement {
+/// The card beside a hovered tick: the question, then what it was answered.
+fn message_preview(
+    question: Memo<Option<Message>>,
+    reply: Memo<Option<Message>>,
+) -> impl IntoElement {
     view()
         .absolute()
         .right(px(sizes::RAIL - 6.0))
         .top(px(-10.0))
         .w(px(320.0))
         .p_3()
-        .gap_1()
+        .gap_2()
         .rounded(move || theme().radius)
         .border_1()
         .border_color(move || theme().border)
         .bg(move || theme().card)
         .shadow(composer_shadow())
+        .child(preview_part("你", question, 3))
+        .child(when(
+            move || reply.with(|reply| reply.is_some()),
+            move || preview_part(crate::llm::MODEL, reply, 4),
+        ))
+}
+
+/// One side of the preview card: who spoke, then the start of what they said.
+fn preview_part(who: &'static str, body: Memo<Option<Message>>, lines: u32) -> impl IntoElement {
+    view()
+        .gap_1()
+        .child(text(who).text_xs().text_color(thinking_ink))
         .child(
             text(move || {
-                message.with(|message| {
-                    message
-                        .as_ref()
-                        .map(|message| match message.author {
-                            Author::User => "你".into(),
-                            Author::Assistant => SharedString::from(crate::llm::MODEL),
-                        })
-                        .unwrap_or_default()
-                })
-            })
-            .text_xs()
-            .text_color(thinking_ink),
-        )
-        .child(
-            text(move || {
-                message.with(|message| {
-                    message
-                        .as_ref()
-                        .map(|message| message.body.clone())
+                body.with(|body| {
+                    body.as_ref()
+                        .map(|body| body.body.clone())
                         .unwrap_or_default()
                 })
             })
             .text_sm()
-            .number_of_lines(6)
+            .number_of_lines(lines)
             .text_color(move || theme().foreground),
         )
 }
