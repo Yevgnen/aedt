@@ -202,8 +202,9 @@ fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
 }
 
 /// The floating composer: a rounded card whose input sits on top and whose
-/// round send button sits in the toolbar row below. The card carries the focus
-/// edge, since the input itself is borderless.
+/// round send button sits in the toolbar row below. The card is the frame:
+/// the input itself is borderless, and the card's own edge is a whisper with a
+/// shadow under it, not a ring that lights up.
 fn composer_card(
     draft: Signal<String>,
     can_send: impl Fn() -> bool + Copy + 'static,
@@ -214,13 +215,9 @@ fn composer_card(
         .gap_2()
         .rounded_3xl()
         .border_1()
-        .border_color(move || theme().border)
+        .border_color(move || theme().border.opacity(0.6))
         .bg(move || theme().card)
-        .shadow_sm()
-        .focus_within(|s| s.border_color(move || theme().ring))
-        .transition_colors()
-        .duration(motion::control_duration())
-        .ease_out()
+        .shadow_md()
         .child(input::composer(draft).label("消息"))
         .child(
             view()

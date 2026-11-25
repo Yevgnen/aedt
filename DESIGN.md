@@ -23,7 +23,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 功能代码只用 `src/ui` 与布局原语（`view`、`text`、`virtual_list`、`text_view`）：
 
 - `button`：`secondary` 标签按钮与 `icon` 圆形图标按钮，统一的按压反馈、焦点环与禁用态；圆形按钮 28pt，带 6pt 热区。
-- `input`：受控多行输入，无边框；焦点由外层 composer 卡片的 `focus_within` 边框承接。
+- `input`：受控多行输入，无边框；卡片只是它的外框，聚焦时不换边框色（光标本身就是焦点提示）。
 - `list_item::session`：侧栏会话行，selected 由调用方提供；标题在选中与未选中都用 `foreground`，选中只靠 `accent` 底色表达；NSH 的 `hover:` 排在 `selected:` 之后（`rank::HOVER` 34 > `rank::SELECTED` 32），所以选中行的 hover 底色直接取 `accent`（与选中同色），悬停时不换色。
 - `badge`、`avatar`、`separator`、`empty`。
 
@@ -35,7 +35,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 - 消息流、会话列表、输入框与代码块隐藏滚动条指示（`scrollbar(false)`），滚轮、触控板和键盘仍可滚动。
 - 会话面板：header（标题 + 模型 badge）、`virtual_list` 消息流（底部对齐、垂直 24pt、水平 12pt、16pt 行距；助手消息不带头像与昵称；用户气泡右对齐到右柱）。每条消息下面都有一行 12pt `muted_foreground` 元信息：先是发送/回复时间（`14:02`），助手再接 `Mock · N tokens · 0.3 s`；用户那行右对齐到气泡右沿，助手那行左对齐。时间取发送时的本机时钟（`chrono::Local`），示例数据里的时间是写死的。
 - 代码块由 `text_view` 自己画（1pt 边框 + 底色）；应用层在根组件用 `TextViewParts` 把 `CodeBlock` 的底色与边框色都设成 `code` token（明色 `#FCFCFC`，比 `muted` 的 `oklch(0.97 0 0)` 更接近页面底色；暗色显式写成同一个 `oklch(0.269 0 0)`）。
-- composer 放在同一列内：卡片顶边直接接消息视口，滚动内容在卡片上沿截断，中间不再留空白；卡片填满列宽，`rounded_3xl`、1pt `border`、`shadow_sm`、`card` 底色；卡片内 12pt 内边距，上面是最小 44pt 的输入框，下面是右对齐的 28pt 圆形发送键。卡片下方 8pt 后保留 20pt 状态栏高度（暂空），再留 8pt 到窗口底边。
+- composer 放在同一列内：卡片顶边直接接消息视口，滚动内容在卡片上沿截断，中间不再留空白；卡片填满列宽，`rounded_3xl`、1pt `border`（`border` 色的 60%，存在感很弱）、`shadow_md`、`card` 底色；卡片内 12pt 内边距，上面是最小 44pt 的输入框，下面是右对齐的 28pt 圆形发送键。卡片下方 8pt 后保留 20pt 状态栏高度（暂空），再留 8pt 到窗口底边。
 - 会话切换用 `dynamic` 按会话 id 重建面板，草稿与滚动位置随之重置；消息与侧栏由 store 的 signal 驱动。
 
 ## 动效清单
@@ -45,7 +45,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 | 按钮 hover | 颜色过渡，`transition_all` + `FAST`(180ms) ease-out | 时长归零 |
 | 按钮按下 | 标签按钮缩放 0.97、圆形图标按钮 0.95，同为 `FAST` | 不缩放，颜色立即变化 |
 | 会话行 hover / 选中 | 背景 wash，`transition_colors` + `INSTANT`(120ms) | 时长归零 |
-| composer 卡片获得焦点 | `focus_within` 边框转 `ring`，颜色过渡 `FAST` | 时长归零 |
+| composer 卡片获得焦点 | 无动效：边框不随焦点变色，输入光标本身就是提示 | — |
 | 切换会话 | 面板淡入，`motion().entering(fade)`，`BASE`(240ms) ease-out | 直接显示终态 |
 | 发送后的新消息 | 无动效：Mock 回复同步插入，列表保持阅读位置；接入流式模型后补光标呼吸与行进入动画 | — |
 | 窗口缩放 | 无动效：原生布局 | — |
