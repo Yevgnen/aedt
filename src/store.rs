@@ -52,12 +52,12 @@ impl Default for Workspace {
         let mut next_message_id = 1;
         let first = Session {
             id: 1,
-            title: "设计 Agent IDE 的会话栏".into(),
+            title: "设计会话栏的布局".into(),
             messages: vec![
                 message(
                     &mut next_message_id,
                     Author::User,
-                    "先搭一个 Agent IDE 的骨架，左边会话列表，右边聊天。",
+                    "先搭一个骨架，左边会话列表，右边聊天。",
                     None,
                 ),
                 message(

@@ -41,21 +41,10 @@ fn brand() -> impl IntoElement {
         .pb_3()
         .child(avatar::avatar("A"))
         .child(
-            view()
-                .flex_1()
-                .min_w(px(0.0))
-                .gap_1()
-                .child(
-                    text("Aedt")
-                        .text_sm()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(move || theme().sidebar_foreground),
-                )
-                .child(
-                    text("Agent IDE")
-                        .text_xs()
-                        .text_color(move || theme().muted_foreground),
-                ),
+            text("Aedt")
+                .text_sm()
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(move || theme().sidebar_foreground),
         )
 }
 

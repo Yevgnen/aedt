@@ -1,4 +1,4 @@
-//! Aedt: an Agent IDE skeleton in Rust. Sessions live in the sidebar, the
+//! Aedt: a desktop chat app skeleton in Rust. Sessions live in the sidebar, the
 //! selected conversation fills the pane beside it, and the composer echoes
 //! placeholder model data while it changes.
 
