@@ -11,7 +11,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 ## 颜色与尺度
 
 - 颜色全部来自 `nsh_base::theme()`，只用语义角色：`background`、`foreground`、`card`、`sidebar*`、`muted*`、`accent`、`input`、`ring`、`border`、`primary*`。
-- 主题在 `theme.json`（`nsh.json` 的 `theme`），明/暗两套：`primary` 浅蓝 `#DBEAFE` / `#93C5FD`；`foreground` 用 `#242529dd`（87% 不透明度的深灰，不用纯黑），聊天正文、气泡文字、会话行标题共用它；用户气泡取 `bubble`（明色 `#EFF6FF`，与 `muted` 同为 L 0.97）；消息元信息行取 `meta`（明色 `#8C8C8C`，比 `muted-foreground` 的 `oklch(0.556 0 0)` 浅一档）；`secondary`、`accent` 保持中性灰，侧栏不染蓝；`ring` 与 `link` 用可读的蓝色。Markdown 链接用独立的 `link` 深蓝，避免浅蓝链接在正文里不可读。`cargo run` 不读 `nsh.json`，根组件启动时用 `tokens_of` 应用同一份主题；`nsh run` 由 host 读取。原始 hex 只写在主题文件里。
+- 主题在 `theme.json`（`nsh.json` 的 `theme`），明/暗两套：`primary` 浅蓝 `#DBEAFE` / `#93C5FD`；`foreground` 用 `#242529dd`（87% 不透明度的深灰，不用纯黑），聊天正文、气泡文字、会话行标题共用它；用户气泡取 `bubble`（明色 `#EFF6FF`，与 `muted` 同为 L 0.97）；消息元信息行取 `caption`（明色 `#C0C0C0`，与预览回复同等浅但各自独立，不共用变量）；`secondary`、`accent` 保持中性灰，侧栏不染蓝；`ring` 与 `link` 用可读的蓝色。Markdown 链接用独立的 `link` 深蓝，避免浅蓝链接在正文里不可读。`cargo run` 不读 `nsh.json`，根组件启动时用 `tokens_of` 应用同一份主题；`nsh run` 由 host 读取。原始 hex 只写在主题文件里。
 - 圆角来自 `theme().radius` 与 Tailwind 的 `rounded-*` 阶梯：浮起的 composer 用 `rounded_3xl`，胶囊（badge、avatar）与圆形发送键用 `rounded_full()`。
 - 尺寸是 app token，集中在 `src/ui/sizes.rs`：侧栏 264、控件 32、列表行 32、列表行内 10、头像 28、输入框最小 44、会话列最宽 760（列内左右 24）、圆形发送 28、用户消息最大宽 560。
 - 间距走 Tailwind 的 4pt 刻度（`p_3` = 12pt、`gap_2` = 8pt、`p_6` = 24pt）。

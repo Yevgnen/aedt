@@ -388,7 +388,7 @@ fn message_meta(message: Memo<Option<Message>>) -> impl IntoElement {
             .text_xs()
             .text_color(move || {
                 theme()
-                    .color("meta")
+                    .color("caption")
                     .unwrap_or_else(|| theme().muted_foreground)
             })
         },
