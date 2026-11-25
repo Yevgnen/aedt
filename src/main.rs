@@ -18,7 +18,7 @@ fn main() -> impl std::process::Termination {
             title: "Aedt".to_owned(),
             #[cfg(any(target_os = "linux", target_os = "windows"))]
             app_id: "com.example.aedt".to_owned(),
-            size: (1120, 760),
+            size: (1320, 880),
             ..Default::default()
         },
     )

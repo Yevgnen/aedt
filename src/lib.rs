@@ -48,6 +48,6 @@ pub fn App() -> impl IntoElement {
         .id("main")
         .title("Aedt")
         .attributes(attributes)
-        .default_size(size(px(1120.0), px(760.0)))
+        .default_size(size(px(1320.0), px(880.0)))
         .content(shell::shell)
 }
