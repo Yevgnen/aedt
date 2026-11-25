@@ -10,6 +10,7 @@ mod ui;
 
 use nsh_base::{TextViewPart, TextViewParts, theme};
 use nsh_core::{
+    LineHeight,
     desktop::{TitleBarOptions, TitleBarStyle, WindowAttributes},
     element::desktop::window as app_window,
     prelude::*,
@@ -60,9 +61,11 @@ pub fn App() -> impl IntoElement {
 
     // A code block draws its border in the token's border color, which reads as
     // an outline around its fill: the fill's own color leaves no outline while
-    // the 1pt width stays.
+    // the 1pt width stays. Its lines are as tight as a message's prose.
     provide_context(TextViewParts::new().part(TextViewPart::CodeBlock, |s| {
-        s.bg(code_fill).border_color(code_fill)
+        s.bg(code_fill)
+            .border_color(code_fill)
+            .line_height(LineHeight::Multiple(ui::MESSAGE_LINE))
     }));
 
     let mut title_bar = TitleBarOptions::default();

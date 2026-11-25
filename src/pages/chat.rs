@@ -5,12 +5,8 @@ use nsh_core::{Color, LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::{
     store::{self, Author, Message},
-    ui::{badge, button, empty, icon, input, motion, sizes},
+    ui::{self, badge, button, empty, icon, input, motion, sizes},
 };
-
-/// A message's line height, a multiple of its font size: lines sit close, as a
-/// chat log's do, rather than at a document's spacing.
-const MESSAGE_LINE: f32 = 1.25;
 
 /// One session's conversation. The caller keys it by the session, so
 /// switching conversations resets the draft and the scroll position.
@@ -117,7 +113,7 @@ fn user_message(message: Memo<Option<Message>>) -> impl IntoElement {
                             })
                         })
                         .text_sm()
-                        .line_height(LineHeight::Multiple(MESSAGE_LINE))
+                        .line_height(LineHeight::Multiple(ui::MESSAGE_LINE))
                         .selectable(true)
                         .text_color(move || theme().primary_foreground),
                     ),
@@ -207,7 +203,7 @@ fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
                 .code_block_scrollbar(false)
                 .gap_2()
                 .text_size(px(14.0))
-                .line_height(LineHeight::Multiple(MESSAGE_LINE))
+                .line_height(LineHeight::Multiple(ui::MESSAGE_LINE))
                 .text_color(move || theme().foreground),
         )
         .child(

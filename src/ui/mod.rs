@@ -11,3 +11,7 @@ pub(crate) mod list_item;
 pub(crate) mod motion;
 pub(crate) mod separator;
 pub(crate) mod sizes;
+
+/// A message's line height, a multiple of its font size: the prose and the
+/// code blocks it holds read at the same density.
+pub(crate) const MESSAGE_LINE: f32 = 1.25;

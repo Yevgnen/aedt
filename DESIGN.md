@@ -15,7 +15,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 - 圆角来自 `theme().radius` 与 Tailwind 的 `rounded-*` 阶梯：浮起的 composer 用 `rounded_3xl`，胶囊（badge、avatar）与圆形发送键用 `rounded_full()`。
 - 尺寸是 app token，集中在 `src/ui/sizes.rs`：侧栏 264、控件 32、列表行 32、列表行内 10、头像 28、输入框最小 44、会话列最宽 760（列内左右 24）、圆形发送 28、用户消息最大宽 560。
 - 间距走 Tailwind 的 4pt 刻度（`p_3` = 12pt、`gap_2` = 8pt、`p_6` = 24pt）。
-- 字号只用 `text_xs`（12）与 `text_sm`（14）；消息正文用 `text_view` 的 `text_size(14)`，行距 `LineHeight::Multiple(1.25)`（气泡与助手回复一致）；代码块保留自己的行高。
+- 字号只用 `text_xs`（12）与 `text_sm`（14）；消息正文用 `text_view` 的 `text_size(14)`，行距 `LineHeight::Multiple(1.25)`（`ui::MESSAGE_LINE`，气泡、助手回复与代码块统一）。
 - 编程字体（代码块、行内代码、`font-mono`）默认 `Berkeley Mono, SF Mono, Menlo, monospace`：CoreText 取第一个已安装的族，缺 Berkeley Mono 的机器落到 SF Mono / Menlo，不会退回比例字体。`cargo run` 不读 `nsh.json`，根组件启动时应用主题并设置 `font-mono` token。
 
 ## 组件层
