@@ -5,8 +5,9 @@
       "font-mono": "Berkeley Mono"
     },
     "light": {
+      "foreground": "#242529dd",
       "primary": "#DBEAFE",
-      "primary-foreground": "#171717",
+      "primary-foreground": "#242529dd",
       "bubble": "#EFF6FF",
       "code": "#FCFCFC",
       "secondary": "#F4F4F5",
@@ -17,6 +18,7 @@
       "link": "#1D4ED8"
     },
     "dark": {
+      "foreground": "oklch(0.985 0 0)",
       "primary": "#93C5FD",
       "primary-foreground": "#171717",
       "bubble": "#93C5FD",

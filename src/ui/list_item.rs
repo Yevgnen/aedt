@@ -44,12 +44,6 @@ pub(crate) fn session(
                 .text_sm()
                 .font_weight(FontWeight::NORMAL)
                 .number_of_lines(1)
-                .text_color(move || {
-                    if selected() {
-                        theme().foreground
-                    } else {
-                        theme().muted_foreground
-                    }
-                }),
+                .text_color(move || theme().foreground),
         )
 }
