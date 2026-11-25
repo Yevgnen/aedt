@@ -434,12 +434,24 @@ fn assistant_message(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> 
                 .text_color(move || theme().foreground),
         )
         .child(
+            // The model and the time show while the pointer is over the row they
+            // share, so a reply reads as its text until it is asked for more.
             view()
+                .group()
                 .flex_row()
                 .items_center()
                 .gap_1()
                 .child(copy_message(message))
-                .child(message_meta(message)),
+                .child(
+                    view()
+                        .opacity(0.0)
+                        .group_hover(|s| s.opacity(1.0))
+                        .group_focus_within(|s| s.opacity(1.0))
+                        .transition_opacity()
+                        .duration(motion::row_duration())
+                        .ease_out()
+                        .child(message_meta(message)),
+                ),
         )
 }
 
