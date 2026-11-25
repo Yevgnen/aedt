@@ -27,6 +27,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 ## 布局
 
 - 一级结构：`sidebar`（264pt，`sidebar` 底色，右边框）+ 会话面板（`flex_1`）。
+- 内容脊柱：侧栏外边距 12pt、行内再留 12pt，会话标题文字落在 24pt；会话面板的 header、消息流、composer 统一 24pt 左右内边距；两栏顶部统一 16pt。
 - 会话面板：header（标题 + 消息数 + 模型 badge）、`virtual_list` 消息流（底部对齐、24pt 内容内边距、16pt 行距）、composer（回显条 + 输入框 + 发送行）。
 - 会话切换用 `dynamic` 按会话 id 重建面板，草稿与滚动位置随之重置；消息与侧栏由 store 的 signal 驱动。
 

@@ -34,7 +34,7 @@ fn header(session_id: u32) -> impl IntoElement {
         .items_center()
         .gap_3()
         .px_6()
-        .py_3()
+        .py_4()
         .border_b_1()
         .border_b_color(move || theme().border)
         .child(
@@ -190,8 +190,8 @@ fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
 
     view()
         .px_6()
-        .pt_2()
-        .pb_5()
+        .pt_3()
+        .pb_6()
         .gap_2()
         .border_t_1()
         .border_t_color(move || theme().border)

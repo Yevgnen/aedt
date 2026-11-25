@@ -36,9 +36,9 @@ fn brand() -> impl IntoElement {
         .flex_row()
         .items_center()
         .gap_3()
-        .px_4()
+        .px_3()
         .pt_4()
-        .pb_3()
+        .pb_4()
         .child(avatar::avatar("A"))
         .child(
             text("Aedt")
@@ -52,7 +52,7 @@ fn sessions() -> impl IntoElement {
     virtual_list(store::session_count, session_row)
         .keys(store::session_ids)
         .estimated_item_size(px(sizes::LIST_ROW))
-        .content_padding(px(8.0))
+        .content_padding(px(12.0))
         .row_gap(px(2.0))
         .flex_1()
 }
