@@ -31,6 +31,7 @@ pub(crate) fn session(
                 .flex_1()
                 .min_w(px(0.0))
                 .text_sm()
+                .font_weight(FontWeight::NORMAL)
                 .number_of_lines(1)
                 .text_color(move || {
                     if selected() {
