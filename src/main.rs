@@ -13,7 +13,7 @@ use nsh_platform_windows as platform;
 fn main() -> impl std::process::Termination {
     env_logger::init();
     platform::run_app(
-        platform::AppSource::Rust(platform::Root::of::<aedt::App>()),
+        platform::AppSource::Rust(platform::Root::of::<aedt::App>().app_id("com.example.aedt")),
         platform::AppOptions {
             app_id: "com.example.aedt".to_owned(),
             title: "Aedt".to_owned(),
