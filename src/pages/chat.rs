@@ -105,8 +105,8 @@ fn header(session_id: u32) -> impl IntoElement {
         .border_b_color(move || theme().border)
         .child(
             text(move || {
-                store::session_by_id(session_id)
-                    .map(|session| session.display_title())
+                store::session_summary(session_id)
+                    .map(|session| session.title)
                     .unwrap_or_else(|| "新会话".into())
             })
             .flex_1()
@@ -250,7 +250,7 @@ fn message_preview(
         .right(px(sizes::RAIL - 6.0))
         .top(move || {
             let (row, _) = hovered.get().unwrap_or((0, 0));
-            let rows = store::user_message_indices(session_id).len() as f32;
+            let rows = store::user_message_count(session_id) as f32;
             let pitch = TICK_HEIGHT + TICK_PAD * 2.0;
             let start = (height.get() - rows * pitch) / 2.0;
             px(start + row as f32 * pitch - 20.0)

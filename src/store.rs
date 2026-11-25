@@ -47,6 +47,22 @@ impl Session {
             self.title.clone()
         }
     }
+
+    /// What a row and the header show of it, without its messages.
+    fn summary(&self) -> SessionSummary {
+        SessionSummary {
+            id: self.id,
+            title: self.display_title(),
+        }
+    }
+}
+
+/// A session as the sidebar and the header show it: its identity and title,
+/// never its messages, so reading one does not copy a whole conversation.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct SessionSummary {
+    pub(crate) id: u32,
+    pub(crate) title: SharedString,
 }
 
 #[derive(Clone)]
@@ -244,19 +260,21 @@ pub(crate) fn session_ids() -> Vec<u32> {
     })
 }
 
-/// The session at `index`, or none past the end (tracked where it is read).
-pub(crate) fn session_at(index: usize) -> Option<Session> {
-    workspace().with(|workspace| workspace.sessions.get(index).cloned())
+/// What the session at `index` shows, or none past the end (tracked where it is
+/// read).
+pub(crate) fn session_summary_at(index: usize) -> Option<SessionSummary> {
+    workspace().with(|workspace| workspace.sessions.get(index).map(Session::summary))
 }
 
-/// One session, or none once it is gone (tracked where it is read).
-pub(crate) fn session_by_id(id: u32) -> Option<Session> {
+/// What the session `id` shows, or none once it is gone (tracked where it is
+/// read).
+pub(crate) fn session_summary(id: u32) -> Option<SessionSummary> {
     workspace().with(|workspace| {
         workspace
             .sessions
             .iter()
             .find(|session| session.id == id)
-            .cloned()
+            .map(Session::summary)
     })
 }
 
@@ -343,6 +361,24 @@ pub(crate) fn last_user_index(session_id: u32, first: usize, last: usize) -> Opt
         (first..=last)
             .rev()
             .find(|index| session.messages[*index].author == Author::User)
+    })
+}
+
+/// How many user messages the session has: one rail tick each (tracked where it
+/// is read).
+pub(crate) fn user_message_count(session_id: u32) -> usize {
+    workspace().with(|workspace| {
+        workspace
+            .sessions
+            .iter()
+            .find(|session| session.id == session_id)
+            .map_or(0, |session| {
+                session
+                    .messages
+                    .iter()
+                    .filter(|message| message.author == Author::User)
+                    .count()
+            })
     })
 }
 

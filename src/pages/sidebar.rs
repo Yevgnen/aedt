@@ -4,7 +4,7 @@ use nsh_base::theme;
 use nsh_core::{element::desktop::title_bar, prelude::*};
 
 use crate::{
-    store::{self, Session},
+    store,
     ui::{avatar, button, list_item, separator, sizes},
 };
 
@@ -60,32 +60,23 @@ fn sessions() -> impl IntoElement {
 /// A cell, made once and given other sessions as it is reused: it keeps no
 /// state, and every binding reads the session where that cell is now.
 fn session_row(at: Position) -> impl IntoElement {
-    let session = computed(move || store::session_at(at.index()));
+    let session = computed(move || store::session_summary_at(at.index()));
     let id = move || session.with(|session| session.as_ref().map(|session| session.id));
-    let selected = move || id() == Some(store::selected_session_id());
-
-    list_item::session(
-        move || {
-            session.with(|session| {
-                session
-                    .as_ref()
-                    .map(Session::display_title)
-                    .unwrap_or_else(|| "新会话".into())
-            })
-        },
-        selected,
-    )
-    .accessibility_label(move || {
-        Some(session.with(|session| {
+    let title = move || {
+        session.with(|session| {
             session
                 .as_ref()
-                .map(Session::display_title)
+                .map(|session| session.title.clone())
                 .unwrap_or_else(|| "新会话".into())
-        }))
-    })
-    .on_press(move || {
-        if let Some(id) = id() {
-            store::select_session(id);
-        }
-    })
+        })
+    };
+    let selected = move || id() == Some(store::selected_session_id());
+
+    list_item::session(title, selected)
+        .accessibility_label(move || Some(title()))
+        .on_press(move || {
+            if let Some(id) = id() {
+                store::select_session(id);
+            }
+        })
 }
