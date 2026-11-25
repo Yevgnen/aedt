@@ -185,7 +185,7 @@ fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
         .border_t_1()
         .border_t_color(move || theme().border)
         .child(when(can_send, move || echo_strip(draft)))
-        .child(input::composer(draft, "输入消息，Aedt 会用 Mock 数据回复…"))
+        .child(input::composer(draft).label("消息"))
         .child(
             view().flex_row().items_center().justify_end().child(
                 button::action(Variant::Primary, "发送")

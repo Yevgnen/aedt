@@ -6,12 +6,10 @@ use nsh_core::prelude::*;
 use crate::ui::{motion, sizes};
 
 /// A controlled composer bound to `value`; the owner keeps the text.
-pub(crate) fn composer(value: Signal<String>, placeholder: &'static str) -> Input {
+pub(crate) fn composer(value: Signal<String>) -> Input {
     input()
         .value(move || value.get())
         .on_change(move |text: &str| value.set(text.to_owned()))
-        .placeholder(placeholder)
-        .placeholder_color(move || color(theme().muted_foreground))
         .caret_color(move || color(theme().primary))
         .multiline(true)
         .min_h(px(sizes::COMPOSER_MIN))
