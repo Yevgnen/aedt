@@ -182,15 +182,7 @@ fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
         .px_6()
         .pt_4()
         .pb_3()
-        .gap_2()
         .child(composer_card(draft, can_send, submit))
-        .child(
-            view()
-                .h_5()
-                .pl_3()
-                .justify_center()
-                .child(when(can_send, move || echo_status(draft))),
-        )
 }
 
 /// The floating composer: a rounded card whose input sits on top and whose
@@ -220,31 +212,5 @@ fn composer_card(
                 .items_center()
                 .justify_end()
                 .child(button::icon("↑", "发送", can_send).on_press(submit)),
-        )
-}
-
-/// The live readout under the card: what the mock model reports about the
-/// draft while it changes, so the round trip is visible before sending.
-fn echo_status(draft: Signal<String>) -> impl IntoElement {
-    let chars = computed(move || draft.with(|draft| draft.chars().count()));
-    let tokens = computed(move || chars.get() / 3 + 1);
-    let enter = motion().entering(motion::fade_rise());
-
-    view()
-        .flex_row()
-        .items_center()
-        .gap_2()
-        .bind_motion(&enter)
-        .child(
-            text(move || {
-                format!(
-                    "回显 {} 字 · {} tokens · {} ms",
-                    chars.get(),
-                    tokens.get(),
-                    40 + chars.get() % 60
-                )
-            })
-            .text_xs()
-            .text_color(move || theme().muted_foreground),
         )
 }

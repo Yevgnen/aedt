@@ -22,13 +22,6 @@ pub(crate) fn row_duration() -> impl Fn() -> f32 + Copy {
     || if reduce_motion() { 0.0 } else { INSTANT }
 }
 
-/// An entrance: fade in while rising four points, `BASE` with ease-out.
-pub(crate) fn fade_rise() -> MotionSpec {
-    MotionSpec::new(KeyframeTiming::new(BASE).easing(Easing::EaseOut))
-        .values(MotionChannel::Opacity, [0.0, 1.0])
-        .values(MotionChannel::TranslateY, [4.0, 0.0])
-}
-
 /// A conversation opening: fade in only, `BASE` with ease-out.
 pub(crate) fn fade() -> MotionSpec {
     MotionSpec::new(KeyframeTiming::new(BASE).easing(Easing::EaseOut))
