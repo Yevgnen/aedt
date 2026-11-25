@@ -3,7 +3,7 @@
 use nsh_base::{SwitchElement, switch, theme};
 use nsh_core::prelude::*;
 
-use crate::ui::motion;
+use crate::ui::{motion, tokens};
 
 /// A setting's on/off switch: the app's track and thumb. `label` is what
 /// screen readers call it (the row beside it says it in words); `checked` is
@@ -24,7 +24,7 @@ pub(crate) fn toggle(
                 .bg(move || theme().muted)
                 .transition_colors()
                 .duration(motion::control_duration())
-                .checked(|s| s.bg(move || theme().primary))
+                .checked(|s| s.bg(tokens::checked))
         })
         .thumb_style(|s| {
             s.size(px(20.0))

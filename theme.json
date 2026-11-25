@@ -17,6 +17,7 @@
       "accent": "#EAEAEC",
       "accent-foreground": "#18181B",
       "ring": "#3B82F6",
+      "checked": "#3B82F6",
       "link": "#1D4ED8"
     },
     "dark": {
@@ -32,6 +33,7 @@
       "accent": "#3F3F46",
       "accent-foreground": "#FAFAFA",
       "ring": "#93C5FD",
+      "checked": "#93C5FD",
       "link": "#93C5FD"
     }
   }

@@ -16,6 +16,13 @@ pub(crate) fn code() -> AdaptiveColor {
     theme().color("code").unwrap_or_else(|| theme().muted)
 }
 
+/// What a control that is on is filled with, a switch's track: the theme's
+/// `checked`, or its `ring` blue when the theme leaves that out. It is stronger
+/// than `primary`, which this theme keeps pale for filled buttons.
+pub(crate) fn checked() -> AdaptiveColor {
+    theme().color("checked").unwrap_or_else(|| theme().ring)
+}
+
 /// The quietest ink the app has: the theme's `meta`, or the muted one when the
 /// theme leaves it out. Thinking and the rail's answer read in it.
 pub(crate) fn meta() -> AdaptiveColor {
