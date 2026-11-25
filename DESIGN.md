@@ -5,13 +5,14 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 ## 平台
 
 - 本轮交付 Desktop：macOS 用 `cargo run` 或 `nsh run --target macos`，GPUI 后端用 `nsh run --target gpui`。
+- Desktop 窗口隐藏系统标题栏（`TitleBarStyle::Hidden`，高度 52pt）；红绿灯等系统控件保留，侧栏顶部用 `title_bar().top` 预留，聊天 header 右侧用 `title_bar().right` 预留 Windows/Linux 的窗口按钮。
 - 移动端、Web、TUI 未纳入本轮；布局按桌面密度（32pt 控件、36pt 列表行）搭建，侧栏在窄窗口下应改为可折叠，属于后续工作。
 
 ## 颜色与尺度
 
 - 颜色全部来自 `nsh_base::theme()`，只用语义角色：`background`、`foreground`、`card`、`sidebar*`、`muted*`、`accent`、`input`、`ring`、`border`、`primary*`。
 - 圆角来自 `theme().radius` 与 Tailwind 的 `rounded-*` 阶梯：浮起的 composer 用 `rounded_3xl`，胶囊（badge、avatar）与圆形发送键用 `rounded_full()`。
-- 尺寸是 app token，集中在 `src/ui/sizes.rs`：侧栏 264、控件 32、列表行 36、头像 28、输入框最小 44、composer 最宽 760、圆形发送 28、用户消息最大宽 560。
+- 尺寸是 app token，集中在 `src/ui/sizes.rs`：侧栏 264、标题栏 52、控件 32、列表行 36、头像 28、输入框最小 44、composer 最宽 760、圆形发送 28、用户消息最大宽 560。
 - 间距走 Tailwind 的 4pt 刻度（`p_3` = 12pt、`gap_2` = 8pt、`p_6` = 24pt）。
 - 字号只用 `text_xs`（12）与 `text_sm`（14）；消息正文用 `text_view` 的 `text_size(14)`。
 - 编程字体（代码块、行内代码、`font-mono`）默认 `Berkeley Mono, SF Mono, Menlo, monospace`：CoreText 取第一个已安装的族，缺 Berkeley Mono 的机器落到 SF Mono / Menlo，不会退回比例字体。`cargo run` 不读 `nsh.json`，所以由根组件在启动时设置 `font-mono` token。
@@ -28,7 +29,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 ## 布局
 
 - 一级结构：`sidebar`（264pt，`sidebar` 底色，右边框）+ 会话面板（`flex_1`）。
-- 内容脊柱：侧栏外边距 12pt、行内再留 12pt，会话标题文字落在 24pt；会话面板的 header、消息流、composer 统一 24pt 内边距；两栏顶部统一 16pt。
+- 内容脊柱：侧栏外边距 12pt、行内再留 12pt，会话标题文字落在 24pt；会话面板的 header、消息流、composer 统一 24pt 内边距。聊天 header 顶部留 16pt；侧栏品牌在系统控制区（`title_bar().top`）下方再留 16pt。品牌与 header 标 `window_drag(true)`，两栏背景各顶到窗口上边。
 - 会话面板：header（标题 + 模型 badge）、`virtual_list` 消息流（底部对齐、24pt 内容内边距、16pt 行距）。
 - composer 是浮在面板上的卡片：整块最宽 760pt 并居中，卡片 `rounded_3xl`、1pt `border`、`shadow_sm`、`card` 底色；卡片内 `p_3`，上面是最小 44pt 的输入框，下面是右对齐的 28pt 圆形发送键；卡片下方固定 20pt 状态行显示 mock 回显。
 - 会话切换用 `dynamic` 按会话 id 重建面板，草稿与滚动位置随之重置；消息与侧栏由 store 的 signal 驱动。
@@ -51,7 +52,6 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 
 ## 尚未做
 
-- 自绘标题栏（当前保留系统标题栏）。
 - 会话重命名、删除、搜索。
 - 真实模型接入、流式回复、停止生成。
 - 键盘快捷键（⌘↵ 发送）与移动端布局。

@@ -1,7 +1,7 @@
 //! The conversation: its header, its message timeline and its composer.
 
 use nsh_base::{text_view, theme};
-use nsh_core::prelude::*;
+use nsh_core::{element::desktop::title_bar, prelude::*};
 
 use crate::{
     store::{self, Author, Message},
@@ -30,7 +30,9 @@ fn header(session_id: u32) -> impl IntoElement {
         .items_center()
         .gap_3()
         .px_6()
+        .pr(move || Length::from(title_bar().right + px(24.0)))
         .py_4()
+        .window_drag(true)
         .border_b_1()
         .border_b_color(move || theme().border)
         .child(

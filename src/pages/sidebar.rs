@@ -1,7 +1,7 @@
 //! The session list: a persistent sidebar beside the conversation.
 
 use nsh_base::theme;
-use nsh_core::prelude::*;
+use nsh_core::{element::desktop::title_bar, prelude::*};
 
 use crate::{
     store::{self, Session},
@@ -33,8 +33,9 @@ fn brand() -> impl IntoElement {
         .items_center()
         .gap_3()
         .px_3()
-        .pt_4()
+        .pt(move || Length::from(title_bar().top + px(16.0)))
         .pb_4()
+        .window_drag(true)
         .child(avatar::avatar("A"))
         .child(
             text("Aedt")

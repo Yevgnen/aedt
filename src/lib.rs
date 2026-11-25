@@ -7,7 +7,11 @@ mod shell;
 mod store;
 mod ui;
 
-use nsh_core::{element::desktop::window as app_window, prelude::*};
+use nsh_core::{
+    desktop::{TitleBarOptions, TitleBarStyle, WindowAttributes},
+    element::desktop::window as app_window,
+    prelude::*,
+};
 
 /// The app's coding font, most preferred first. CoreText sets text in the
 /// first installed family, so a machine without Berkeley Mono falls back to
@@ -35,9 +39,16 @@ fn native(registry: &mut Registry) {
 pub fn App() -> impl IntoElement {
     set_mono_font();
 
+    let mut title_bar = TitleBarOptions::default();
+    title_bar.style = TitleBarStyle::Hidden;
+    title_bar.height = Some(px(ui::sizes::TITLE_BAR));
+    let mut attributes = WindowAttributes::default();
+    attributes.title_bar = Some(title_bar);
+
     app_window()
         .id("main")
         .title("Aedt")
+        .attributes(attributes)
         .default_size(size(px(1120.0), px(760.0)))
         .content(shell::shell)
 }
