@@ -179,7 +179,7 @@ fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
 
     view()
         .px_6()
-        .pt_3()
+        .pt_6()
         .pb_6()
         .gap_2()
         .border_t_1()
