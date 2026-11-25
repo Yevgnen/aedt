@@ -1,7 +1,11 @@
 //! The chat model: DeepSeek's Responses API, streamed into the conversation as
 //! it answers.
 
-use std::time::Instant;
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    time::{Duration, Instant},
+};
 
 use async_openai::{
     Client,
@@ -51,9 +55,23 @@ pub(crate) fn reply(session_id: u32, reply_id: u32, history: Vec<Message>) {
 
     // Under no owner, so switching sessions does not cut the answer off: it
     // keeps streaming into the store of the session that asked for it.
+    let reveal = Rc::new(RefCell::new(Reveal::default()));
     Owner::detached().run(|| {
-        spawn(answer(session_id, reply_id, key, request));
+        spawn(answer(key, request, reveal.clone()));
+        spawn(reveal_answer(session_id, reply_id, reveal));
     });
+}
+
+/// What has arrived of an answer but is not shown yet. The network task fills
+/// it; the reveal task drains it at a steady pace, so the text flows instead of
+/// landing in token-sized bursts.
+#[derive(Default)]
+struct Reveal {
+    pending: String,
+    /// The stream ended (with nothing left to wait for).
+    done: bool,
+    /// It failed instead: this replaces the answer.
+    failed: Option<String>,
 }
 
 /// `history` as the API's input items: who spoke, and what they said. The
@@ -76,9 +94,9 @@ fn input(history: &[Message]) -> Vec<InputItem> {
         .collect()
 }
 
-/// Reads the streamed answer into the reply, then closes it with how long it
-/// took; a failure takes the answer's place.
-async fn answer(session_id: u32, reply_id: u32, key: String, request: CreateResponse) {
+/// Reads the streamed answer into `reveal`, which the reveal task shows at its
+/// own pace; the reply is closed there once the last of it is out.
+async fn answer(key: String, request: CreateResponse, reveal: Rc<RefCell<Reveal>>) {
     let config = OpenAIConfig::new()
         .with_api_base(BASE_URL)
         .with_api_key(key);
@@ -87,18 +105,17 @@ async fn answer(session_id: u32, reply_id: u32, key: String, request: CreateResp
     let mut stream = match client.responses().create_stream(request).await {
         Ok(stream) => stream,
         Err(error) => {
-            store::fail_reply(session_id, reply_id, &error.to_string());
+            reveal.borrow_mut().failed = Some(error.to_string());
             return;
         }
     };
 
-    let started = Instant::now();
     while let Some(event) = stream.next().await {
         match event {
             // The visible answer: the chain of thought arrives as its own
             // `reasoning_text` deltas, which are left out.
             Ok(ResponseStreamEvent::ResponseOutputTextDelta(delta)) => {
-                store::append_reply(session_id, reply_id, &delta.delta);
+                reveal.borrow_mut().pending.push_str(&delta.delta);
             }
             Ok(ResponseStreamEvent::ResponseFailed(failed)) => {
                 let message = failed
@@ -106,17 +123,77 @@ async fn answer(session_id: u32, reply_id: u32, key: String, request: CreateResp
                     .error
                     .map(|error| error.message)
                     .unwrap_or_else(|| "响应失败".to_owned());
-                store::fail_reply(session_id, reply_id, &message);
+                reveal.borrow_mut().failed = Some(message);
                 return;
             }
             Ok(_) => {}
             Err(error) => {
-                store::fail_reply(session_id, reply_id, &error.to_string());
+                reveal.borrow_mut().failed = Some(error.to_string());
                 return;
             }
         }
     }
 
-    let seconds = started.elapsed().as_secs_f32();
-    store::finish_reply(session_id, reply_id, MODEL, seconds);
+    reveal.borrow_mut().done = true;
+}
+
+/// How often the reveal task looks at what arrived: about one frame of a 30 Hz
+/// display, quick enough to read as typing and slow enough to keep the writes
+/// (each one re-renders the reply) to thirty a second.
+const REVEAL_TICK: Duration = Duration::from_millis(33);
+
+/// The most characters one tick shows while the answer is still arriving: the
+/// pace rises with the backlog and falls back to a couple of characters, so it
+/// keeps up with the model without bursting.
+const REVEAL_STEP: usize = 40;
+
+/// Shows what `answer` put in `reveal`, a few characters a tick, then closes the
+/// reply with how long it took; a failure takes the answer's place.
+async fn reveal_answer(session_id: u32, reply_id: u32, reveal: Rc<RefCell<Reveal>>) {
+    let started = Instant::now();
+
+    loop {
+        let (chunk, remaining, done, failed) = {
+            let mut reveal = reveal.borrow_mut();
+            let pending = reveal.pending.chars().count();
+            let step = if reveal.done {
+                pending
+            } else {
+                (pending / 8).clamp(2, REVEAL_STEP).min(pending)
+            };
+            let chunk = (pending > 0).then(|| take_chars(&mut reveal.pending, step));
+            (
+                chunk,
+                reveal.pending.chars().count(),
+                reveal.done,
+                reveal.failed.take(),
+            )
+        };
+
+        if let Some(chunk) = chunk {
+            store::append_reply(session_id, reply_id, &chunk);
+        }
+        if let Some(error) = failed {
+            store::fail_reply(session_id, reply_id, &error);
+            return;
+        }
+        if done && remaining == 0 {
+            let seconds = started.elapsed().as_secs_f32();
+            store::finish_reply(session_id, reply_id, MODEL, seconds);
+            return;
+        }
+
+        timer(REVEAL_TICK).await;
+    }
+}
+
+/// Up to `max` characters off the front of `text`, whole ones only.
+fn take_chars(text: &mut String, max: usize) -> String {
+    let end = text
+        .char_indices()
+        .nth(max)
+        .map_or(text.len(), |(at, _)| at);
+    let taken = text[..end].to_owned();
+    text.drain(..end);
+    taken
 }

@@ -8,6 +8,11 @@ use crate::{
     ui::{self, badge, button, empty, icon, input, motion, sizes},
 };
 
+/// The bar drawn after a reply that is still arriving, so the text reads as
+/// being written. It is added when the message is drawn and never kept in the
+/// store, so copying the message leaves it out.
+const STREAMING_CARET: &str = "▍";
+
 /// One session's conversation. The caller keys it by the session, so
 /// switching conversations resets the draft and the scroll position.
 pub(crate) fn pane(session_id: u32) -> View {
@@ -186,7 +191,15 @@ fn assistant_message(message: Memo<Option<Message>>) -> impl IntoElement {
         .child(
             text_view()
                 .markdown(move || {
-                    message.with(|message| message.as_ref().map(|message| message.body.clone()))
+                    message.with(|message| {
+                        message.as_ref().map(|message| {
+                            let mut text = message.body.to_string();
+                            if message.streaming {
+                                text.push_str(STREAMING_CARET);
+                            }
+                            text.into()
+                        })
+                    })
                 })
                 .classes(TextViewClasses {
                     link: Some("text-link".into()),

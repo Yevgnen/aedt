@@ -48,7 +48,7 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 | 会话行 hover / 选中 | 背景 wash，`transition_colors` + `INSTANT`(120ms) | 时长归零 |
 | composer 卡片获得焦点 | 无动效：边框不随焦点变色，输入光标本身就是提示 | — |
 | 切换会话 | 面板淡入，`motion().entering(fade)`，`BASE`(240ms) ease-out | 直接显示终态 |
-| 发送后的新消息 | 无动效：Mock 回复同步插入，列表保持阅读位置；接入流式模型后补光标呼吸与行进入动画 | — |
+| 发送后的新消息 | 匀速吐字：网络增量先进 `Reveal` 缓冲，每 33ms 出一段（`llm::REVEAL_TICK`），末尾跟一个 `▍` 光标；无逐字淡入（`text_view` 不支持字符级样式） | 缓冲一次出完，光标不显示 |
 | 窗口缩放 | 无动效：原生布局 | — |
 
 每条“无动效”都写明了理由；其余在运行中的应用里逐条核对。
@@ -58,6 +58,8 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 - 只接 DeepSeek 官方：`https://api.deepseek.com`，模型 `deepseek-flash`，key 读环境变量 `DEEPSEEK_API_KEY`（未设置时在回答位置直接显示错误）。没有配置界面，没有模型选择。
 - 用 `async-openai` 的 Responses API：DeepSeek 在 `POST /responses` 提供 Responses 格式（https://api-docs.deepseek.com/api/create-response/），请求带 `stream: true`，读 `response.output_text.delta` 逐块写入同一条回复（思维链的 `reasoning_text` 事件不展示）。
 - 请求跑在 `spawn` 的异步任务里、挂在 detached owner 下（NSH 的任务在 tokio runtime 上下文里轮询，见 `nsh-core-0.7.0/src/element/task.rs:748`），所以切会话不会中断回答。
+- 网络任务只把增量写进 `Reveal::pending`（不碰 store）；另一个任务每 33ms 按积压量取 2–40 个字符写进 store，所以渲染与存储都是 ~30Hz，不随 token 频率增长，流结束即退出、不留空转定时器。
+- 流式期间在正文末尾追加 `▍`（只在渲染时加，不入库），作为“还在写”的提示。
 - 上下文是整段会话：用户与助手的历史消息按顺序发出。
 - 回复结束（或出错）时补上元信息：`16:40 · deepseek-flash · 3.2 s`。
 - 回复流式期间，消息的 `streaming` 为真，`text_view` 用 `MarkdownOptions::streaming` 读取：未闭合的语法按闭合渲染，且只重绘变化的块。
