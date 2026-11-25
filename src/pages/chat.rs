@@ -277,7 +277,7 @@ fn message_preview(
                 text(body_of(reply))
                     .text_size(px(13.0))
                     .number_of_lines(4)
-                    .text_color(move || theme().muted_foreground)
+                    .text_color(quiet_ink)
             },
         ))
 }
@@ -507,7 +507,7 @@ fn thinking_bar(
         .px_1()
         .py(px(2.0))
         .rounded(move || theme().radius)
-        .text_color(thinking_ink)
+        .text_color(quiet_ink)
         .hover(|s| s.bg(move || theme().muted))
         .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
         .transition_colors()
@@ -531,12 +531,12 @@ fn thinking_text(message: Memo<Option<Message>>) -> impl IntoElement {
     .w_full()
     .text_size(px(13.0))
     .line_height(LineHeight::Multiple(ui::MESSAGE_LINE))
-    .text_color(thinking_ink)
+    .text_color(quiet_ink)
 }
 
-/// A thought's ink: the theme's `meta` (the quietest text the app has), or the
-/// muted one when the theme leaves it out.
-fn thinking_ink() -> AdaptiveColor {
+/// The quietest ink the app has: the theme's `meta`, or the muted one when the
+/// theme leaves it out. Thinking and the rail's answer read in it.
+fn quiet_ink() -> AdaptiveColor {
     theme()
         .color("meta")
         .unwrap_or_else(|| theme().muted_foreground)
