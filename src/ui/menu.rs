@@ -85,7 +85,7 @@ pub(crate) fn label_trigger(
         .duration(motion::row_duration())
         .ease_out()
         .child(text(value).text_xs())
-        .child(text(note).text_xs().text_color(tokens::meta))
+        .child(text(note).text_xs().text_color(tokens::caption))
         .child(icon::chevron_down(12.0))
 }
 
