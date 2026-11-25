@@ -10,7 +10,7 @@ use crate::{
 
 /// A message's line height, a multiple of its font size: lines sit close, as a
 /// chat log's do, rather than at a document's spacing.
-const MESSAGE_LINE: f32 = 1.2;
+const MESSAGE_LINE: f32 = 1.25;
 
 /// One session's conversation. The caller keys it by the session, so
 /// switching conversations resets the draft and the scroll position.
