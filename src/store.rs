@@ -68,97 +68,97 @@ impl Default for Workspace {
                     &mut next_message_id,
                     Author::User,
                     "先搭一个骨架，左边会话列表，右边聊天。",
-                    Some("10:12"),
+                    Some("11/25 10:12"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
                     "先定住三件事：\n\n1. 会话是唯一的领域对象，消息只属于会话；\n2. 列表用 `virtual_list`，行内不保存状态；\n3. 输入框的草稿属于页面，不放进 store。\n\n```rust\nlet draft = signal(String::new());\n```",
-                    Some("10:12 · deepseek-flash · 0.3 s"),
+                    Some("11/25 10:12 · deepseek-flash · 0.3 s"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::User,
                     "输入的时候怎么回显 mock 数据？",
-                    Some("10:14"),
+                    Some("11/25 10:14"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
                     "草稿是页面的 signal：输入框绑定它，回显条也绑定它。每次按键只重跑这两处绑定，列表和侧栏都不动。",
-                    Some("10:14 · deepseek-flash · 0.2 s"),
+                    Some("11/25 10:14 · deepseek-flash · 0.2 s"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::User,
                     "消息列表滚动时，为什么不能把每行的状态放进行内的 signal？",
-                    Some("10:17"),
+                    Some("11/25 10:17"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
                     "因为 `virtual_list` 的 cell 会复用：同一个 cell 依次显示不同的行。行内 signal 会跟着 cell 走到下一行，状态就串了。每行的状态按消息 id 放在数据里，cell 只读当前位置的那一条。",
-                    Some("10:17 · deepseek-flash · 0.3 s"),
+                    Some("11/25 10:17 · deepseek-flash · 0.3 s"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::User,
                     "会话切换后草稿为什么没了？",
-                    Some("10:21"),
+                    Some("11/25 10:21"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
                     "会话面板按 id 用 `dynamic` 重建，草稿 signal 和滚动位置都属于那一次构建，切换时一起释放。要保留的话，把草稿按会话 id 存进 store，面板打开时再恢复。",
-                    Some("10:21 · deepseek-flash · 0.2 s"),
+                    Some("11/25 10:21 · deepseek-flash · 0.2 s"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::User,
                     "侧栏选中态你是怎么画的？",
-                    Some("10:24"),
+                    Some("11/25 10:24"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
                     "每行拿自己的会话 id 和当前选中 id 比较：选中时用 `accent` 底色和 `foreground` 文字，悬停是更浅的一层 wash。没有左侧竖条，也不靠加粗单独表达选中。",
-                    Some("10:24 · deepseek-flash · 0.2 s"),
+                    Some("11/25 10:24 · deepseek-flash · 0.2 s"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::User,
                     "长回复里的代码块会不会把消息列撑破？",
-                    Some("10:28"),
+                    Some("11/25 10:28"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
                     "助手消息用 `text_view` 渲染 Markdown，代码块在自己的横向滚动区里，不会撑破消息列；用户消息保持纯文本，最宽 560pt。\n\n```rust\nfn main() {\n    println!(\"Aedt\");\n}\n```\n\n这段长内容就是用来把列表撑出滚动的。",
-                    Some("10:28 · deepseek-flash · 0.4 s"),
+                    Some("11/25 10:28 · deepseek-flash · 0.4 s"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::User,
                     "深色模式还要额外改颜色吗？",
-                    Some("10:33"),
+                    Some("11/25 10:33"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
                     "不用。颜色都从 `theme()` 读，`card`、`border`、`muted` 各有明暗两套值；页面里不写 hex，缺角色就先补到主题里。",
-                    Some("10:33 · deepseek-flash · 0.2 s"),
+                    Some("11/25 10:33 · deepseek-flash · 0.2 s"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::User,
                     "发布前还要检查什么？",
-                    Some("10:37"),
+                    Some("11/25 10:37"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
                     "键盘能走完主流程、焦点始终可见、空/加载/失败态都有、浅色和深色都看过、窗口缩到最小不破版。最后在目标平台跑一次真实窗口，而不是只看截图。",
-                    Some("10:37 · deepseek-flash · 0.2 s"),
+                    Some("11/25 10:37 · deepseek-flash · 0.2 s"),
                 ),
             ],
         };
@@ -170,13 +170,13 @@ impl Default for Workspace {
                     &mut next_message_id,
                     Author::User,
                     "cargo run 起来后窗口是空的。",
-                    Some("09:41"),
+                    Some("11/25 09:41"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
                     "先确认根组件填满了窗口：给它 `.flex_1()` 和主题背景，否则窗口后面没有任何东西绘制。",
-                    Some("09:41 · deepseek-flash · 0.2 s"),
+                    Some("11/25 09:41 · deepseek-flash · 0.2 s"),
                 ),
             ],
         };
@@ -187,7 +187,7 @@ impl Default for Workspace {
                 &mut next_message_id,
                 Author::Assistant,
                 "每个工具调用都该有超时，并且把「超时」和「被取消」分开报给上层。",
-                Some("08:15 · deepseek-flash · 0.1 s"),
+                Some("11/25 08:15 · deepseek-flash · 0.1 s"),
             )],
         };
 
@@ -218,9 +218,10 @@ fn message(
     message
 }
 
-/// The clock time a message shows, in the machine's own time zone: `14:02`.
+/// The clock time a message shows, in the machine's own time zone: `11/6
+/// 21:12` (month and day without a leading zero).
 fn now_label() -> SharedString {
-    Local::now().format("%H:%M").to_string().into()
+    Local::now().format("%-m/%-d %H:%M").to_string().into()
 }
 
 fn workspace() -> Signal<Workspace> {
