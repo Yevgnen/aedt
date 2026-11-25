@@ -5,14 +5,14 @@ Aedt 桌面应用的设计约定。改动界面时先读这份，再动 `src/ui`
 ## 平台
 
 - 本轮交付 Desktop：macOS 用 `cargo run` 或 `nsh run --target macos`，GPUI 后端用 `nsh run --target gpui`。
-- Desktop 窗口隐藏系统标题栏（`TitleBarStyle::Hidden`，高度 52pt）；红绿灯等系统控件保留，侧栏顶部用 `title_bar().top` 预留，聊天 header 右侧用 `title_bar().right` 预留 Windows/Linux 的窗口按钮。
+- Desktop 窗口隐藏系统标题栏（`TitleBarStyle::Hidden`），标题栏高度用平台默认值；红绿灯等系统控件保留，侧栏顶部用 `title_bar().top` 预留，聊天 header 右侧用 `title_bar().right` 预留 Windows/Linux 的窗口按钮。
 - 移动端、Web、TUI 未纳入本轮；布局按桌面密度（32pt 控件、36pt 列表行）搭建，侧栏在窄窗口下应改为可折叠，属于后续工作。
 
 ## 颜色与尺度
 
 - 颜色全部来自 `nsh_base::theme()`，只用语义角色：`background`、`foreground`、`card`、`sidebar*`、`muted*`、`accent`、`input`、`ring`、`border`、`primary*`。
 - 圆角来自 `theme().radius` 与 Tailwind 的 `rounded-*` 阶梯：浮起的 composer 用 `rounded_3xl`，胶囊（badge、avatar）与圆形发送键用 `rounded_full()`。
-- 尺寸是 app token，集中在 `src/ui/sizes.rs`：侧栏 264、标题栏 52、控件 32、列表行 36、头像 28、输入框最小 44、composer 最宽 760、圆形发送 28、用户消息最大宽 560。
+- 尺寸是 app token，集中在 `src/ui/sizes.rs`：侧栏 264、控件 32、列表行 36、头像 28、输入框最小 44、composer 最宽 760、圆形发送 28、用户消息最大宽 560。
 - 间距走 Tailwind 的 4pt 刻度（`p_3` = 12pt、`gap_2` = 8pt、`p_6` = 24pt）。
 - 字号只用 `text_xs`（12）与 `text_sm`（14）；消息正文用 `text_view` 的 `text_size(14)`。
 - 编程字体（代码块、行内代码、`font-mono`）默认 `Berkeley Mono, SF Mono, Menlo, monospace`：CoreText 取第一个已安装的族，缺 Berkeley Mono 的机器落到 SF Mono / Menlo，不会退回比例字体。`cargo run` 不读 `nsh.json`，所以由根组件在启动时设置 `font-mono` token。

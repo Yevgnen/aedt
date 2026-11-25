@@ -41,7 +41,6 @@ pub fn App() -> impl IntoElement {
 
     let mut title_bar = TitleBarOptions::default();
     title_bar.style = TitleBarStyle::Hidden;
-    title_bar.height = Some(px(ui::sizes::TITLE_BAR));
     let mut attributes = WindowAttributes::default();
     attributes.title_bar = Some(title_bar);
 

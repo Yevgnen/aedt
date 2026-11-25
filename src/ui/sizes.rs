@@ -13,10 +13,6 @@ pub(crate) const LIST_ROW: f32 = 36.0;
 /// An avatar's diameter.
 pub(crate) const AVATAR: f32 = 28.0;
 
-/// The hidden title bar's height: the conversation header's, so the system's
-/// window controls sit level with its title.
-pub(crate) const TITLE_BAR: f32 = 52.0;
-
 /// The composer's smallest height, before it grows with its text.
 pub(crate) const COMPOSER_MIN: f32 = 44.0;
 
