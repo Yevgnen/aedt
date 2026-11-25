@@ -18,7 +18,7 @@ pub(crate) fn sidebar() -> View {
         .child(brand())
         .child(
             view().px_3().pb_3().child(
-                button::secondary("＋  新建会话")
+                button::secondary("+  New chat")
                     .w_full()
                     .on_press(store::create_session),
             ),
@@ -79,7 +79,7 @@ fn session_row(at: Position) -> impl IntoElement {
             session
                 .as_ref()
                 .map(|session| session.title.clone())
-                .unwrap_or_else(|| "新会话".into())
+                .unwrap_or_else(|| "New chat".into())
         })
     };
     let selected = move || id() == Some(store::selected_session_id());

@@ -108,7 +108,7 @@ fn header(session_id: u32) -> impl IntoElement {
             text(move || {
                 store::session_summary(session_id)
                     .map(|session| session.title)
-                    .unwrap_or_else(|| "新会话".into())
+                    .unwrap_or_else(|| "New chat".into())
             })
             .flex_1()
             .min_w(px(0.0))
@@ -146,7 +146,7 @@ fn timeline_view(
             current.set(place);
         }
     })
-    .empty(empty::empty("说点什么…"))
+    .empty(empty::empty("Say something…"))
     .flex_1()
 }
 
@@ -200,7 +200,7 @@ fn tick(
     button::bare()
         .accessibility_label(move || {
             Some(SharedString::from(format!(
-                "跳转到第 {} 个问题",
+                "Jump to question {}",
                 row.get() + 1
             )))
         })
@@ -370,7 +370,7 @@ fn copy_message(message: Memo<Option<Message>>) -> impl IntoElement {
         });
     };
 
-    button::ghost_icon(icon::copy(14.0), "复制消息")
+    button::ghost_icon(icon::copy(14.0), "Copy message")
         .text_color(move || tokens::caption().opacity(0.8))
         .on_press(copy)
 }
@@ -522,8 +522,8 @@ fn thinking_bar(
         });
     };
 
-    button::quiet(icon::bulb(14.0), "思考")
-        .accessibility_label("展开或收起思考")
+    button::quiet(icon::bulb(14.0), "Thinking")
+        .accessibility_label("Expand or collapse the thinking")
         .text_color(tokens::meta)
         .on_press(toggle)
 }
@@ -580,7 +580,7 @@ fn composer_card(
         .border_color(move || theme().border.opacity(0.6))
         .bg(move || theme().card)
         .shadow(tokens::floating_shadow())
-        .child(input::composer(draft, submit).label("消息"))
+        .child(input::composer(draft, submit).label("Message"))
         .child(
             view()
                 .flex_row()
@@ -588,7 +588,7 @@ fn composer_card(
                 .justify_end()
                 .gap_2()
                 .child(model_picker())
-                .child(button::icon("↑", "发送", can_send).on_press(submit)),
+                .child(button::icon("↑", "Send", can_send).on_press(submit)),
         )
 }
 

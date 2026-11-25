@@ -52,7 +52,7 @@ impl Session {
     /// placeholder until its first message names it.
     pub(crate) fn display_title(&self) -> SharedString {
         if self.title.is_empty() {
-            "新会话".into()
+            "New chat".into()
         } else {
             self.title.clone()
         }
@@ -88,117 +88,117 @@ impl Default for Workspace {
         let mut next_message_id = 1;
         let first = Session {
             id: 1,
-            title: "设计会话栏的布局".into(),
+            title: "Laying out the session sidebar".into(),
             messages: vec![
                 message(
                     &mut next_message_id,
                     Author::User,
-                    "先搭一个骨架，左边会话列表，右边聊天。",
+                    "Start with a skeleton: the session list on the left, the chat on the right.",
                     "11/25 10:12",
                     None,
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
-                    "先定住三件事：\n\n1. 会话是唯一的领域对象，消息只属于会话；\n2. 列表用 `virtual_list`，行内不保存状态；\n3. 输入框的草稿属于页面，不放进 store。\n\n```rust\nlet draft = signal(String::new());\n```",
+                    "Pin three things down:\n\n1. The session is the only domain object, and messages belong to it;\n2. The list uses `virtual_list`, and no row keeps state;\n3. The composer's draft belongs to the page, not to the store.\n\n```rust\nlet draft = signal(String::new());\n```",
                     "11/25 10:12",
                     Some("deepseek-flash · 0.3 s"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::User,
-                    "输入的时候怎么回显 mock 数据？",
+                    "How should mock data echo while I type?",
                     "11/25 10:14",
                     None,
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
-                    "草稿是页面的 signal：输入框绑定它，回显条也绑定它。每次按键只重跑这两处绑定，列表和侧栏都不动。",
+                    "The draft is the page's signal: the input binds to it, and so does the echo bar. A keystroke reruns only those two bindings; the list and the sidebar stay put.",
                     "11/25 10:14",
                     Some("deepseek-flash · 0.2 s"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::User,
-                    "消息列表滚动时，为什么不能把每行的状态放进行内的 signal？",
+                    "Why can't a row keep its state in a signal while the message list scrolls?",
                     "11/25 10:17",
                     None,
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
-                    "因为 `virtual_list` 的 cell 会复用：同一个 cell 依次显示不同的行。行内 signal 会跟着 cell 走到下一行，状态就串了。每行的状态按消息 id 放在数据里，cell 只读当前位置的那一条。",
+                    "Because `virtual_list` reuses its cells: one cell shows different rows in turn. A row's signal travels with the cell to the next row, and states bleed. Keep each row's state in the data, keyed by message id; the cell reads only the one at its position.",
                     "11/25 10:17",
                     Some("deepseek-flash · 0.3 s"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::User,
-                    "会话切换后草稿为什么没了？",
+                    "Why is the draft gone after switching sessions?",
                     "11/25 10:21",
                     None,
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
-                    "会话面板按 id 用 `dynamic` 重建，草稿 signal 和滚动位置都属于那一次构建，切换时一起释放。要保留的话，把草稿按会话 id 存进 store，面板打开时再恢复。",
+                    "The pane is rebuilt by `dynamic` per id, so the draft's signal and the scroll position belong to that build and are released with it. To keep them, store drafts by session id and restore one when its pane opens.",
                     "11/25 10:21",
                     Some("deepseek-flash · 0.2 s"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::User,
-                    "侧栏选中态你是怎么画的？",
+                    "How is the sidebar's selected state drawn?",
                     "11/25 10:24",
                     None,
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
-                    "每行拿自己的会话 id 和当前选中 id 比较：选中时用 `accent` 底色和 `foreground` 文字，悬停是更浅的一层 wash。没有左侧竖条，也不靠加粗单独表达选中。",
+                    "Each row compares its session id with the selected one: the selected row takes the `accent` fill and `foreground` text, and a lighter wash on hover. No left bar, and no bold text standing in for selection.",
                     "11/25 10:24",
                     Some("deepseek-flash · 0.2 s"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::User,
-                    "长回复里的代码块会不会把消息列撑破？",
+                    "Can a code block in a long reply burst the message column?",
                     "11/25 10:28",
                     None,
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
-                    "助手消息用 `text_view` 渲染 Markdown，代码块在自己的横向滚动区里，不会撑破消息列；用户消息保持纯文本，最宽 560pt。\n\n```rust\nfn main() {\n    println!(\"Aedt\");\n}\n```\n\n这段长内容就是用来把列表撑出滚动的。",
+                    "An assistant message renders Markdown with `text_view`, and a code block scrolls sideways in its own area, so it never bursts the column; a user message stays plain text, at most 560pt wide.\n\n```rust\nfn main() {\n    println!(\"Aedt\");\n}\n```\n\nThis long body is here to push the list into scrolling.",
                     "11/25 10:28",
                     Some("deepseek-flash · 0.4 s"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::User,
-                    "深色模式还要额外改颜色吗？",
+                    "Does dark mode need extra color work?",
                     "11/25 10:33",
                     None,
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
-                    "不用。颜色都从 `theme()` 读，`card`、`border`、`muted` 各有明暗两套值；页面里不写 hex，缺角色就先补到主题里。",
+                    "No. Every color comes from `theme()`, and `card`, `border` and `muted` each carry a light and a dark value; pages write no hex, and a missing role goes into the theme first.",
                     "11/25 10:33",
                     Some("deepseek-flash · 0.2 s"),
                 ),
                 message(
                     &mut next_message_id,
                     Author::User,
-                    "发布前还要检查什么？",
+                    "What else should I check before shipping?",
                     "11/25 10:37",
                     None,
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
-                    "键盘能走完主流程、焦点始终可见、空/加载/失败态都有、浅色和深色都看过、窗口缩到最小不破版。最后在目标平台跑一次真实窗口，而不是只看截图。",
+                    "That the keyboard can finish the main flow, focus is always visible, the empty, loading and failed states all exist, both light and dark have been seen, and the smallest window does not break the layout. Then run a real window on the target platform, not just screenshots.",
                     "11/25 10:37",
                     Some("deepseek-flash · 0.2 s"),
                 ),
@@ -206,19 +206,19 @@ impl Default for Workspace {
         };
         let second = Session {
             id: 2,
-            title: "排查 nsh 窗口启动失败".into(),
+            title: "Debugging an nsh window that won't start".into(),
             messages: vec![
                 message(
                     &mut next_message_id,
                     Author::User,
-                    "cargo run 起来后窗口是空的。",
+                    "The window is empty after `cargo run`.",
                     "11/25 09:41",
                     None,
                 ),
                 message(
                     &mut next_message_id,
                     Author::Assistant,
-                    "先确认根组件填满了窗口：给它 `.flex_1()` 和主题背景，否则窗口后面没有任何东西绘制。",
+                    "First check that the root fills the window: give it `.flex_1()` and the theme's background, or nothing gets drawn behind the window.",
                     "11/25 09:41",
                     Some("deepseek-flash · 0.2 s"),
                 ),
@@ -226,11 +226,11 @@ impl Default for Workspace {
         };
         let third = Session {
             id: 3,
-            title: "给工具调用加超时".into(),
+            title: "Timeouts for tool calls".into(),
             messages: vec![message(
                 &mut next_message_id,
                 Author::Assistant,
-                "每个工具调用都该有超时，并且把「超时」和「被取消」分开报给上层。",
+                "Every tool call needs a timeout, and a timeout must reach the layer above apart from a cancellation.",
                 "11/25 08:15",
                 Some("deepseek-flash · 0.1 s"),
             )],
@@ -569,7 +569,7 @@ pub(crate) fn fail_reply(session_id: u32, message_id: u32, error: &str) {
         let Some(message) = find_message(workspace, session_id, message_id) else {
             return;
         };
-        message.body = format!("请求失败：{error}").into();
+        message.body = format!("Request failed: {error}").into();
         message.streaming = false;
     });
 }

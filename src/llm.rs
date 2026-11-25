@@ -49,7 +49,7 @@ pub(crate) fn reply(
     let base_url = model.base_url.trim().to_owned();
     let key = model.api_key.trim().to_owned();
     if base_url.is_empty() || key.is_empty() {
-        store::fail_reply(session_id, reply_id, "未设置 API URL 或 API Key");
+        store::fail_reply(session_id, reply_id, "API URL or API key is missing");
         return;
     }
 
@@ -164,7 +164,7 @@ async fn answer(
                     .response
                     .error
                     .map(|error| error.message)
-                    .unwrap_or_else(|| "响应失败".to_owned());
+                    .unwrap_or_else(|| "Response failed".to_owned());
                 reveal.borrow_mut().failed = Some(message);
                 return;
             }
