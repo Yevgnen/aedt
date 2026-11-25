@@ -83,7 +83,7 @@ fn session_row(at: Position) -> impl IntoElement {
     };
     let selected = move || id() == Some(store::selected_session_id());
 
-    list_item::session(title, selected)
+    list_item::nav(title, selected)
         .accessibility_label(move || Some(title()))
         .on_press(move || {
             if let Some(id) = id() {

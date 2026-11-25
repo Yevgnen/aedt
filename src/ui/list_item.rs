@@ -1,12 +1,13 @@
-//! The app's session row in a navigation list.
+//! The app's session rows and settings destinations: one navigation row.
 
 use nsh_base::{ButtonElement, button, theme};
 use nsh_core::prelude::*;
 
 use crate::ui::{motion, sizes};
 
-/// A session row: its title, selected by the caller.
-pub(crate) fn session(
+/// A navigation row: its title, selected by the caller, which adds `.on_press`
+/// and the label screen readers hear.
+pub(crate) fn nav(
     title: impl IntoReactive<SharedString>,
     selected: impl Fn() -> bool + Copy + 'static,
 ) -> ButtonElement {
