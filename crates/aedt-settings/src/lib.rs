@@ -277,14 +277,22 @@ impl Provider {
 }
 
 /// Gives `provider` the key its own environment variable holds, and forgets
-/// any it held: the variable is named after it, all capitals with everything
-/// else one underscore (`DeepSeek` reads `DEEPSEEK_API_KEY`).
+/// any it held.
 fn adopt_environment_key(provider: &mut Provider) {
     provider.api_key.clear();
     provider.env_key = None;
+    if let Some((variable, key)) = environment_key(provider.name.as_str()) {
+        provider.api_key = key;
+        provider.env_key = Some(variable);
+    }
+}
 
+/// The key the environment variable of `name` holds, with the variable's name:
+/// all capitals with everything else one underscore (`DeepSeek` reads
+/// `DEEPSEEK_API_KEY`). `None` while it holds none.
+fn environment_key(name: &str) -> Option<(SharedString, String)> {
     let mut variable = String::new();
-    for character in provider.name.chars() {
+    for character in name.chars() {
         if character.is_ascii_alphanumeric() {
             variable.push(character.to_ascii_uppercase());
         } else if !variable.is_empty() && !variable.ends_with('_') {
@@ -293,18 +301,16 @@ fn adopt_environment_key(provider: &mut Provider) {
     }
     let variable = variable.trim_end_matches('_');
     if variable.is_empty() {
-        return;
+        return None;
     }
     let variable = format!("{variable}_API_KEY");
 
-    let Ok(key) = env::var(&variable) else {
-        return;
-    };
+    let key = env::var(&variable).ok()?;
     if key.trim().is_empty() {
-        return;
+        return None;
     }
-    provider.api_key = key;
-    provider.env_key = Some(variable.into());
+
+    Some((variable.into(), key))
 }
 
 /// The environment variable `id`'s key came from, while it did (tracked where
@@ -556,8 +562,9 @@ pub fn api_key(id: u32) -> String {
     with_provider(id, |p| p.api_key.clone()).unwrap_or_default()
 }
 
-/// Names the provider `id`, while it is being added: its key follows the name
-/// while that key is the environment's, or while it has none.
+/// Names the provider `id`, while it is being added: the key the environment
+/// variable of the new name holds takes the field, whatever it held before,
+/// and a name whose variable holds none keeps only a key the reader typed.
 pub fn set_name(id: u32, name: &str) {
     let name: SharedString = name.to_owned().into();
     settings().update(|settings| {
@@ -565,8 +572,18 @@ pub fn set_name(id: u32, name: &str) {
             return;
         };
         provider.name = name;
-        if provider.env_key.is_some() || provider.api_key.is_empty() {
-            adopt_environment_key(provider);
+        match environment_key(provider.name.as_str()) {
+            Some((variable, key)) => {
+                provider.api_key = key;
+                provider.env_key = Some(variable);
+            }
+            // The key was the environment's for the name it had: the
+            // environment holds none for this one.
+            None if provider.env_key.is_some() => {
+                provider.api_key.clear();
+                provider.env_key = None;
+            }
+            None => {}
         }
     });
 }
