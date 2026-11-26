@@ -306,6 +306,21 @@ fn models(id: u32) -> impl IntoElement {
                         .text_color(move || theme().foreground),
                 )
                 .child(
+                    button::ghost_icon(icon::checks(14.0), "Enable or disable every model")
+                        .text_color(move || {
+                            if settings::all_models_enabled(id) {
+                                theme().foreground
+                            } else {
+                                theme().muted_foreground
+                            }
+                        })
+                        .disabled(move || settings::models(id).is_empty())
+                        .on_press(move || {
+                            let on = !settings::all_models_enabled(id);
+                            settings::set_all_models_enabled(id, on);
+                        }),
+                )
+                .child(
                     button::ghost_icon(icon::refresh(14.0), "Refresh models")
                         .disabled(move || !settings::can_refresh(id))
                         .on_press(move || settings::refresh_models(id)),

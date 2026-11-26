@@ -704,6 +704,44 @@ pub fn set_model_enabled(id: u32, model: &str, on: bool) {
     save();
 }
 
+/// Whether every model `id` lists is offered: what its toggle-all shows.
+pub fn all_models_enabled(id: u32) -> bool {
+    with_provider(id, |provider| {
+        let models = provider.models.shown();
+        !models.is_empty() && models.iter().all(|model| model.enabled)
+    })
+    .unwrap_or(false)
+}
+
+/// Offers every model `id` lists, or stops offering them all.
+pub fn set_all_models_enabled(id: u32, on: bool) {
+    settings().update(|settings| {
+        let Some(provider) = provider_mut(settings, id) else {
+            return;
+        };
+        let listed: Vec<SharedString> = if on {
+            Vec::new()
+        } else {
+            provider
+                .models
+                .shown()
+                .iter()
+                .map(|model| model.id.clone())
+                .collect()
+        };
+        provider.disabled = listed;
+        let (Models::Loading(models) | Models::Ready(models) | Models::Failed(models, _)) =
+            &mut provider.models
+        else {
+            return;
+        };
+        for model in models {
+            model.enabled = on;
+        }
+    });
+    save();
+}
+
 /// Asks `id` for its models, from the URL and key it holds. Its answer lands
 /// in the state; a newer ask makes an older answer drop.
 pub fn refresh_models(id: u32) {

@@ -99,6 +99,16 @@ const CHECK: &str = concat!(
     r#"</svg>"#,
 );
 
+/// Two checks (Lucide's `check-check`): every row of a list is on.
+const CHECKS: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M18 6 7 17l-5-5"/>"#,
+    r#"<path d="m22 10-7.5 7.5L13 16"/>"#,
+    r#"</svg>"#,
+);
+
 /// A chevron pointing down (Lucide's `chevron-down`): the picker opens from
 /// the row it names.
 const CHEVRON_DOWN: &str = concat!(
@@ -158,6 +168,12 @@ pub fn database(size: f32) -> impl IntoElement {
 /// The check mark, `size` points square, in the caller's text color.
 pub fn check(size: f32) -> impl IntoElement {
     icon(CHECK, size)
+}
+
+/// The double check mark, `size` points square, in the caller's text color:
+/// every row of a list on.
+pub fn checks(size: f32) -> impl IntoElement {
+    icon(CHECKS, size)
 }
 
 /// The chevron pointing down, `size` points square, in the caller's text
