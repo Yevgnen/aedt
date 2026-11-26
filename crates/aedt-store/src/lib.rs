@@ -4,6 +4,8 @@
 use chrono::Local;
 use nsh_core::prelude::*;
 
+mod stored;
+
 /// Who wrote a message.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Author {
@@ -139,6 +141,10 @@ struct State {
 
 impl Default for State {
     fn default() -> Self {
+        if let Some(state) = stored::load() {
+            return state;
+        }
+
         let mut next_message_id = 1;
         let first = Session {
             id: 1,
@@ -466,6 +472,11 @@ fn state() -> Signal<State> {
     global::<State>()
 }
 
+/// The state, kept for the next run.
+fn keep() {
+    state().with(stored::save);
+}
+
 /// Session `id` of `state`.
 fn session(state: &State, id: u32) -> Option<&Session> {
     state.sessions.iter().find(|session| session.id == id)
@@ -521,6 +532,7 @@ pub fn select_session(id: u32) {
         return;
     }
     state().update(|workspace| workspace.selected = id);
+    keep();
 }
 
 /// Adds an empty session above the others and shows it, in the workspace the
@@ -558,6 +570,7 @@ pub fn create_session_in(workspace: Option<u32>) {
         );
         state.selected = id;
     });
+    keep();
 }
 
 /// Takes the session `id` out of the store for good, showing another in its
@@ -569,6 +582,7 @@ pub fn delete_session(id: u32) {
         };
         leave(state, index, false);
     });
+    keep();
 }
 
 /// Puts the session `id` away: it leaves the sidebar with its messages kept,
@@ -580,6 +594,7 @@ pub fn archive_session(id: u32) {
         };
         leave(state, index, true);
     });
+    keep();
 }
 
 /// Takes the session at `index` out of the sidebar, archived rather than
@@ -662,6 +677,7 @@ pub fn add_workspace(path: &str) -> Option<u32> {
         });
         added = Some(id);
     });
+    keep();
     added
 }
 
@@ -821,6 +837,9 @@ pub fn send(session_id: u32, text: &str) -> Option<Sent> {
 
     let mut started = None;
     state().update(|workspace| started = append_sent(workspace, session_id, text));
+    if started.is_some() {
+        keep();
+    }
 
     started.map(|(reply_id, history)| Sent { reply_id, history })
 }
@@ -953,6 +972,7 @@ pub fn finish_stream(session_id: u32, model: &str, seconds: f32) {
             detail: Some(format!("{model} · {seconds:.1} s").into()),
         });
     });
+    keep();
 }
 
 /// Shows what went wrong in place of the answer of the reply streaming in
@@ -965,6 +985,7 @@ pub fn fail_stream(session_id: u32, error: &str) {
         message.body = format!("Request failed: {error}").into();
         message.streaming = false;
     });
+    keep();
 }
 
 /// Shows what went wrong in place of every answer still streaming: the
@@ -980,6 +1001,7 @@ pub fn fail_streaming(error: &str) {
             }
         }
     });
+    keep();
 }
 
 /// The messages of `session` whose thought shows open at first.
