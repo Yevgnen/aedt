@@ -255,7 +255,10 @@ fn message_preview(
 
     view()
         .absolute()
-        .right(px(sizes::RAIL - 6.0))
+        // The card ends clear of the column and a little more: the lit tick is
+        // the widest of them, reaching the rail's left edge, and would show
+        // under the card's own edge.
+        .right(px(sizes::RAIL + 6.0))
         .top(move || {
             let (row, _) = hovered.get().unwrap_or((0, 0));
             let rows = store::user_message_count(session_id) as f32;
