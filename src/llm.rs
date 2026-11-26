@@ -195,8 +195,23 @@ fn apply(event: Event) {
             id,
             output,
             ok,
+            changes,
             ..
-        } => store::tool_finished(session, &id, &output, !ok),
+        } => store::tool_finished(
+            session,
+            &id,
+            &output,
+            !ok,
+            changes
+                .into_iter()
+                .map(|change| store::ToolChange {
+                    path: change.path.into(),
+                    added: change.added,
+                    removed: change.removed,
+                    diff: change.diff.into(),
+                })
+                .collect(),
+        ),
         Event::Ended(session) => {
             let started = STARTED.with(|started| started.borrow_mut().remove(&session));
             let (seconds, model) = started.map_or((0.0, SharedString::default()), |(at, model)| {

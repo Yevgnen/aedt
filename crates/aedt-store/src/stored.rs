@@ -5,7 +5,7 @@
 use nsh_core::{prelude::SharedString, storage::Storage};
 use serde::{Deserialize, Serialize};
 
-use crate::{Author, Message, Meta, Session, State, ToolRun, Workspace};
+use crate::{Author, Message, Meta, Session, State, ToolChange, ToolRun, Workspace};
 
 /// The storage key the state is kept under.
 const KEY: &str = "aedt.store";
@@ -73,6 +73,18 @@ struct KeptTool {
     running: bool,
     #[serde(default)]
     open: bool,
+    /// The files the call changed, for a call that edits.
+    #[serde(default)]
+    changes: Vec<KeptChange>,
+}
+
+/// One file a tool call changed, as it is kept.
+#[derive(Deserialize, Serialize)]
+struct KeptChange {
+    path: String,
+    added: usize,
+    removed: usize,
+    diff: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -208,6 +220,22 @@ impl KeptTool {
             failed: self.failed || self.running,
             running: false,
             open: self.open,
+            changes: self
+                .changes
+                .into_iter()
+                .map(KeptChange::into_change)
+                .collect(),
+        }
+    }
+}
+
+impl KeptChange {
+    fn into_change(self) -> ToolChange {
+        ToolChange {
+            path: self.path.into(),
+            added: self.added,
+            removed: self.removed,
+            diff: self.diff.into(),
         }
     }
 }
@@ -271,6 +299,18 @@ impl From<&ToolRun> for KeptTool {
             failed: tool.failed,
             running: tool.running,
             open: tool.open,
+            changes: tool.changes.iter().map(KeptChange::from).collect(),
+        }
+    }
+}
+
+impl From<&ToolChange> for KeptChange {
+    fn from(change: &ToolChange) -> Self {
+        Self {
+            path: change.path.to_string(),
+            added: change.added,
+            removed: change.removed,
+            diff: change.diff.to_string(),
         }
     }
 }

@@ -53,6 +53,24 @@ pub struct ToolRun {
     /// Whether its output shows open at first, until the reader folds it
     /// away.
     pub open: bool,
+    /// The files it changed, for a call that edits them: each with the lines
+    /// it touched and the change itself, which the card shows in place of the
+    /// output.
+    pub changes: Vec<ToolChange>,
+}
+
+/// One file a tool call changed.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ToolChange {
+    /// The file, as the tool named it.
+    pub path: SharedString,
+    /// Lines it added.
+    pub added: usize,
+    /// Lines it removed.
+    pub removed: usize,
+    /// The change as a unified diff: its lines, each prefixed by the sign that
+    /// says what it does (` `, `-` or `+`).
+    pub diff: SharedString,
 }
 
 /// What a message's muted line says.
@@ -459,6 +477,7 @@ fn tool(
         failed: false,
         running: false,
         open,
+        changes: Vec::new(),
     }
 }
 
@@ -933,14 +952,21 @@ pub fn tool_started(session_id: u32, id: &str, name: &str, arguments: &str) {
             failed: false,
             running: true,
             open: false,
+            changes: Vec::new(),
         });
         message.reasoning.push(SharedString::default());
     });
 }
 
 /// Records what a tool call of the reply streaming in `session` returned: the
-/// answer of the call `id`, and whether it failed.
-pub fn tool_finished(session_id: u32, id: &str, output: &str, failed: bool) {
+/// answer of the call `id`, whether it failed, and the files it changed.
+pub fn tool_finished(
+    session_id: u32,
+    id: &str,
+    output: &str,
+    failed: bool,
+    changes: Vec<ToolChange>,
+) {
     state().update(|workspace| {
         let Some(message) = streaming(workspace, session_id) else {
             return;
@@ -951,6 +977,7 @@ pub fn tool_finished(session_id: u32, id: &str, output: &str, failed: bool) {
         tool.output = output.to_owned().into();
         tool.failed = failed;
         tool.running = false;
+        tool.changes = changes;
     });
 }
 

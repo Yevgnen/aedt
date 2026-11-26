@@ -36,6 +36,8 @@ pub enum Event {
         name: String,
         ok: bool,
         output: String,
+        /// The files the call changed, for a call that edits.
+        changes: Vec<ChangedFile>,
     },
     /// The turn failed: this is why.
     Failed(u32, String),
@@ -43,6 +45,21 @@ pub enum Event {
     Ended(u32),
     /// The agent could not run at all, before any session asked.
     Broken(String),
+}
+
+/// One file a tool call changed, as the app shows it: what the call says it
+/// did, and the change itself.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChangedFile {
+    /// The file, as the call named it.
+    pub path: String,
+    /// Lines it added.
+    pub added: usize,
+    /// Lines it removed.
+    pub removed: usize,
+    /// The change as a unified diff, its lines each prefixed by the sign that
+    /// says what it does; empty for a change the tool did not diff.
+    pub diff: String,
 }
 
 /// What the app tells the agent.
@@ -157,9 +174,10 @@ fn run(config: Config, commands: Receiver<Command>, events: Sender<Event>) {
             HeadlessPlugins,
             RigHarnessPlugins,
             rig_basics::prompt::DefaultPromptPlugin,
-            // The tools a reply may call: the ones that read what the agent
-            // works on, and one that runs commands there.
+            // The tools a reply may call: the ones that read and edit what
+            // the agent works on, and one that runs commands there.
             rig_basics::coding_tools::ReadTool,
+            rig_basics::coding_tools::EditTool,
             rig_basics::coding_tools::ShellTool,
             Front::new(commands, events),
         ));

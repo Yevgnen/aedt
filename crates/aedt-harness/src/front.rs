@@ -10,8 +10,9 @@ use std::{
 use bevy_ecs::{message::MessageCursor, system::SystemParam};
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use rig_harness::prelude::*;
+use rig_harness::rig_core::tool::FilesChanged;
 
-use crate::{Command, Event, Turn};
+use crate::{ChangedFile, Command, Event, Turn};
 
 /// The front, made once: the channels it reads and writes.
 pub(crate) struct Front {
@@ -300,17 +301,30 @@ fn tool_started(
     });
 }
 
+/// The effect a settled call or turn answered: whose it was, what it
+/// answered, and what it published beside the answer.
+type Effects<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static ForAgent,
+        Option<&'static Outcome>,
+        Option<&'static TurnOutcome>,
+        Option<&'static Published>,
+    ),
+>;
+
 /// A tool call answered, or a turn ended.
 fn tool_settled(
     settled: On<Add<Settled>>,
-    effects: Query<(&ForAgent, Option<&Outcome>, Option<&TurnOutcome>)>,
+    effects: Effects,
     calls: Query<&ToolRequest>,
     started: Query<Has<Started>>,
     sessions: Res<Sessions>,
     mut ids: ResMut<Calls>,
     mut out: Out,
 ) {
-    let Ok((&ForAgent(agent), outcome, ended)) = effects.get(settled.entity) else {
+    let Ok((&ForAgent(agent), outcome, ended, published)) = effects.get(settled.entity) else {
         return;
     };
     let Some(session) = sessions.session(agent) else {
@@ -341,6 +355,7 @@ fn tool_settled(
             name: request.call.function.name.to_string(),
             ok: result.is_success(),
             output: result.output().render(),
+            changes: changes(published),
         });
     } else if let Some(ended) = ended {
         out.flush();
@@ -352,6 +367,30 @@ fn tool_settled(
             }
         }
     }
+}
+
+/// The files a call changed, as the app shows them: what a call that edits
+/// published ([`FilesChanged`]), with each file's whole diff.
+fn changes(published: Option<&Published>) -> Vec<ChangedFile> {
+    published
+        .and_then(|published| published.0.get::<FilesChanged>().ok().flatten())
+        .map(|changed| {
+            changed
+                .0
+                .into_iter()
+                .map(|change| {
+                    let diff = change.unified();
+
+                    ChangedFile {
+                        path: change.path,
+                        added: change.added,
+                        removed: change.removed,
+                        diff,
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// The agent could not use the model it was given: the prompts waiting for it

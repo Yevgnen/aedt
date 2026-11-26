@@ -618,28 +618,36 @@ fn tool_run(tool: ReadSignal<ToolRun>, open: Signal<Vec<SharedString>>) -> impl 
                 )
                 .child(
                     view().flex_1().min_w(px(0.0)).child(
-                        hover_card()
-                            .placement(Placement::Top)
-                            .align(Align::Start)
-                            .offset(px(6.0))
-                            .open_delay(600.0)
-                            .popup_style(|s| {
-                                s.p_2()
-                                    .rounded(move || theme().radius)
-                                    .border_1()
-                                    .border_color(move || theme().border)
-                                    .bg(move || theme().card)
-                                    .shadow(tokens::floating_shadow())
-                            })
-                            .trigger(
-                                text(move || tool.with(|tool| tool.arguments.clone()))
-                                    .w_full()
-                                    .number_of_lines(1)
-                                    .font_family(crate::MONO_FONT)
-                                    .text_size(px(sizes::CODE_FONT))
-                                    .text_color(tokens::meta),
-                            )
-                            .child(arguments_card(tool)),
+                        // An edit names the file it changed and how far, where a
+                        // call that only runs something previews its arguments.
+                        when(
+                            move || tool.with(|tool| !tool.changes.is_empty()),
+                            move || edit_summary(tool),
+                        )
+                        .otherwise(move || {
+                            hover_card()
+                                .placement(Placement::Top)
+                                .align(Align::Start)
+                                .offset(px(6.0))
+                                .open_delay(600.0)
+                                .popup_style(|s| {
+                                    s.p_2()
+                                        .rounded(move || theme().radius)
+                                        .border_1()
+                                        .border_color(move || theme().border)
+                                        .bg(move || theme().card)
+                                        .shadow(tokens::floating_shadow())
+                                })
+                                .trigger(
+                                    text(move || tool.with(|tool| tool.arguments.clone()))
+                                        .w_full()
+                                        .number_of_lines(1)
+                                        .font_family(crate::MONO_FONT)
+                                        .text_size(px(sizes::CODE_FONT))
+                                        .text_color(tokens::meta),
+                                )
+                                .child(arguments_card(tool))
+                        }),
                     ),
                 )
                 .child(when(
@@ -668,7 +676,11 @@ fn tool_run(tool: ReadSignal<ToolRun>, open: Signal<Vec<SharedString>>) -> impl 
                 ),
         )
         .child(when(
-            move || shown() && tool.with(|tool| !tool.output.is_empty()),
+            move || shown() && tool.with(|tool| !tool.changes.is_empty()),
+            move || changes(tool),
+        ))
+        .child(when(
+            move || shown() && tool.with(|tool| tool.changes.is_empty() && !tool.output.is_empty()),
             move || {
                 view()
                     .w_full()
@@ -690,6 +702,166 @@ fn tool_run(tool: ReadSignal<ToolRun>, open: Signal<Vec<SharedString>>) -> impl 
                     )
             },
         ))
+}
+
+/// What an edit did, where the row names the call: the first file it changed
+/// and how far the call changed what it touched, in all.
+fn edit_summary(tool: ReadSignal<ToolRun>) -> impl IntoElement {
+    view()
+        .w_full()
+        .flex_row()
+        .items_center()
+        .gap_2()
+        .child(
+            text(move || {
+                tool.with(|tool| {
+                    tool.changes
+                        .first()
+                        .map(|change| change.path.clone())
+                        .unwrap_or_default()
+                })
+            })
+            .flex_1()
+            .min_w(px(0.0))
+            .number_of_lines(1)
+            .font_family(crate::MONO_FONT)
+            .text_size(px(sizes::CODE_FONT))
+            .text_color(tokens::meta),
+        )
+        .child(
+            text(move || {
+                tool.with(|tool| {
+                    let added: usize = tool.changes.iter().map(|change| change.added).sum();
+                    let removed: usize = tool.changes.iter().map(|change| change.removed).sum();
+
+                    format!("+{added} −{removed}")
+                })
+            })
+            .flex_none()
+            .font_family(crate::MONO_FONT)
+            .text_size(px(sizes::CODE_FONT))
+            .text_color(tokens::meta),
+        )
+}
+
+/// How many lines of one file's diff the card draws: a file rewritten whole
+/// is no more to read than its summary, so the rest are counted, not drawn.
+const DIFF_LINES: usize = 40;
+
+/// The files a call changed: each with its path and how far it changed, over
+/// the lines of its diff.
+fn changes(tool: ReadSignal<ToolRun>) -> impl IntoElement {
+    view().w_full().gap_2().child(each(
+        move || tool.with(|tool| tool.changes.clone()),
+        |change| change.path.clone(),
+        move |change, _| {
+            view()
+                .w_full()
+                .gap_1()
+                .child(
+                    view()
+                        .w_full()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            text(move || change.with(|change| change.path.clone()))
+                                .flex_1()
+                                .min_w(px(0.0))
+                                .number_of_lines(1)
+                                .font_family(crate::MONO_FONT)
+                                .text_size(px(sizes::CODE_FONT))
+                                .text_color(tokens::meta),
+                        )
+                        .child(
+                            text(move || {
+                                change
+                                    .with(|change| format!("+{} −{}", change.added, change.removed))
+                            })
+                            .font_family(crate::MONO_FONT)
+                            .text_size(px(sizes::CODE_FONT))
+                            .text_color(tokens::meta),
+                        ),
+                )
+                // A file too large for the tool to diff has its counts alone.
+                .child(when(
+                    move || change.with(|change| !change.diff.is_empty()),
+                    move || diff_lines(change),
+                ))
+        },
+    ))
+}
+
+/// One change's diff: its lines in a code block, each colored by what it
+/// does, the ones past the card's few counted under them.
+fn diff_lines(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
+    view()
+        .w_full()
+        .rounded(move || theme().radius)
+        .bg(tokens::code)
+        .px_2()
+        .py_1()
+        .pb(px(sizes::CODE_FONT))
+        .child(
+            view()
+                .w_full()
+                .flex_col()
+                .child(each(
+                    move || change.with(lines_of),
+                    |line| line.at,
+                    move |line, _| {
+                        text(move || line.with(|line| line.text.clone()))
+                            .w_full()
+                            .font_family(crate::MONO_FONT)
+                            .text_size(px(sizes::CODE_FONT))
+                            .line_height(LineHeight::Multiple(MESSAGE_LINE))
+                            .text_color(move || match line.with(|line| line.sign) {
+                                '+' => theme().foreground,
+                                '-' => theme().destructive,
+                                _ => tokens::meta(),
+                            })
+                    },
+                ))
+                .child(when(
+                    move || change.with(|change| change.diff.lines().count() > DIFF_LINES),
+                    move || {
+                        text(move || {
+                            change.with(|change| {
+                                format!("… {} more lines", change.diff.lines().count() - DIFF_LINES)
+                            })
+                        })
+                        .w_full()
+                        .font_family(crate::MONO_FONT)
+                        .text_size(px(sizes::CODE_FONT))
+                        .text_color(tokens::meta)
+                    },
+                )),
+        )
+}
+
+/// One line of a diff, as the card draws it.
+#[derive(Clone, PartialEq)]
+struct DiffLine {
+    /// Its place in the diff, which keys its row.
+    at: usize,
+    /// What it does: `+` added, `-` removed, anything else kept around them.
+    sign: char,
+    text: SharedString,
+}
+
+/// The first [`DIFF_LINES`] lines of `change`'s diff, each with its sign.
+fn lines_of(change: &store::ToolChange) -> Vec<DiffLine> {
+    change
+        .diff
+        .lines()
+        .enumerate()
+        .take(DIFF_LINES)
+        .map(|(at, line)| DiffLine {
+            at,
+            sign: line.chars().next().unwrap_or(' '),
+            text: line.trim_end_matches('\r').to_owned().into(),
+        })
+        .collect()
 }
 
 /// The arguments a call was given, the whole of them, read as JSON: over the
