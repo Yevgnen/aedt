@@ -33,7 +33,7 @@ pub fn section(
                 text(title)
                     .flex_1()
                     .text_sm()
-                    .font_weight(FontWeight::SEMIBOLD)
+                    .font_weight(FontWeight::NORMAL)
                     .text_color(move || theme().foreground),
             )
             .child(mark)

@@ -164,7 +164,7 @@ impl Settings {
         let mut providers = vec![
             Provider::seeded(1, "DeepSeek", DEEPSEEK_BASE_URL, true),
             Provider::seeded(2, "Ollama", "https://ollama.com/v1", false),
-            Provider::seeded(3, "opencode", "https://opencode.ai/inference/go/v1", false),
+            Provider::seeded(3, "OpenCode", "https://opencode.ai/inference/go/v1", false),
             Provider::seeded(4, "RightNow", "https://api.rightnowai.co/v1", false),
             Provider::seeded(5, "LithosAI", "https://api.lithosai.cloud/v1", false),
             Provider::seeded(6, "Baseten", "https://inference.baseten.co/v1", false),
@@ -228,9 +228,16 @@ impl Provider {
     /// The provider `kept` names: reachable again with the key it kept, or the
     /// environment's while it keeps none.
     fn restored(kept: stored::Provider, keys: &secrets::Keys) -> Self {
+        // A provider the app seeded before its spelling settled keeps that
+        // spelling on disk; the name the app started with is the one to show.
+        let name = if kept.name == "opencode" {
+            "OpenCode".to_owned()
+        } else {
+            kept.name
+        };
         let mut provider = Self {
             id: kept.id,
-            name: kept.name.into(),
+            name: name.into(),
             kind: kept.kind,
             base_url: kept.base_url,
             api_key: keys.get(&kept.id.to_string()).cloned().unwrap_or_default(),
