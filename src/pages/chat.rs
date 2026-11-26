@@ -23,8 +23,15 @@ pub(crate) fn pane(session_id: u32) -> View {
     // The messages whose thinking the reader opened; closed again, a thought is
     // one quiet row. A reply read with its thought open starts in it.
     let open = signal(store::open_thoughts(session_id));
-    // The tool calls whose output the reader opened, by the call's id.
-    let open_calls = signal(store::open_calls(session_id));
+    // What each call shows, once the reader decided it: a call they have not
+    // decided on shows its output where the mock data opened it, and its diff
+    // whenever it changed files.
+    let calls = signal(
+        store::open_calls(session_id)
+            .into_iter()
+            .map(|call| CallFold { call, open: true })
+            .collect::<Vec<_>>(),
+    );
     // The timeline's handle: the rail's ticks scroll it to their message.
     let timeline = element_ref();
     // The reader's place: the last user message the list shows.
@@ -52,9 +59,7 @@ pub(crate) fn pane(session_id: u32) -> View {
                             .max_w(px(sizes::COMPOSER_MAX))
                             .min_h(px(0.0))
                             .px(px(sizes::COMPOSER_SIDE))
-                            .child(timeline_view(
-                                session_id, open, open_calls, &timeline, current,
-                            )),
+                            .child(timeline_view(session_id, open, calls, &timeline, current)),
                         rail(session_id, timeline, current),
                     )
                     .flex_1()
@@ -124,13 +129,13 @@ fn header(session_id: u32) -> impl IntoElement {
 fn timeline_view(
     session_id: u32,
     open: Signal<Vec<(u32, usize)>>,
-    open_calls: Signal<Vec<SharedString>>,
+    calls: Signal<Vec<CallFold>>,
     handle: &ElementRef,
     current: Signal<Option<usize>>,
 ) -> impl IntoElement {
     virtual_list(
         move || store::message_count(session_id),
-        move |at| message_row(session_id, open, open_calls, at),
+        move |at| message_row(session_id, open, calls, at),
     )
     .keys(move || store::message_ids(session_id))
     .element_ref(handle)
@@ -308,7 +313,7 @@ fn body_of(body: Memo<Option<Message>>) -> impl Fn() -> SharedString + Copy + 's
 fn message_row(
     session_id: u32,
     open: Signal<Vec<(u32, usize)>>,
-    open_calls: Signal<Vec<SharedString>>,
+    calls: Signal<Vec<CallFold>>,
     at: Position,
 ) -> impl IntoElement {
     let message = computed(move || store::message_at(session_id, at.index()));
@@ -317,7 +322,7 @@ fn message_row(
 
     view().w_full().child(
         when(from_user, move || user_message(message))
-            .otherwise(move || assistant_message(message, open, open_calls)),
+            .otherwise(move || assistant_message(message, open, calls)),
     )
 }
 
@@ -433,7 +438,7 @@ fn message_detail(message: Memo<Option<Message>>) -> impl IntoElement {
 fn assistant_message(
     message: Memo<Option<Message>>,
     open: Signal<Vec<(u32, usize)>>,
-    open_calls: Signal<Vec<SharedString>>,
+    calls: Signal<Vec<CallFold>>,
 ) -> impl IntoElement {
     view()
         .w_full()
@@ -455,7 +460,7 @@ fn assistant_message(
                 view()
                     .w_full()
                     .gap_1()
-                    .child(tool_run(tool, open_calls))
+                    .child(tool_run(tool, calls))
                     // The thought that followed the call.
                     .child(thought(message, move || call.get() + 1, open))
             },
@@ -575,23 +580,43 @@ fn thought(
     )
 }
 
+/// A call the reader opened or folded away.
+#[derive(Clone, PartialEq)]
+struct CallFold {
+    /// The call.
+    call: SharedString,
+    /// Whether it shows what it returned.
+    open: bool,
+}
+
 /// One call: the tool, the arguments it was given and how it went, over what
-/// it returned — shown once the reader opens it. The output stops at a dozen
+/// it returned — shown once the reader opens it, and from the start while it
+/// changed files, so an edit's diff reads at once. The output stops at a dozen
 /// lines; the agent read the whole of it.
-fn tool_run(tool: ReadSignal<ToolRun>, open: Signal<Vec<SharedString>>) -> impl IntoElement {
+fn tool_run(tool: ReadSignal<ToolRun>, calls: Signal<Vec<CallFold>>) -> impl IntoElement {
     let id = move || tool.with(|tool| tool.id.clone());
     let shown = move || {
         let id = id();
-        open.with(|open| open.contains(&id))
+
+        calls
+            .with(|calls| {
+                calls
+                    .iter()
+                    .find(|fold| fold.call == id)
+                    .map(|fold| fold.open)
+            })
+            .unwrap_or_else(|| tool.with(|tool| !tool.changes.is_empty()))
     };
     let toggle = move || {
         let id = id();
-        open.update(|open| match open.iter().position(|shown| *shown == id) {
-            Some(at) => {
-                open.remove(at);
-            }
-            None => open.push(id),
-        });
+        let open = !shown();
+
+        calls.update(
+            |calls| match calls.iter_mut().find(|fold| fold.call == id) {
+                Some(fold) => fold.open = open,
+                None => calls.push(CallFold { call: id, open }),
+            },
+        );
     };
 
     view()
