@@ -648,12 +648,17 @@ fn thinking_text(message: Memo<Option<Message>>) -> impl IntoElement {
             message
                 .as_ref()
                 .map(|message| {
-                    message
+                    // A tool call ends a thought, and the next one starts after
+                    // it: an empty entry between them is a break in the stream,
+                    // not a thought of its own. Trailing lines the model wrote
+                    // are kept out of the blank line under the thought.
+                    let thoughts: Vec<&str> = message
                         .reasoning
                         .iter()
                         .map(SharedString::as_str)
-                        .collect::<Vec<_>>()
-                        .join("\n\n")
+                        .filter(|thought| !thought.trim().is_empty())
+                        .collect();
+                    thoughts.join("\n\n").trim_end().to_owned()
                 })
                 .unwrap_or_default()
         })
