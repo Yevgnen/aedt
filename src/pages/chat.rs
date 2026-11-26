@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use aedt_provider::responses::Effort;
 use aedt_settings as settings;
-use aedt_store::{self as store, Author, Message};
+use aedt_store::{self as store, Author, Message, ToolRun};
 use aedt_ui::{MESSAGE_LINE, button, empty, icon, input, menu, motion, sizes, tokens};
 use nsh_base::{MarkdownOptions, SubmenuEvent, TextViewClasses, text_view, theme};
 use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
@@ -425,6 +425,7 @@ fn assistant_message(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> 
             move || has_reasoning(message),
             move || thinking(message, open),
         ))
+        .child(when(move || has_tools(message), move || tool_runs(message)))
         .child(
             text_view()
                 .markdown(move || {
@@ -478,6 +479,92 @@ fn has_reasoning(message: Memo<Option<Message>>) -> bool {
             .as_ref()
             .is_some_and(|message| !message.reasoning.is_empty())
     })
+}
+
+/// Whether the reply called any tool.
+fn has_tools(message: Memo<Option<Message>>) -> bool {
+    message.with(|message| {
+        message
+            .as_ref()
+            .is_some_and(|message| !message.tools.is_empty())
+    })
+}
+
+/// The tools the reply called, in the order it called them.
+fn tool_runs(message: Memo<Option<Message>>) -> impl IntoElement {
+    view().w_full().gap_1().child(each(
+        move || {
+            message.with(|message| {
+                message
+                    .as_ref()
+                    .map(|message| message.tools.clone())
+                    .unwrap_or_default()
+            })
+        },
+        |tool| tool.id.clone(),
+        |tool, _| tool_run(tool),
+    ))
+}
+
+/// One call: the tool and the arguments the model sent, over what it returned.
+/// The output stops at a dozen lines; the agent read the whole of it.
+fn tool_run(tool: ReadSignal<ToolRun>) -> impl IntoElement {
+    view()
+        .w_full()
+        .gap_1()
+        .rounded(move || theme().radius)
+        .border_1()
+        .border_color(move || theme().border)
+        .px_2()
+        .py_1()
+        .child(
+            view()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .child(
+                    text(move || tool.with(|tool| tool.name.clone()))
+                        .flex_none()
+                        .text_xs()
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(move || theme().foreground),
+                )
+                .child(
+                    text(move || tool.with(|tool| tool.arguments.clone()))
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .number_of_lines(1)
+                        .text_xs()
+                        .text_color(tokens::meta),
+                )
+                .child(when(
+                    move || tool.with(|tool| tool.running),
+                    || text("running…").text_xs().text_color(tokens::meta),
+                ))
+                .child(when(
+                    move || tool.with(|tool| tool.failed),
+                    || text("failed").text_xs().text_color(tokens::caption),
+                )),
+        )
+        .child(when(
+            move || tool.with(|tool| !tool.output.is_empty()),
+            move || {
+                view()
+                    .w_full()
+                    .rounded(move || theme().radius)
+                    .bg(tokens::code)
+                    .px_2()
+                    .py_1()
+                    .child(
+                        text(move || tool.with(|tool| tool.output.clone()))
+                            .w_full()
+                            .text_size(px(12.0))
+                            .line_height(LineHeight::Multiple(MESSAGE_LINE))
+                            .text_color(tokens::meta)
+                            .number_of_lines(12),
+                    )
+            },
+        ))
 }
 
 /// The chains of thought above the answer: their text while it arrives and

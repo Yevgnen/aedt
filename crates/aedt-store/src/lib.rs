@@ -20,6 +20,8 @@ pub struct Message {
     /// The chains of thought the reply reasoned with, in order and shown above
     /// it: empty for a message that did not think, one entry per thought.
     pub reasoning: Vec<SharedString>,
+    /// The tool calls the reply made, in the order it made them.
+    pub tools: Vec<ToolRun>,
     /// The muted line under the message: when it was sent, and for a reply what
     /// it ran on and how long it took. `None` shows no line at all.
     pub meta: Option<Meta>,
@@ -27,6 +29,22 @@ pub struct Message {
     /// one being written, so only the blocks that changed are shown again
     /// instead of the whole document on every token.
     pub streaming: bool,
+}
+
+/// One tool call a reply made: what the model asked, and what came of it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ToolRun {
+    /// The call's id, which its result answers.
+    pub id: SharedString,
+    pub name: SharedString,
+    /// The arguments as the model sent them: a JSON object.
+    pub arguments: SharedString,
+    /// What the tool returned: empty while it runs.
+    pub output: SharedString,
+    /// Whether the call failed (or never ran), `output` saying why then.
+    pub failed: bool,
+    /// Whether its result is still to come.
+    pub running: bool,
 }
 
 /// What a message's muted line says.
@@ -288,6 +306,7 @@ fn message(
         author,
         body: body.into(),
         reasoning: Vec::new(),
+        tools: Vec::new(),
         meta: Some(Meta {
             time: time.into(),
             detail: detail.map(SharedString::from),
@@ -519,6 +538,7 @@ fn append_sent(
         author: Author::User,
         body: text.to_owned().into(),
         reasoning: Vec::new(),
+        tools: Vec::new(),
         meta: Some(Meta {
             time: sent_at.clone(),
             detail: None,
@@ -531,6 +551,7 @@ fn append_sent(
         author: Author::Assistant,
         body: SharedString::default(),
         reasoning: Vec::new(),
+        tools: Vec::new(),
         meta: Some(Meta {
             time: sent_at,
             detail: None,
@@ -541,14 +562,14 @@ fn append_sent(
     Some((reply_id, history))
 }
 
-/// Appends what arrived of the reply to `message_id`: its thinking first, then
-/// its answer.
-pub fn append_reply(session_id: u32, message_id: u32, thinking: &str, answer: &str) {
+/// Appends what arrived of the reply still streaming in `session`: its
+/// thinking first, then its answer.
+pub fn append_stream(session_id: u32, thinking: &str, answer: &str) {
     if thinking.is_empty() && answer.is_empty() {
         return;
     }
     workspace().update(|workspace| {
-        let Some(message) = find_message(workspace, session_id, message_id) else {
+        let Some(message) = streaming(workspace, session_id) else {
             return;
         };
         if !thinking.is_empty() {
@@ -558,8 +579,6 @@ pub fn append_reply(session_id: u32, message_id: u32, thinking: &str, answer: &s
                     reasoned.push_str(thinking);
                     *thought = reasoned.into();
                 }
-                // A reply that thinks again after a tool call starts another
-                // thought; until then every piece continues the last one.
                 None => message.reasoning.push(thinking.to_owned().into()),
             }
         }
@@ -571,11 +590,49 @@ pub fn append_reply(session_id: u32, message_id: u32, thinking: &str, answer: &s
     });
 }
 
-/// Closes the reply: its meta line gains the model and how long the answer
-/// took, after the time it was sent.
-pub fn finish_reply(session_id: u32, message_id: u32, model: &str, seconds: f32) {
+/// Records that the reply streaming in `session` asked for a tool call: `id`,
+/// its name and the arguments the model sent, shown while the tool runs.
+///
+/// A call ends the thought that led to it: what the model thinks while it runs,
+/// or after, is a thought of its own.
+pub fn tool_started(session_id: u32, id: &str, name: &str, arguments: &str) {
     workspace().update(|workspace| {
-        let Some(message) = find_message(workspace, session_id, message_id) else {
+        let Some(message) = streaming(workspace, session_id) else {
+            return;
+        };
+        message.tools.push(ToolRun {
+            id: id.to_owned().into(),
+            name: name.to_owned().into(),
+            arguments: arguments.to_owned().into(),
+            output: SharedString::default(),
+            failed: false,
+            running: true,
+        });
+        message.reasoning.push(SharedString::default());
+    });
+}
+
+/// Records what a tool call of the reply streaming in `session` returned: the
+/// answer of the call `id`, and whether it failed.
+pub fn tool_finished(session_id: u32, id: &str, output: &str, failed: bool) {
+    workspace().update(|workspace| {
+        let Some(message) = streaming(workspace, session_id) else {
+            return;
+        };
+        let Some(tool) = message.tools.iter_mut().find(|tool| tool.id.as_str() == id) else {
+            return;
+        };
+        tool.output = output.to_owned().into();
+        tool.failed = failed;
+        tool.running = false;
+    });
+}
+
+/// Closes the reply streaming in `session`: its meta line gains the model and
+/// how long the answer took, after the time it was sent.
+pub fn finish_stream(session_id: u32, model: &str, seconds: f32) {
+    workspace().update(|workspace| {
+        let Some(message) = streaming(workspace, session_id) else {
             return;
         };
         let time = message
@@ -591,10 +648,11 @@ pub fn finish_reply(session_id: u32, message_id: u32, model: &str, seconds: f32)
     });
 }
 
-/// Shows what went wrong in place of the answer.
-pub fn fail_reply(session_id: u32, message_id: u32, error: &str) {
+/// Shows what went wrong in place of the answer of the reply streaming in
+/// `session`.
+pub fn fail_stream(session_id: u32, error: &str) {
     workspace().update(|workspace| {
-        let Some(message) = find_message(workspace, session_id, message_id) else {
+        let Some(message) = streaming(workspace, session_id) else {
             return;
         };
         message.body = format!("Request failed: {error}").into();
@@ -602,16 +660,28 @@ pub fn fail_reply(session_id: u32, message_id: u32, error: &str) {
     });
 }
 
-/// Message `message_id` of session `session_id`.
-fn find_message(
-    workspace: &mut Workspace,
-    session_id: u32,
-    message_id: u32,
-) -> Option<&mut Message> {
+/// Shows what went wrong in place of every answer still streaming: the
+/// agent itself could not run.
+pub fn fail_streaming(error: &str) {
+    workspace().update(|workspace| {
+        for session in &mut workspace.sessions {
+            for message in &mut session.messages {
+                if message.streaming {
+                    message.body = format!("Request failed: {error}").into();
+                    message.streaming = false;
+                }
+            }
+        }
+    });
+}
+
+/// The reply still arriving in `session`.
+fn streaming(workspace: &mut Workspace, session_id: u32) -> Option<&mut Message> {
     session_mut(workspace, session_id)?
         .messages
         .iter_mut()
-        .find(|message| message.id == message_id)
+        .rev()
+        .find(|message| message.streaming)
 }
 
 /// The first `max` characters of `text`, on one line.
