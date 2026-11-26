@@ -100,8 +100,8 @@ pub fn label_trigger(
         .transition_colors()
         .duration(motion::row_duration())
         .ease_out()
-        .child(text(value).text_xs())
-        .child(text(note).text_xs().text_color(tokens::caption))
+        .child(text(value).text_size(px(13.0)))
+        .child(text(note).text_size(px(13.0)).text_color(tokens::caption))
         .child(icon::chevron_down(12.0))
 }
 
