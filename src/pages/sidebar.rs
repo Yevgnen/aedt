@@ -153,14 +153,63 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
         )))
 }
 
-/// One conversation: its title, selected while it is the one on show.
+/// One conversation: its title, selected while it is the one on show, and the
+/// actions its row offers at the end while the pointer is over it.
 fn session_row(session: ReadSignal<store::SessionSummary>) -> impl IntoElement {
     let id = move || session.with(|session| session.id);
     let title = move || session.with(|session| session.title.clone());
 
-    list_item::nav(title, move || {
-        Some(id()) == Some(store::selected_session_id())
-    })
-    .accessibility_label(move || Some(title()))
-    .on_press(move || store::select_session(id()))
+    view()
+        .w_full()
+        .group()
+        .child(
+            list_item::nav(title, move || {
+                Some(id()) == Some(store::selected_session_id())
+            })
+            .accessibility_label(move || Some(title()))
+            // Room at the end for the actions, which float over the row.
+            .pr(px(sizes::LIST_ROW_INSET + sizes::META_ACTION))
+            .on_press(move || store::select_session(id())),
+        )
+        .child(session_actions(id))
+}
+
+/// The actions of the conversation `id`, at the end of its row while the
+/// pointer is over it: putting it away, and taking it out for good.
+fn session_actions(id: impl Fn() -> u32 + Copy + 'static) -> impl IntoElement {
+    view()
+        .absolute()
+        .top(px(0.0))
+        .bottom(px(0.0))
+        .right(px(sizes::LIST_ROW_INSET))
+        .justify_center()
+        .child(menu::menu(
+            button::bare()
+                .accessibility_label("Session actions")
+                .size(px(sizes::META_ACTION))
+                .items_center()
+                .justify_center()
+                .rounded_md()
+                .opacity(0.0)
+                .group_hover(|s| s.opacity(1.0))
+                // The pointer leaves the row to pick an item; the menu marks
+                // the button it opens, which keeps it shown while it is open.
+                .expanded(|s| s.opacity(1.0))
+                .hover(|s| s.bg(move || theme().muted))
+                .transition_all()
+                .duration(motion::row_duration())
+                .ease_out()
+                .child(icon::more(14.0)),
+            Placement::Bottom,
+            Align::End,
+            view()
+                .child(
+                    menu::item(icon::archive(14.0), "Archive")
+                        .on_select(move || store::archive_session(id())),
+                )
+                .child(
+                    menu::item(icon::trash(14.0), "Delete")
+                        .on_select(move || store::delete_session(id())),
+                ),
+        ))
 }

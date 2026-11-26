@@ -46,6 +46,30 @@ const MORE: &str = concat!(
     r#"</svg>"#,
 );
 
+/// A box with its lid (Lucide's `archive`): puts a conversation away.
+const ARCHIVE: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<rect width="20" height="5" x="2" y="3" rx="1"/>"#,
+    r#"<path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>"#,
+    r#"<path d="M10 12h4"/>"#,
+    r#"</svg>"#,
+);
+
+/// A bin with its lid (Lucide's `trash-2`): takes a conversation out for
+/// good.
+const TRASH: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M3 6h18"/>"#,
+    r#"<path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>"#,
+    r#"<path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>"#,
+    r#"<path d="M10 11v6"/><path d="M14 11v6"/>"#,
+    r#"</svg>"#,
+);
+
 /// A gear (Lucide's `settings`).
 const SETTINGS: &str = concat!(
     r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
@@ -181,6 +205,16 @@ const PLUS: &str = concat!(
 /// The menu mark, `size` points square, in the caller's text color.
 pub fn more(size: f32) -> impl IntoElement {
     icon(MORE, size)
+}
+
+/// The archive mark, `size` points square, in the caller's text color.
+pub fn archive(size: f32) -> impl IntoElement {
+    icon(ARCHIVE, size)
+}
+
+/// The bin, `size` points square, in the caller's text color.
+pub fn trash(size: f32) -> impl IntoElement {
+    icon(TRASH, size)
 }
 
 /// The settings mark, `size` points square, in the caller's text color.

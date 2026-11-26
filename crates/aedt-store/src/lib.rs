@@ -76,6 +76,9 @@ pub struct Session {
     /// agent's tools read and run there. `None` leaves it in the app's own
     /// directory, under `Ungrouped` in the sidebar.
     pub workspace: Option<u32>,
+    /// Whether the reader put it away: it leaves the sidebar with its
+    /// messages kept.
+    pub archived: bool,
 }
 
 /// A folder the conversations of a group work in.
@@ -141,6 +144,7 @@ impl Default for State {
             id: 1,
             title: "Laying out the session sidebar".into(),
             workspace: None,
+            archived: false,
             messages: vec![
                 message(
                     &mut next_message_id,
@@ -306,6 +310,7 @@ impl Default for State {
             id: 2,
             title: "Debugging an nsh window that won't start".into(),
             workspace: None,
+            archived: false,
             messages: vec![
                 message(
                     &mut next_message_id,
@@ -336,6 +341,7 @@ impl Default for State {
             id: 3,
             title: "Timeouts for tool calls".into(),
             workspace: None,
+            archived: false,
             messages: vec![with_tools(
                 with_thoughts(
                     message(
@@ -547,10 +553,82 @@ pub fn create_session_in(workspace: Option<u32>) {
                 title: "".into(),
                 messages: Vec::new(),
                 workspace,
+                archived: false,
             },
         );
         state.selected = id;
     });
+}
+
+/// Takes the session `id` out of the store for good, showing another in its
+/// place while it was the one on show.
+pub fn delete_session(id: u32) {
+    state().update(|state| {
+        let Some(index) = state.sessions.iter().position(|session| session.id == id) else {
+            return;
+        };
+        leave(state, index, false);
+    });
+}
+
+/// Puts the session `id` away: it leaves the sidebar with its messages kept,
+/// and another shows while it was the one on show.
+pub fn archive_session(id: u32) {
+    state().update(|state| {
+        let Some(index) = state.sessions.iter().position(|session| session.id == id) else {
+            return;
+        };
+        leave(state, index, true);
+    });
+}
+
+/// Takes the session at `index` out of the sidebar, archived rather than
+/// removed when `archived` holds, and shows what takes its place while it was
+/// the one on show: the next session of its group, else the one before, else
+/// the first one left; with none left, an empty one joins its workspace.
+fn leave(state: &mut State, index: usize, archived: bool) {
+    let session = &state.sessions[index];
+    let (id, workspace) = (session.id, session.workspace);
+    if archived {
+        state.sessions[index].archived = true;
+    } else {
+        state.sessions.remove(index);
+    }
+    if state.selected != id {
+        return;
+    }
+
+    let shown = |session: &Session| !session.archived && session.id != id;
+    let next = state.sessions[index..]
+        .iter()
+        .find(|session| shown(session) && session.workspace == workspace)
+        .or_else(|| {
+            state.sessions[..index]
+                .iter()
+                .rev()
+                .find(|session| shown(session) && session.workspace == workspace)
+        })
+        .or_else(|| state.sessions.iter().find(|session| shown(session)))
+        .map(|session| session.id);
+
+    match next {
+        Some(id) => state.selected = id,
+        None => {
+            let id = state.next_session_id;
+            state.next_session_id += 1;
+            state.sessions.insert(
+                0,
+                Session {
+                    id,
+                    title: "".into(),
+                    messages: Vec::new(),
+                    workspace,
+                    archived: false,
+                },
+            );
+            state.selected = id;
+        }
+    }
 }
 
 /// The workspaces, in the order they were added (tracked where it is read).
@@ -588,7 +666,7 @@ pub fn add_workspace(path: &str) -> Option<u32> {
 }
 
 /// The conversations, grouped: each workspace's under it, the ones held in
-/// none last (tracked where it is read).
+/// none last, and the archived ones never (tracked where it is read).
 pub fn groups() -> Vec<Group> {
     state().with(|state| {
         let mut groups: Vec<Group> = state
@@ -603,7 +681,7 @@ pub fn groups() -> Vec<Group> {
             workspace: None,
             sessions: Vec::new(),
         };
-        for session in &state.sessions {
+        for session in state.sessions.iter().filter(|session| !session.archived) {
             let summary = session.summary();
             let group = session.workspace.and_then(|id| {
                 groups
