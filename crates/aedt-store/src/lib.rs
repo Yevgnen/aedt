@@ -537,28 +537,6 @@ fn session_mut(state: &mut State, id: u32) -> Option<&mut Session> {
     state.sessions.iter_mut().find(|session| session.id == id)
 }
 
-/// How many sessions there are (tracked where it is read).
-pub fn session_count() -> usize {
-    state().with(|workspace| workspace.sessions.len())
-}
-
-/// The sessions' ids, in order (tracked where it is read).
-pub fn session_ids() -> Vec<u32> {
-    state().with(|workspace| {
-        workspace
-            .sessions
-            .iter()
-            .map(|session| session.id)
-            .collect()
-    })
-}
-
-/// What the session at `index` shows, or none past the end (tracked where it is
-/// read).
-pub fn session_summary_at(index: usize) -> Option<SessionSummary> {
-    state().with(|workspace| workspace.sessions.get(index).map(Session::summary))
-}
-
 /// What the session `id` shows, or none once it is gone (tracked where it is
 /// read).
 pub fn session_summary(id: u32) -> Option<SessionSummary> {
@@ -583,14 +561,6 @@ pub fn select_session(id: u32) {
     }
     state().update(|workspace| workspace.selected = id);
     keep();
-}
-
-/// Adds an empty session above the others and shows it, in the workspace the
-/// session on show works in.
-pub fn create_session() {
-    let workspace =
-        state().with(|state| session(state, state.selected).and_then(|session| session.workspace));
-    create_session_in(workspace);
 }
 
 /// Adds an empty session above the others and shows it, in `workspace`; when
@@ -694,11 +664,6 @@ fn leave(state: &mut State, index: usize, archived: bool) {
             state.selected = id;
         }
     }
-}
-
-/// The workspaces, in the order they were added (tracked where it is read).
-pub fn workspaces() -> Vec<Workspace> {
-    state().with(|state| state.workspaces.clone())
 }
 
 /// Adds the folder at `path` as a workspace, or gives the one already there.

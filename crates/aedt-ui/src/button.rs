@@ -84,25 +84,6 @@ pub fn icon(
         )
 }
 
-/// A quiet action: a mark and its label on one line, no fill at rest, a wash on
-/// hover. The caller adds `.on_press`, its ink and its place in the layout.
-pub fn quiet(mark: impl IntoElement, label: impl IntoReactive<SharedString>) -> ButtonElement {
-    button()
-        .flex_row()
-        .items_center()
-        .gap_2()
-        .px_1()
-        .py(px(2.0))
-        .rounded(move || theme().radius)
-        .hover(|s| s.bg(move || theme().muted))
-        .focus_visible(state::focus_ring)
-        .transition_colors()
-        .duration(motion::control_duration())
-        .ease_out()
-        .child(mark)
-        .child(text(label).text_xs())
-}
-
 /// A control whose children draw all of its appearance, for a row whose hover
 /// is its child's own: the shared focus ring and nothing else.
 pub fn bare() -> ButtonElement {

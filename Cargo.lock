@@ -33,7 +33,6 @@ dependencies = [
  "nsh-platform-linux",
  "nsh-platform-macos",
  "nsh-platform-windows",
- "serde_json",
 ]
 
 [[package]]
