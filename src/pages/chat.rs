@@ -858,19 +858,41 @@ fn change_card(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
 /// The rows of one file's change, drawn by the diff view: the rows it changed
 /// and the words changed within them, in the theme's own fills.
 ///
+/// The view is given the two texts rather than the patch: a patch carries a
+/// header for each of its hunks, and the view draws one as a row of its own — a
+/// band over the first change, which a card that names no lines has no use for.
+/// The two texts hold the hunks' lines alone, so every row is a line of them.
+///
 /// The view lays its rows out absolutely and fills the box it is given, so the
-/// card gives it the height they take — counted from the patch, its two header
+/// card gives it the height they take — counted from the patch, its header
 /// lines aside — up to [`DIFF_ROWS`], past which the view scrolls them.
 fn diff_rows(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
-    let rows =
-        move || change.with(|change| change.diff.lines().count().saturating_sub(2).max(1) as f32);
+    let sides = computed(move || change.with(|change| sides_of(&change.diff)));
+    let rows = move || {
+        change.with(|change| {
+            change
+                .diff
+                .lines()
+                .filter(|line| {
+                    !line.starts_with("--- ")
+                        && !line.starts_with("+++ ")
+                        && matches!(line.as_bytes().first(), Some(b' ' | b'-' | b'+'))
+                })
+                .count()
+                .max(1) as f32
+        })
+    };
 
     view()
         .w_full()
         .h(move || px(rows().min(DIFF_ROWS) * DIFF_ROW))
         .child(
             diff_view()
-                .patch(move || Some(change.with(|change| change.diff.clone())))
+                .old_value(move || sides.with(|sides| Some(sides.before.clone())))
+                .new_value(move || sides.with(|sides| Some(sides.after.clone())))
+                // The hunks' own lines are the whole of what reads: a line
+                // kept around a change is in them already.
+                .context_lines(0)
                 .layout(DiffLayout::Unified)
                 .inline(DiffInline::Word)
                 // The view's own fills are its green and red; the card's
@@ -892,6 +914,52 @@ fn diff_rows(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
         )
 }
 
+/// The two texts `patch` compares: what the file held and what it holds, each
+/// of the hunks' lines in order, the untouched lines between hunks left out
+/// with the headers that name them.
+#[derive(PartialEq)]
+struct Sides {
+    before: SharedString,
+    after: SharedString,
+}
+
+fn sides_of(patch: &str) -> Sides {
+    let mut before = String::new();
+    let mut after = String::new();
+    for line in patch.lines() {
+        if line.starts_with("--- ") || line.starts_with("+++ ") {
+            continue;
+        }
+        let Some((sign, text)) = line.split_at_checked(1) else {
+            continue;
+        };
+        match sign {
+            " " => {
+                before.push_str(text);
+                before.push('\n');
+                after.push_str(text);
+                after.push('\n');
+            }
+            "-" => {
+                before.push_str(text);
+                before.push('\n');
+            }
+            "+" => {
+                after.push_str(text);
+                after.push('\n');
+            }
+            // A hunk's header, and the note a last line without its own ending
+            // leaves: neither is a line of either text.
+            _ => {}
+        }
+    }
+
+    Sides {
+        before: before.into(),
+        after: after.into(),
+    }
+}
+
 /// The diff's fills: the theme's own, over the view's green and red.
 fn diff_styles() -> DiffViewStyles {
     let mut styles = DiffViewStyles::default();
@@ -899,8 +967,8 @@ fn diff_styles() -> DiffViewStyles {
     styles.line_deleted = Some(fill(tokens::diff_removed()));
     styles.word_added = Some(fill(tokens::diff_added_word()));
     styles.word_deleted = Some(fill(tokens::diff_removed_word()));
-    // The patch's hunk headers are for a reader counting lines in a file; the
-    // card's rows read as one change, under the file's name.
+    // A stretch of lines the view leaves out is not a row of this card: the
+    // rows it shows are the whole of the change.
     styles.separator = Some(faded());
 
     styles
