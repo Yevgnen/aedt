@@ -23,6 +23,8 @@ pub(crate) fn pane(session_id: u32) -> View {
     // The messages whose thinking the reader opened; closed again, a thought is
     // one quiet row.
     let open = signal(Vec::<u32>::new());
+    // The tool calls whose output the reader opened, by the call's id.
+    let open_calls = signal(Vec::<SharedString>::new());
     // The timeline's handle: the rail's ticks scroll it to their message.
     let timeline = element_ref();
     // The reader's place: the last user message the list shows.
@@ -50,7 +52,9 @@ pub(crate) fn pane(session_id: u32) -> View {
                             .max_w(px(sizes::COMPOSER_MAX))
                             .min_h(px(0.0))
                             .px(px(sizes::COMPOSER_SIDE))
-                            .child(timeline_view(session_id, open, &timeline, current)),
+                            .child(timeline_view(
+                                session_id, open, open_calls, &timeline, current,
+                            )),
                         rail(session_id, timeline, current),
                     )
                     .flex_1()
@@ -120,12 +124,13 @@ fn header(session_id: u32) -> impl IntoElement {
 fn timeline_view(
     session_id: u32,
     open: Signal<Vec<u32>>,
+    open_calls: Signal<Vec<SharedString>>,
     handle: &ElementRef,
     current: Signal<Option<usize>>,
 ) -> impl IntoElement {
     virtual_list(
         move || store::message_count(session_id),
-        move |at| message_row(session_id, open, at),
+        move |at| message_row(session_id, open, open_calls, at),
     )
     .keys(move || store::message_ids(session_id))
     .element_ref(handle)
@@ -297,14 +302,19 @@ fn body_of(body: Memo<Option<Message>>) -> impl Fn() -> SharedString + Copy + 's
 }
 
 /// A cell, made once and given other messages as it is reused.
-fn message_row(session_id: u32, open: Signal<Vec<u32>>, at: Position) -> impl IntoElement {
+fn message_row(
+    session_id: u32,
+    open: Signal<Vec<u32>>,
+    open_calls: Signal<Vec<SharedString>>,
+    at: Position,
+) -> impl IntoElement {
     let message = computed(move || store::message_at(session_id, at.index()));
     let from_user =
         move || message.with(|message| message.as_ref().is_some_and(|m| m.author == Author::User));
 
     view().w_full().child(
         when(from_user, move || user_message(message))
-            .otherwise(move || assistant_message(message, open)),
+            .otherwise(move || assistant_message(message, open, open_calls)),
     )
 }
 
@@ -417,7 +427,11 @@ fn message_detail(message: Memo<Option<Message>>) -> impl IntoElement {
     .text_color(move || tokens::caption().opacity(0.8))
 }
 
-fn assistant_message(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> impl IntoElement {
+fn assistant_message(
+    message: Memo<Option<Message>>,
+    open: Signal<Vec<u32>>,
+    open_calls: Signal<Vec<SharedString>>,
+) -> impl IntoElement {
     view()
         .w_full()
         .gap_1()
@@ -425,7 +439,10 @@ fn assistant_message(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> 
             move || has_reasoning(message),
             move || thinking(message, open),
         ))
-        .child(when(move || has_tools(message), move || tool_runs(message)))
+        .child(when(
+            move || has_tools(message),
+            move || tool_runs(message, open_calls),
+        ))
         .child(
             text_view()
                 .markdown(move || {
@@ -491,7 +508,7 @@ fn has_tools(message: Memo<Option<Message>>) -> bool {
 }
 
 /// The tools the reply called, in the order it called them.
-fn tool_runs(message: Memo<Option<Message>>) -> impl IntoElement {
+fn tool_runs(message: Memo<Option<Message>>, open: Signal<Vec<SharedString>>) -> impl IntoElement {
     view().w_full().gap_1().child(each(
         move || {
             message.with(|message| {
@@ -502,26 +519,43 @@ fn tool_runs(message: Memo<Option<Message>>) -> impl IntoElement {
             })
         },
         |tool| tool.id.clone(),
-        |tool, _| tool_run(tool),
+        move |tool, _| tool_run(tool, open),
     ))
 }
 
-/// One call: the tool and the arguments the model sent, over what it returned.
-/// The output stops at a dozen lines; the agent read the whole of it.
-fn tool_run(tool: ReadSignal<ToolRun>) -> impl IntoElement {
+/// One call: the tool, the arguments it was given and how it went, over what
+/// it returned — shown once the reader opens it. The output stops at a dozen
+/// lines; the agent read the whole of it.
+fn tool_run(tool: ReadSignal<ToolRun>, open: Signal<Vec<SharedString>>) -> impl IntoElement {
+    let id = move || tool.with(|tool| tool.id.clone());
+    let shown = move || {
+        let id = id();
+        open.with(|open| open.contains(&id))
+    };
+    let toggle = move || {
+        let id = id();
+        open.update(|open| match open.iter().position(|shown| *shown == id) {
+            Some(at) => {
+                open.remove(at);
+            }
+            None => open.push(id),
+        });
+    };
+
     view()
         .w_full()
         .gap_1()
-        .rounded(move || theme().radius)
-        .border_1()
-        .border_color(move || theme().border)
-        .px_2()
-        .py_1()
         .child(
-            view()
+            button::bare()
+                .w_full()
                 .flex_row()
                 .items_center()
                 .gap_2()
+                .px_1()
+                .py(px(2.0))
+                .text_color(tokens::meta)
+                .on_press(toggle)
+                .child(icon::wrench(14.0))
                 .child(
                     text(move || tool.with(|tool| tool.name.clone()))
                         .flex_none()
@@ -545,10 +579,13 @@ fn tool_run(tool: ReadSignal<ToolRun>) -> impl IntoElement {
                 .child(when(
                     move || tool.with(|tool| tool.failed),
                     || text("failed").text_xs().text_color(tokens::caption),
-                )),
+                ))
+                .child(
+                    when(shown, || icon::chevron_up(14.0)).otherwise(|| icon::chevron_down(14.0)),
+                ),
         )
         .child(when(
-            move || tool.with(|tool| !tool.output.is_empty()),
+            move || shown() && tool.with(|tool| !tool.output.is_empty()),
             move || {
                 view()
                     .w_full()
@@ -610,6 +647,7 @@ fn thinking_bar(
             None => open.push(id),
         });
     };
+    let opened = move || id().is_some_and(|id| open.with(|open| open.contains(&id)));
 
     view()
         .w_full()
@@ -629,8 +667,11 @@ fn thinking_bar(
                 .child(text("Thinking").text_xs()),
         )
         .child(
-            button::ghost_icon(icon::chevron_down(14.0), "Expand or collapse the thinking")
-                .on_press(toggle),
+            button::ghost_icon(
+                when(opened, || icon::chevron_up(14.0)).otherwise(|| icon::chevron_down(14.0)),
+                "Expand or collapse the thinking",
+            )
+            .on_press(toggle),
         )
 }
 

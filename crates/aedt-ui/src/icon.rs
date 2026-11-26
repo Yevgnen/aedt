@@ -129,6 +129,25 @@ const CHEVRON_RIGHT: &str = concat!(
     r#"</svg>"#,
 );
 
+/// A chevron pointing up (Lucide's `chevron-up`): what is folded opens, and
+/// an open fold closes with one pointing down.
+const CHEVRON_UP: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="m18 15-6-6-6 6"/>"#,
+    r#"</svg>"#,
+);
+
+/// A wrench (Lucide's `wrench`): a tool the reply ran.
+const WRENCH: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>"#,
+    r#"</svg>"#,
+);
+
 /// A plus (Lucide's `plus`): an action that adds something.
 const PLUS: &str = concat!(
     r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
@@ -186,6 +205,16 @@ pub fn chevron_down(size: f32) -> impl IntoElement {
 /// color.
 pub fn chevron_right(size: f32) -> impl IntoElement {
     icon(CHEVRON_RIGHT, size)
+}
+
+/// The chevron pointing up, `size` points square, in the caller's text color.
+pub fn chevron_up(size: f32) -> impl IntoElement {
+    icon(CHEVRON_UP, size)
+}
+
+/// The wrench, `size` points square, in the caller's text color.
+pub fn wrench(size: f32) -> impl IntoElement {
+    icon(WRENCH, size)
 }
 
 /// The plus, `size` points square, in the caller's text color.
