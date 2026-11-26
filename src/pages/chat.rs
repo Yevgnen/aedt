@@ -6,7 +6,7 @@ use aedt_provider::responses::Effort;
 use aedt_settings as settings;
 use aedt_store::{self as store, Author, Message, Part, ToolRun};
 use aedt_ui::{MESSAGE_LINE, badge, button, empty, icon, input, menu, motion, sizes, tokens};
-use nsh_base::{MarkdownOptions, SubmenuEvent, TextViewClasses, hover_card, text_view, theme};
+use nsh_base::{MarkdownOptions, SubmenuEvent, TextViewClasses, text_view, theme};
 use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::llm;
@@ -682,28 +682,12 @@ fn tool_run(tool: Memo<ToolRun>, calls: Signal<Vec<CallFold>>) -> impl IntoEleme
                             move || edit_summary(tool),
                         )
                         .otherwise(move || {
-                            hover_card()
-                                .placement(Placement::Top)
-                                .align(Align::Start)
-                                .offset(px(6.0))
-                                .open_delay(600.0)
-                                .popup_style(|s| {
-                                    s.p_2()
-                                        .rounded(move || theme().radius)
-                                        .border_1()
-                                        .border_color(move || theme().border)
-                                        .bg(move || theme().card)
-                                        .shadow(tokens::floating_shadow())
-                                })
-                                .trigger(
-                                    text(move || tool.with(|tool| tool.arguments.clone()))
-                                        .w_full()
-                                        .number_of_lines(1)
-                                        .font_family(crate::MONO_FONT)
-                                        .text_size(px(sizes::CODE_FONT))
-                                        .text_color(tokens::meta),
-                                )
-                                .child(arguments_card(tool))
+                            text(move || tool.with(|tool| tool.arguments.clone()))
+                                .w_full()
+                                .number_of_lines(1)
+                                .font_family(crate::MONO_FONT)
+                                .text_size(px(sizes::CODE_FONT))
+                                .text_color(tokens::meta)
                         }),
                     ),
                 )
@@ -919,28 +903,6 @@ fn lines_of(change: &store::ToolChange) -> Vec<DiffLine> {
             text: line.trim_end_matches('\r').to_owned().into(),
         })
         .collect()
-}
-
-/// The arguments a call was given, the whole of them, read as JSON: over the
-/// line that previews them while the pointer rests on it.
-fn arguments_card(tool: Memo<ToolRun>) -> impl IntoElement {
-    scroll()
-        .max_h(px(420.0))
-        .child(
-            view()
-                .min_w(px(320.0))
-                .max_w(px(640.0))
-                .child(text_view().markdown(move || -> SharedString {
-                    tool.with(|tool| {
-                        let arguments = tool.arguments.as_str();
-                        let pretty = serde_json::from_str::<serde_json::Value>(arguments)
-                            .ok()
-                            .and_then(|value| serde_json::to_string_pretty(&value).ok())
-                            .unwrap_or_else(|| arguments.to_owned());
-                        format!("```json\n{pretty}\n```").into()
-                    })
-                })),
-        )
 }
 
 /// The row a thought folds into: a bulb and one word at the left, and the
