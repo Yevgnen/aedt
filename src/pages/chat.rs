@@ -592,6 +592,8 @@ fn composer_card(
 /// and the list it opens holds the choices.
 fn model_picker() -> impl IntoElement {
     let query = signal(String::new());
+    // The field that takes the keys as the list opens.
+    let search = element_ref();
 
     menu::menu(
         menu::label_trigger(
@@ -609,7 +611,11 @@ fn model_picker() -> impl IntoElement {
                     view()
                         .min_w(px(240.0))
                         .gap_1()
-                        .child(menu::search(query, "Search models…"))
+                        .child(
+                            menu::search(query, "Search models…")
+                                .auto_focus(true)
+                                .element_ref(&search),
+                        )
                         // The models scroll in their own view under the field,
                         // so a wheel over them never takes the field's keys.
                         .child(
@@ -620,8 +626,12 @@ fn model_picker() -> impl IntoElement {
                         ),
                 )
                 .on_open_change(move |event: &SubmenuEvent| {
-                    // Each opening searches from the start of the list again.
-                    if let SubmenuEvent::OpenChange(false, _) = event {
+                    let SubmenuEvent::OpenChange(open, _) = event;
+                    if *open {
+                        // The keys go to the search, not to the menu.
+                        search.focus();
+                    } else {
+                        // Each opening searches from the start again.
                         query.set(String::new());
                     }
                 }),
