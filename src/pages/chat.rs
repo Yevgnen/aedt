@@ -6,8 +6,15 @@ use aedt_provider::responses::Effort;
 use aedt_settings as settings;
 use aedt_store::{self as store, Author, Message, Part, ToolRun};
 use aedt_ui::{MESSAGE_LINE, badge, button, empty, icon, input, menu, motion, sizes, tokens};
-use nsh_base::{MarkdownOptions, SubmenuEvent, TextViewClasses, text_view, theme};
-use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
+use nsh_base::{
+    DiffInline, DiffLayout, DiffViewStyles, MarkdownOptions, SubmenuEvent, TextViewClasses,
+    diff_view, text_view, text_view::PartStyle, theme,
+};
+use nsh_core::{
+    LineHeight, PropertyValue, StyleKey,
+    element::{Style, desktop::title_bar},
+    prelude::*,
+};
 
 use crate::llm;
 
@@ -785,9 +792,12 @@ fn edit_summary(tool: Memo<ToolRun>) -> impl IntoElement {
         )
 }
 
-/// How many lines of one file's diff the card draws: a file rewritten whole
-/// is no more to read than its summary, so the rest are counted, not drawn.
-const DIFF_LINES: usize = 40;
+/// How tall one row of a diff is, in points.
+const DIFF_ROW: f32 = 14.0;
+
+/// How many rows a diff shows before it scrolls its own: a change longer than
+/// this is read through the view rather than pushing the reply down.
+const DIFF_ROWS: f32 = 24.0;
 
 /// The files a call changed: each with its path and how far it changed, over
 /// the lines of its diff.
@@ -827,82 +837,71 @@ fn changes(tool: Memo<ToolRun>) -> impl IntoElement {
                 // A file too large for the tool to diff has its counts alone.
                 .child(when(
                     move || change.with(|change| !change.diff.is_empty()),
-                    move || diff_lines(change),
+                    move || diff_card(change),
                 ))
         },
     ))
 }
 
-/// One change's diff: its lines in a code block, each colored by what it
-/// does, the ones past the card's few counted under them.
-fn diff_lines(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
+/// One change's diff, drawn by the diff view: the rows it changed and the words
+/// changed within them, in the theme's own fills.
+///
+/// The view lays its rows out absolutely and fills the box it is given, so the
+/// card gives it the height they take — counted from the patch, its two header
+/// lines aside — up to [`DIFF_ROWS`], past which the view scrolls them.
+fn diff_card(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
+    let rows =
+        move || change.with(|change| change.diff.lines().count().saturating_sub(2).max(1) as f32);
+
     view()
         .w_full()
         .rounded(move || theme().radius)
         .bg(tokens::code)
         .px_2()
         .py_1()
-        .pb(px(sizes::CODE_FONT))
         .child(
             view()
                 .w_full()
-                .flex_col()
-                .child(each(
-                    move || change.with(lines_of),
-                    |line| line.at,
-                    move |line, _| {
-                        text(move || line.with(|line| line.text.clone()))
-                            .w_full()
-                            .font_family(crate::MONO_FONT)
-                            .text_size(px(sizes::CODE_FONT))
-                            .line_height(LineHeight::Multiple(MESSAGE_LINE))
-                            .text_color(move || match line.with(|line| line.sign) {
-                                '+' => theme().foreground,
-                                '-' => theme().destructive,
-                                _ => tokens::meta(),
-                            })
-                    },
-                ))
-                .child(when(
-                    move || change.with(|change| change.diff.lines().count() > DIFF_LINES),
-                    move || {
-                        text(move || {
-                            change.with(|change| {
-                                format!("… {} more lines", change.diff.lines().count() - DIFF_LINES)
-                            })
-                        })
-                        .w_full()
-                        .font_family(crate::MONO_FONT)
-                        .text_size(px(sizes::CODE_FONT))
-                        .text_color(tokens::meta)
-                    },
-                )),
+                .h(move || px(rows().min(DIFF_ROWS) * DIFF_ROW))
+                .child(
+                    diff_view()
+                        .patch(move || Some(change.with(|change| change.diff.clone())))
+                        .layout(DiffLayout::Unified)
+                        .inline(DiffInline::Word)
+                        // The view's own fills are its green and red; the card's
+                        // are the theme's, and no second one under them.
+                        .background(false)
+                        // Every row shows, so the height counted above is the
+                        // height the rows take.
+                        .expand_all(true)
+                        .font_size(px(sizes::CODE_FONT))
+                        .line_height(px(DIFF_ROW))
+                        .styles(diff_styles)
+                        // The view fills the box the card measured for it.
+                        .size_full(),
+                ),
         )
 }
 
-/// One line of a diff, as the card draws it.
-#[derive(Clone, PartialEq)]
-struct DiffLine {
-    /// Its place in the diff, which keys its row.
-    at: usize,
-    /// What it does: `+` added, `-` removed, anything else kept around them.
-    sign: char,
-    text: SharedString,
+/// The diff's fills: the theme's own, over the view's green and red.
+fn diff_styles() -> DiffViewStyles {
+    let mut styles = DiffViewStyles::default();
+    styles.line_added = Some(fill(tokens::diff_added()));
+    styles.line_deleted = Some(fill(tokens::diff_removed()));
+    styles.word_added = Some(fill(tokens::diff_added_word()));
+    styles.word_deleted = Some(fill(tokens::diff_removed_word()));
+
+    styles
 }
 
-/// The first [`DIFF_LINES`] lines of `change`'s diff, each with its sign.
-fn lines_of(change: &store::ToolChange) -> Vec<DiffLine> {
-    change
-        .diff
-        .lines()
-        .enumerate()
-        .take(DIFF_LINES)
-        .map(|(at, line)| DiffLine {
-            at,
-            sign: line.chars().next().unwrap_or(' '),
-            text: line.trim_end_matches('\r').to_owned().into(),
-        })
-        .collect()
+/// `color` as a part's fill, in the appearance now: the view's own fills are
+/// styles on its elements, which carry both appearances, while a part's style
+/// is a patch of declarations, which carries one color.
+fn fill(color: AdaptiveColor) -> PartStyle {
+    PartStyle(Style::default().with(
+        StyleKey::BackgroundColor,
+        PropertyValue::Color(Some(nsh_core::element::color(color).into())),
+    ))
 }
 
 /// The row a thought folds into: a bulb and one word at the left, and the

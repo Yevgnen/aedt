@@ -39,6 +39,33 @@ pub fn caption() -> AdaptiveColor {
         .unwrap_or_else(|| theme().muted_foreground)
 }
 
+/// An added line's fill in a diff: the theme's `diff-added`, or the code
+/// block's own when the theme leaves that out, so a diff with no colors of its
+/// own reads as the block it sits in.
+pub fn diff_added() -> AdaptiveColor {
+    theme().color("diff-added").unwrap_or_else(code)
+}
+
+/// The words changed within an added line: the theme's `diff-added-word`, or
+/// the added line's fill when the theme leaves that out.
+pub fn diff_added_word() -> AdaptiveColor {
+    theme().color("diff-added-word").unwrap_or_else(diff_added)
+}
+
+/// A deleted line's fill in a diff: the theme's `diff-removed`, or the code
+/// block's own when the theme leaves that out.
+pub fn diff_removed() -> AdaptiveColor {
+    theme().color("diff-removed").unwrap_or_else(code)
+}
+
+/// The words changed within a deleted line: the theme's `diff-removed-word`,
+/// or the deleted line's fill when the theme leaves that out.
+pub fn diff_removed_word() -> AdaptiveColor {
+    theme()
+        .color("diff-removed-word")
+        .unwrap_or_else(diff_removed)
+}
+
 /// A floating card's shadow: two wide, faint layers, so the card seems to rest
 /// on haze instead of sitting inside a dark edge. A theme file carries colors,
 /// not shadows, so the app's one shadow is a token here with the rest.
