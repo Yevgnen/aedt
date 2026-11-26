@@ -593,6 +593,9 @@ fn tool_run(tool: ReadSignal<ToolRun>, open: Signal<Vec<SharedString>>) -> impl 
                     .bg(tokens::code)
                     .px_2()
                     .py_1()
+                    // A blank line under the last one, as tall as the text: the
+                    // result ends where it did, not against the block's edge.
+                    .pb(px(sizes::CODE_FONT))
                     .child(
                         text(move || tool.with(|tool| tool.output.clone()))
                             .w_full()
