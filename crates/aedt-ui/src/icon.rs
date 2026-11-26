@@ -148,6 +148,26 @@ const WRENCH: &str = concat!(
     r#"</svg>"#,
 );
 
+/// A folder with a plus (Lucide's `folder-plus`): adds a workspace.
+const FOLDER_PLUS: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>"#,
+    r#"<path d="M12 10v6"/><path d="M9 13h6"/>"#,
+    r#"</svg>"#,
+);
+
+/// An open folder (Lucide's `folder-open`): the workspace whose
+/// conversations follow.
+const FOLDER_OPEN: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>"#,
+    r#"</svg>"#,
+);
+
 /// A plus (Lucide's `plus`): an action that adds something.
 const PLUS: &str = concat!(
     r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
@@ -215,6 +235,16 @@ pub fn chevron_up(size: f32) -> impl IntoElement {
 /// The wrench, `size` points square, in the caller's text color.
 pub fn wrench(size: f32) -> impl IntoElement {
     icon(WRENCH, size)
+}
+
+/// The folder with a plus, `size` points square, in the caller's text color.
+pub fn folder_plus(size: f32) -> impl IntoElement {
+    icon(FOLDER_PLUS, size)
+}
+
+/// The open folder, `size` points square, in the caller's text color.
+pub fn folder_open(size: f32) -> impl IntoElement {
+    icon(FOLDER_OPEN, size)
 }
 
 /// The plus, `size` points square, in the caller's text color.

@@ -199,6 +199,7 @@ fn receive(
                 model,
                 text,
                 before,
+                root,
             } => {
                 let (agent, note) = match sessions.agent(session) {
                     Some(agent) => (agent, None),
@@ -221,6 +222,12 @@ fn receive(
                     }
                 };
                 commands.entity(agent).insert(ModelChoice(model));
+                // The tools read and run in the session's workspace, and in
+                // the app's own directory while it has none.
+                match root {
+                    Some(root) => commands.entity(agent).insert(WorkDir(root)),
+                    None => commands.entity(agent).remove::<WorkDir>(),
+                };
                 waiting.0.push_back((session, note, text));
             }
             Command::SetModel { session, model } => {

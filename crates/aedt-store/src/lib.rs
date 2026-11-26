@@ -72,6 +72,28 @@ pub struct Session {
     pub id: u32,
     pub title: SharedString,
     pub messages: Vec<Message>,
+    /// The folder the conversation works in, while it works in one: its
+    /// agent's tools read and run there. `None` leaves it in the app's own
+    /// directory, under `Ungrouped` in the sidebar.
+    pub workspace: Option<u32>,
+}
+
+/// A folder the conversations of a group work in.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Workspace {
+    pub id: u32,
+    /// Where it is, as the reader picked it.
+    pub path: SharedString,
+    /// What it is called: the last part of its path.
+    pub name: SharedString,
+}
+
+/// A workspace's conversations, or the ones held in no workspace, listed
+/// last under the sidebar's `Ungrouped`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Group {
+    pub workspace: Option<Workspace>,
+    pub sessions: Vec<SessionSummary>,
 }
 
 impl Session {
@@ -103,19 +125,22 @@ pub struct SessionSummary {
 }
 
 #[derive(Clone)]
-struct Workspace {
+struct State {
     sessions: Vec<Session>,
+    workspaces: Vec<Workspace>,
     selected: u32,
     next_session_id: u32,
+    next_workspace_id: u32,
     next_message_id: u32,
 }
 
-impl Default for Workspace {
+impl Default for State {
     fn default() -> Self {
         let mut next_message_id = 1;
         let first = Session {
             id: 1,
             title: "Laying out the session sidebar".into(),
+            workspace: None,
             messages: vec![
                 message(
                     &mut next_message_id,
@@ -280,6 +305,7 @@ impl Default for Workspace {
         let second = Session {
             id: 2,
             title: "Debugging an nsh window that won't start".into(),
+            workspace: None,
             messages: vec![
                 message(
                     &mut next_message_id,
@@ -309,6 +335,7 @@ impl Default for Workspace {
         let third = Session {
             id: 3,
             title: "Timeouts for tool calls".into(),
+            workspace: None,
             messages: vec![with_tools(
                 with_thoughts(
                     message(
@@ -349,8 +376,10 @@ impl Default for Workspace {
 
         Self {
             sessions: vec![first, second, third],
+            workspaces: Vec::new(),
             selected: 1,
             next_session_id: 4,
+            next_workspace_id: 1,
             next_message_id,
         }
     }
@@ -427,31 +456,28 @@ fn now_label() -> SharedString {
     Local::now().format("%-m/%-d %H:%M").to_string().into()
 }
 
-fn workspace() -> Signal<Workspace> {
-    global::<Workspace>()
+fn state() -> Signal<State> {
+    global::<State>()
 }
 
-/// Session `id` of `workspace`.
-fn session(workspace: &Workspace, id: u32) -> Option<&Session> {
-    workspace.sessions.iter().find(|session| session.id == id)
+/// Session `id` of `state`.
+fn session(state: &State, id: u32) -> Option<&Session> {
+    state.sessions.iter().find(|session| session.id == id)
 }
 
-/// Session `id` of `workspace`, to change.
-fn session_mut(workspace: &mut Workspace, id: u32) -> Option<&mut Session> {
-    workspace
-        .sessions
-        .iter_mut()
-        .find(|session| session.id == id)
+/// Session `id` of `state`, to change.
+fn session_mut(state: &mut State, id: u32) -> Option<&mut Session> {
+    state.sessions.iter_mut().find(|session| session.id == id)
 }
 
 /// How many sessions there are (tracked where it is read).
 pub fn session_count() -> usize {
-    workspace().with(|workspace| workspace.sessions.len())
+    state().with(|workspace| workspace.sessions.len())
 }
 
 /// The sessions' ids, in order (tracked where it is read).
 pub fn session_ids() -> Vec<u32> {
-    workspace().with(|workspace| {
+    state().with(|workspace| {
         workspace
             .sessions
             .iter()
@@ -463,23 +489,23 @@ pub fn session_ids() -> Vec<u32> {
 /// What the session at `index` shows, or none past the end (tracked where it is
 /// read).
 pub fn session_summary_at(index: usize) -> Option<SessionSummary> {
-    workspace().with(|workspace| workspace.sessions.get(index).map(Session::summary))
+    state().with(|workspace| workspace.sessions.get(index).map(Session::summary))
 }
 
 /// What the session `id` shows, or none once it is gone (tracked where it is
 /// read).
 pub fn session_summary(id: u32) -> Option<SessionSummary> {
-    workspace().with(|workspace| session(workspace, id).map(Session::summary))
+    state().with(|workspace| session(workspace, id).map(Session::summary))
 }
 
 /// The session the conversation pane shows (tracked where it is read).
 pub fn selected_session_id() -> u32 {
-    workspace().with(|workspace| workspace.selected)
+    state().with(|workspace| workspace.selected)
 }
 
 /// Shows `id` in the conversation pane; an unknown id changes nothing.
 pub fn select_session(id: u32) {
-    let (current, exists) = workspace().with(|workspace| {
+    let (current, exists) = state().with(|workspace| {
         (
             workspace.selected,
             workspace.sessions.iter().any(|session| session.id == id),
@@ -488,36 +514,134 @@ pub fn select_session(id: u32) {
     if current == id || !exists {
         return;
     }
-    workspace().update(|workspace| workspace.selected = id);
+    state().update(|workspace| workspace.selected = id);
 }
 
-/// Adds an empty session above the others and shows it.
+/// Adds an empty session above the others and shows it, in the workspace the
+/// session on show works in.
 pub fn create_session() {
-    let id = workspace().with(|workspace| workspace.next_session_id);
-    workspace().update(|workspace| {
-        workspace.next_session_id += 1;
-        workspace.sessions.insert(
+    let workspace =
+        state().with(|state| session(state, state.selected).and_then(|session| session.workspace));
+    create_session_in(workspace);
+}
+
+/// Adds an empty session above the others and shows it, in `workspace`.
+pub fn create_session_in(workspace: Option<u32>) {
+    let id = state().with(|state| state.next_session_id);
+    state().update(|state| {
+        state.next_session_id += 1;
+        state.sessions.insert(
             0,
             Session {
                 id,
                 title: "".into(),
                 messages: Vec::new(),
+                workspace,
             },
         );
-        workspace.selected = id;
+        state.selected = id;
     });
+}
+
+/// The workspaces, in the order they were added (tracked where it is read).
+pub fn workspaces() -> Vec<Workspace> {
+    state().with(|state| state.workspaces.clone())
+}
+
+/// Adds the folder at `path` as a workspace, or gives the one already there.
+/// `None` for a path that names no folder.
+pub fn add_workspace(path: &str) -> Option<u32> {
+    let path = path.trim_end_matches('/');
+    if path.is_empty() {
+        return None;
+    }
+    let mut added = None;
+    state().update(|state| {
+        if let Some(workspace) = state
+            .workspaces
+            .iter()
+            .find(|workspace| workspace.path.as_str() == path)
+        {
+            added = Some(workspace.id);
+            return;
+        }
+        let id = state.next_workspace_id;
+        state.next_workspace_id += 1;
+        state.workspaces.push(Workspace {
+            id,
+            path: path.to_owned().into(),
+            name: folder_name(path),
+        });
+        added = Some(id);
+    });
+    added
+}
+
+/// The conversations, grouped: each workspace's under it, the ones held in
+/// none last (tracked where it is read).
+pub fn groups() -> Vec<Group> {
+    state().with(|state| {
+        let mut groups: Vec<Group> = state
+            .workspaces
+            .iter()
+            .map(|workspace| Group {
+                workspace: Some(workspace.clone()),
+                sessions: Vec::new(),
+            })
+            .collect();
+        let mut ungrouped = Group {
+            workspace: None,
+            sessions: Vec::new(),
+        };
+        for session in &state.sessions {
+            let summary = session.summary();
+            let group = session.workspace.and_then(|id| {
+                groups
+                    .iter_mut()
+                    .find(|group| group.workspace.as_ref().is_some_and(|held| held.id == id))
+            });
+            match group {
+                Some(group) => group.sessions.push(summary),
+                None => ungrouped.sessions.push(summary),
+            }
+        }
+        groups.push(ungrouped);
+        groups
+    })
+}
+
+/// Where `session` works: its workspace's folder, while it has one.
+pub fn session_path(session_id: u32) -> Option<SharedString> {
+    state().with(|state| {
+        let id = session(state, session_id)?.workspace?;
+        state
+            .workspaces
+            .iter()
+            .find(|workspace| workspace.id == id)
+            .map(|workspace| workspace.path.clone())
+    })
+}
+
+/// What a folder is called: the last part of its path.
+fn folder_name(path: &str) -> SharedString {
+    std::path::Path::new(path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(path)
+        .to_owned()
+        .into()
 }
 
 /// How many messages a session has (tracked where it is read).
 pub fn message_count(session_id: u32) -> usize {
-    workspace().with(|workspace| {
+    state().with(|workspace| {
         session(workspace, session_id).map_or(0, |session| session.messages.len())
     })
 }
 
 /// The messages' ids, in order (tracked where it is read).
 pub fn message_ids(session_id: u32) -> Vec<u32> {
-    workspace().with(|workspace| {
+    state().with(|workspace| {
         session(workspace, session_id)
             .map(|session| session.messages.iter().map(|message| message.id).collect())
             .unwrap_or_default()
@@ -526,7 +650,7 @@ pub fn message_ids(session_id: u32) -> Vec<u32> {
 
 /// The message at `index`, or none past the end (tracked where it is read).
 pub fn message_at(session_id: u32, index: usize) -> Option<Message> {
-    workspace().with(|workspace| {
+    state().with(|workspace| {
         session(workspace, session_id)
             .and_then(|session| session.messages.get(index))
             .cloned()
@@ -536,7 +660,7 @@ pub fn message_at(session_id: u32, index: usize) -> Option<Message> {
 /// The last user message among the rows `first..=last`: the one the rail marks
 /// as the reader's current place.
 pub fn last_user_index(session_id: u32, first: usize, last: usize) -> Option<usize> {
-    workspace().with(|workspace| {
+    state().with(|workspace| {
         let session = session(workspace, session_id)?;
         let last = last.min(session.messages.len().checked_sub(1)?);
         (first..=last)
@@ -548,7 +672,7 @@ pub fn last_user_index(session_id: u32, first: usize, last: usize) -> Option<usi
 /// How many user messages the session has: one rail tick each (tracked where it
 /// is read).
 pub fn user_message_count(session_id: u32) -> usize {
-    workspace().with(|workspace| {
+    state().with(|workspace| {
         session(workspace, session_id).map_or(0, |session| {
             session
                 .messages
@@ -562,7 +686,7 @@ pub fn user_message_count(session_id: u32) -> usize {
 /// The indices of the session's user messages, in order: one tick of the rail
 /// each.
 pub fn user_message_indices(session_id: u32) -> Vec<usize> {
-    workspace().with(|workspace| {
+    state().with(|workspace| {
         session(workspace, session_id)
             .map(|session| {
                 session
@@ -580,7 +704,7 @@ pub fn user_message_indices(session_id: u32) -> Vec<usize> {
 /// The reply that follows the user message at `index`: the assistant messages
 /// up to the next question.
 pub fn reply_at(session_id: u32, index: usize) -> Option<Message> {
-    workspace().with(|workspace| {
+    state().with(|workspace| {
         let session = session(workspace, session_id)?;
         session
             .messages
@@ -608,24 +732,20 @@ pub fn send(session_id: u32, text: &str) -> Option<Sent> {
     }
 
     let mut started = None;
-    workspace().update(|workspace| started = append_sent(workspace, session_id, text));
+    state().update(|workspace| started = append_sent(workspace, session_id, text));
 
     started.map(|(reply_id, history)| Sent { reply_id, history })
 }
 
 /// The user's message, the reply left empty, and what the model gets to read:
 /// every message before that reply.
-fn append_sent(
-    workspace: &mut Workspace,
-    session_id: u32,
-    text: &str,
-) -> Option<(u32, Vec<Message>)> {
-    let user_id = workspace.next_message_id;
+fn append_sent(state: &mut State, session_id: u32, text: &str) -> Option<(u32, Vec<Message>)> {
+    let user_id = state.next_message_id;
     let reply_id = user_id + 1;
-    workspace.next_message_id += 2;
+    state.next_message_id += 2;
 
     let sent_at = now_label();
-    let session = session_mut(workspace, session_id)?;
+    let session = session_mut(state, session_id)?;
     if session.title.is_empty() {
         session.title = title_from(text);
     }
@@ -666,7 +786,7 @@ pub fn append_stream(session_id: u32, thinking: &str, answer: &str) {
     if thinking.is_empty() && answer.is_empty() {
         return;
     }
-    workspace().update(|workspace| {
+    state().update(|workspace| {
         let Some(message) = streaming(workspace, session_id) else {
             return;
         };
@@ -694,7 +814,7 @@ pub fn append_stream(session_id: u32, thinking: &str, answer: &str) {
 /// A call ends the thought that led to it: what the model thinks while it runs,
 /// or after, is a thought of its own.
 pub fn tool_started(session_id: u32, id: &str, name: &str, arguments: &str) {
-    workspace().update(|workspace| {
+    state().update(|workspace| {
         let Some(message) = streaming(workspace, session_id) else {
             return;
         };
@@ -714,7 +834,7 @@ pub fn tool_started(session_id: u32, id: &str, name: &str, arguments: &str) {
 /// Records what a tool call of the reply streaming in `session` returned: the
 /// answer of the call `id`, and whether it failed.
 pub fn tool_finished(session_id: u32, id: &str, output: &str, failed: bool) {
-    workspace().update(|workspace| {
+    state().update(|workspace| {
         let Some(message) = streaming(workspace, session_id) else {
             return;
         };
@@ -730,7 +850,7 @@ pub fn tool_finished(session_id: u32, id: &str, output: &str, failed: bool) {
 /// Closes the reply streaming in `session`: its meta line gains the model and
 /// how long the answer took, after the time it was sent.
 pub fn finish_stream(session_id: u32, model: &str, seconds: f32) {
-    workspace().update(|workspace| {
+    state().update(|workspace| {
         let Some(message) = streaming(workspace, session_id) else {
             return;
         };
@@ -750,7 +870,7 @@ pub fn finish_stream(session_id: u32, model: &str, seconds: f32) {
 /// Shows what went wrong in place of the answer of the reply streaming in
 /// `session`.
 pub fn fail_stream(session_id: u32, error: &str) {
-    workspace().update(|workspace| {
+    state().update(|workspace| {
         let Some(message) = streaming(workspace, session_id) else {
             return;
         };
@@ -762,7 +882,7 @@ pub fn fail_stream(session_id: u32, error: &str) {
 /// Shows what went wrong in place of every answer still streaming: the
 /// agent itself could not run.
 pub fn fail_streaming(error: &str) {
-    workspace().update(|workspace| {
+    state().update(|workspace| {
         for session in &mut workspace.sessions {
             for message in &mut session.messages {
                 if message.streaming {
@@ -776,7 +896,7 @@ pub fn fail_streaming(error: &str) {
 
 /// The messages of `session` whose thought shows open at first.
 pub fn open_thoughts(session_id: u32) -> Vec<u32> {
-    workspace().with(|workspace| {
+    state().with(|workspace| {
         session(workspace, session_id)
             .map(|session| {
                 session
@@ -792,7 +912,7 @@ pub fn open_thoughts(session_id: u32) -> Vec<u32> {
 
 /// The tool calls of `session` whose output shows open at first.
 pub fn open_calls(session_id: u32) -> Vec<SharedString> {
-    workspace().with(|workspace| {
+    state().with(|workspace| {
         session(workspace, session_id)
             .map(|session| {
                 session
@@ -808,8 +928,8 @@ pub fn open_calls(session_id: u32) -> Vec<SharedString> {
 }
 
 /// The reply still arriving in `session`.
-fn streaming(workspace: &mut Workspace, session_id: u32) -> Option<&mut Message> {
-    session_mut(workspace, session_id)?
+fn streaming(state: &mut State, session_id: u32) -> Option<&mut Message> {
+    session_mut(state, session_id)?
         .messages
         .iter_mut()
         .rev()

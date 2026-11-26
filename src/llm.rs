@@ -59,12 +59,13 @@ pub(crate) fn ask(session_id: u32, text: &str) {
         .collect();
 
     let reference = format!("{}/{}", model.provider_name, model.id);
+    let root = store::session_path(session_id).map(|path| std::path::PathBuf::from(path.as_str()));
     STARTED.with(|started| {
         started
             .borrow_mut()
             .insert(session_id, (Instant::now(), model.label.clone()));
     });
-    agent.say(session_id, &reference, text, before);
+    agent.say(session_id, &reference, text, before, root);
 }
 
 /// The agent, started once from the settings as they are; `None` when none can

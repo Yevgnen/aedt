@@ -50,12 +50,14 @@ pub enum Event {
 pub(crate) enum Command {
     /// Say `text` in `session`, asking `model` (`vendor/model`); `before` is
     /// the conversation the session already had, which an agent made now must
-    /// know.
+    /// know, and `root` the folder it works in, while its workspace gives
+    /// one.
     Say {
         session: u32,
         model: String,
         text: String,
         before: Vec<Turn>,
+        root: Option<std::path::PathBuf>,
     },
     /// Ask `model` in `session` from now on.
     SetModel { session: u32, model: String },
@@ -103,13 +105,21 @@ impl Agent {
     }
 
     /// Says `text` in `session`, asking `model` (`vendor/model`), with the
-    /// turns the session already had.
-    pub fn say(&self, session: u32, model: &str, text: &str, before: Vec<Turn>) {
+    /// turns the session already had and the folder it works in.
+    pub fn say(
+        &self,
+        session: u32,
+        model: &str,
+        text: &str,
+        before: Vec<Turn>,
+        root: Option<std::path::PathBuf>,
+    ) {
         let _ = self.commands.send(Command::Say {
             session,
             model: model.to_owned(),
             text: text.to_owned(),
             before,
+            root,
         });
     }
 

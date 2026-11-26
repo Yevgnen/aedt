@@ -5,12 +5,19 @@ use nsh_core::prelude::*;
 
 use crate::{motion, sizes};
 
+/// A conversation's title: a point under a destination's, so the list of
+/// conversations reads quieter than the pages' names.
+const SESSION_TITLE: f32 = 13.0;
+
+/// A settings destination's title.
+const DESTINATION_TITLE: f32 = 14.0;
+
 /// A navigation row: its title, selected by the caller, which adds `.on_press`.
 pub fn nav(
     title: impl IntoReactive<SharedString>,
     selected: impl Fn() -> bool + Copy + 'static,
 ) -> ButtonElement {
-    nav_row(None, title, selected)
+    nav_row(None, title, selected, SESSION_TITLE)
 }
 
 /// A navigation row with a mark before its title, as a settings destination
@@ -20,13 +27,19 @@ pub fn nav_with_mark(
     title: impl IntoReactive<SharedString>,
     selected: impl Fn() -> bool + Copy + 'static,
 ) -> ButtonElement {
-    nav_row(Some(mark.into_element()), title, selected)
+    nav_row(
+        Some(mark.into_element()),
+        title,
+        selected,
+        DESTINATION_TITLE,
+    )
 }
 
 fn nav_row(
     mark: Option<AnyElement>,
     title: impl IntoReactive<SharedString>,
     selected: impl Fn() -> bool + Copy + 'static,
+    title_size: f32,
 ) -> ButtonElement {
     button()
         .selected(selected)
@@ -61,7 +74,7 @@ fn nav_row(
             text(title)
                 .flex_1()
                 .min_w(px(0.0))
-                .text_sm()
+                .text_size(px(title_size))
                 .font_weight(FontWeight::NORMAL)
                 .number_of_lines(1)
                 .text_color(move || theme().foreground),
