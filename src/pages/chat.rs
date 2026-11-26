@@ -5,7 +5,7 @@ use std::time::Duration;
 use aedt_provider::responses::Effort;
 use aedt_settings as settings;
 use aedt_store::{self as store, Author, Message, ToolRun};
-use aedt_ui::{MESSAGE_LINE, button, empty, icon, input, menu, motion, sizes, tokens};
+use aedt_ui::{MESSAGE_LINE, badge, button, empty, icon, input, menu, motion, sizes, tokens};
 use nsh_base::{MarkdownOptions, SubmenuEvent, TextViewClasses, hover_card, text_view, theme};
 use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
 
@@ -866,7 +866,7 @@ fn model_picker() -> impl IntoElement {
     menu::controlled(
         open,
         menu::label_trigger(
-            move || settings::selected().provider_name,
+            badge::tag(move || settings::selected().provider_name),
             move || settings::selected().label,
             move || SharedString::from(effort_label(settings::effort())),
         )
