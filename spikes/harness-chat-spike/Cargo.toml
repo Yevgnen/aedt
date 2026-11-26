@@ -1,0 +1,12 @@
+[package]
+name = "harness-chat-spike"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# A probe of its own: not a member of aedt's workspace.
+[workspace]
+
+[dependencies]
+rig-basics = { version = "=0.47.1", default-features = false }
+rig-harness = "=0.47.1"
