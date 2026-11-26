@@ -20,7 +20,7 @@ pub enum Kind {
 }
 
 /// One provider the app offers, with the models a reply may ask for.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Provider {
     /// Its name, which is the catalog's vendor: no spaces or slashes.
     pub name: String,

@@ -8,7 +8,7 @@ use std::{
 };
 
 use bevy_ecs::{message::MessageCursor, system::SystemParam};
-use crossbeam_channel::{Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use rig_harness::prelude::*;
 
 use crate::{Command, Event, Turn};
@@ -180,7 +180,8 @@ impl Out<'_, '_> {
 }
 
 /// Reads what the app said, makes the agent a session needs, and asks it for
-/// a new model when the reader picked one.
+/// a new model when the reader picked one. The harness ends when the app lets
+/// go of its handle: nothing will be said to it again.
 fn receive(
     mut spawner: Spawner,
     mut sessions: ResMut<Sessions>,
@@ -192,7 +193,15 @@ fn receive(
     let Some(incoming) = incoming else {
         return;
     };
-    while let Ok(command) = incoming.0.try_recv() {
+    loop {
+        let command = match incoming.0.try_recv() {
+            Ok(command) => command,
+            Err(TryRecvError::Empty) => break,
+            Err(TryRecvError::Disconnected) => {
+                commands.trigger(Exit(ExitReason::Quit));
+                break;
+            }
+        };
         match command {
             Command::Say {
                 session,

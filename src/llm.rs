@@ -5,6 +5,7 @@
 use std::{
     cell::RefCell,
     collections::HashMap,
+    path::PathBuf,
     sync::OnceLock,
     time::{Duration, Instant},
 };
@@ -14,13 +15,15 @@ use aedt_settings as settings;
 use aedt_store::{self as store, Author};
 use nsh_core::prelude::*;
 
-/// The agent, started from the settings the first time a reply is asked.
-static AGENT: OnceLock<Agent> = OnceLock::new();
-
 /// Whether the task that reads what the agent reports was started.
 static DISPATCH: OnceLock<()> = OnceLock::new();
 
 thread_local! {
+    /// The agent, with the providers it was started from: the settings that
+    /// build it change while the app runs, and the agent is started again from
+    /// them when they do.
+    static AGENT: RefCell<Option<(Vec<Provider>, Agent)>> = const { RefCell::new(None) };
+
     /// When each session's reply was asked, and the model it asked, for its
     /// duration and its meta line.
     static STARTED: RefCell<HashMap<u32, (Instant, SharedString)>> = RefCell::new(HashMap::new());
@@ -29,6 +32,16 @@ thread_local! {
 /// Sends `text` to the conversation and lets the agent answer it: the store
 /// keeps the conversation, the settings name the model and its provider.
 pub(crate) fn ask(session_id: u32, text: &str) {
+    let text = text.trim();
+    if text.is_empty() {
+        return;
+    }
+
+    // The agent answers on the providers the settings hold now, started again
+    // before this message is in the store: only a reply the agent being
+    // replaced was still writing is what fails then.
+    let ready = ensure_agent();
+
     let Some(sent) = store::send(session_id, text) else {
         return;
     };
@@ -37,13 +50,10 @@ pub(crate) fn ask(session_id: u32, text: &str) {
         store::fail_stream(session_id, "API URL or API key is missing");
         return;
     }
-    let Some(agent) = agent() else {
-        store::fail_stream(
-            session_id,
-            "the agent could not start: no provider offers a model",
-        );
+    if let Err(why) = ready {
+        store::fail_stream(session_id, &format!("the agent could not start: {why}"));
         return;
-    };
+    }
 
     // What came before the message just sent: an agent made for this session
     // reads it before it answers.
@@ -65,28 +75,46 @@ pub(crate) fn ask(session_id: u32, text: &str) {
             .borrow_mut()
             .insert(session_id, (Instant::now(), model.label.clone()));
     });
-    agent.say(session_id, &reference, text, before, root);
+    say(session_id, &reference, text, before, root);
 }
 
-/// The agent, started once from the settings as they are; `None` when none can
-/// be started, which the next reply tries again.
-fn agent() -> Option<&'static Agent> {
-    let agent = match AGENT.get() {
-        Some(agent) => agent,
-        None => {
-            let started = start().ok()?;
-            let _ = AGENT.set(started);
-            AGENT.get()?
-        }
-    };
-    DISPATCH.get_or_init(|| {
-        Owner::detached().run(|| spawn(dispatch(agent)));
+/// Makes the agent the one the settings hold: started while there is none, and
+/// started again while the providers it was made from changed. `Err` says why
+/// none could start.
+fn ensure_agent() -> Result<(), String> {
+    let providers = providers()?;
+    let changed = AGENT.with(|agent| {
+        let agent = agent.borrow();
+
+        !agent.as_ref().is_some_and(|(made, _)| *made == providers)
     });
-    Some(agent)
+    if !changed {
+        return Ok(());
+    }
+
+    if AGENT.with(|agent| agent.borrow().is_some()) {
+        // A reply the agent being replaced is still writing cannot finish.
+        store::fail_streaming("the model settings changed");
+        STARTED.with(|started| started.borrow_mut().clear());
+    }
+
+    let started = start(&providers)?;
+    AGENT.with(|agent| *agent.borrow_mut() = Some((providers, started)));
+    Ok(())
 }
 
-/// Starts the harness with the providers the settings offer.
-fn start() -> Result<Agent, String> {
+/// Sends the prompt to the agent as it is.
+fn say(session_id: u32, model: &str, text: &str, before: Vec<Turn>, root: Option<PathBuf>) {
+    AGENT.with(|agent| {
+        if let Some((_, agent)) = agent.borrow().as_ref() {
+            agent.say(session_id, model, text, before, root);
+        }
+    });
+}
+
+/// The providers the settings offer, as the harness takes them: one per
+/// provider with a model left on, reached the way its settings say.
+fn providers() -> Result<Vec<Provider>, String> {
     let mut providers: Vec<Provider> = Vec::new();
     for choice in settings::enabled_models() {
         let kind = match choice.kind {
@@ -106,26 +134,45 @@ fn start() -> Result<Agent, String> {
         }
     }
     if providers.is_empty() {
-        return Err("no provider offers a model: add one in the settings".to_owned());
+        return Err("no provider offers a model, so add one in the settings".to_owned());
     }
 
+    Ok(providers)
+}
+
+/// Starts the harness with `providers`, and once the task that reports what it
+/// does.
+fn start(providers: &[Provider]) -> Result<Agent, String> {
     let root = std::env::current_dir()
         .map_err(|error| format!("failed to read the working directory: {error}"))?;
     let home = nsh_core::element::data_dir()
         .ok_or_else(|| "the app's data directory is unknown".to_owned())?
         .join("rig");
-    Agent::start(Config {
-        providers,
+    let agent = Agent::start(Config {
+        providers: providers.to_vec(),
         root,
         home,
-    })
+    })?;
+    DISPATCH.get_or_init(|| {
+        Owner::detached().run(|| spawn(dispatch()));
+    });
+
+    Ok(agent)
 }
 
 /// Reports what the agent does, for as long as the app runs: it runs under no
 /// owner, so no pane going away stops it.
-async fn dispatch(agent: &'static Agent) {
+async fn dispatch() {
     loop {
-        while let Some(event) = agent.poll() {
+        let events: Vec<Event> = AGENT.with(|agent| {
+            let agent = agent.borrow();
+            let Some((_, agent)) = agent.as_ref() else {
+                return Vec::new();
+            };
+
+            std::iter::from_fn(|| agent.poll()).collect()
+        });
+        for event in events {
             apply(event);
         }
         timer(Duration::from_millis(16)).await;
