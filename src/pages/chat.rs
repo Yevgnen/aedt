@@ -597,6 +597,7 @@ fn tool_run(tool: ReadSignal<ToolRun>, open: Signal<Vec<SharedString>>) -> impl 
         .child(
             button::bare()
                 .w_full()
+                .group()
                 .flex_row()
                 .items_center()
                 .gap_2()
@@ -647,7 +648,20 @@ fn tool_run(tool: ReadSignal<ToolRun>, open: Signal<Vec<SharedString>>) -> impl 
                     || text("failed").text_xs().text_color(tokens::caption),
                 ))
                 .child(
-                    when(shown, || icon::chevron_up(14.0)).otherwise(|| icon::chevron_down(14.0)),
+                    // The chevron is what says a press opens the call's output:
+                    // it shows while the pointer is over the row, and for the
+                    // keyboard's focus, leaving the reply quiet at rest.
+                    view()
+                        .opacity(0.0)
+                        .group_hover(|s| s.opacity(1.0))
+                        .group_focus_within(|s| s.opacity(1.0))
+                        .transition_opacity()
+                        .duration(motion::row_duration())
+                        .ease_out()
+                        .child(
+                            when(shown, || icon::chevron_up(14.0))
+                                .otherwise(|| icon::chevron_down(14.0)),
+                        ),
                 ),
         )
         .child(when(
@@ -719,6 +733,7 @@ fn thinking_bar(
 
     view()
         .w_full()
+        .group()
         .flex_row()
         .items_center()
         .justify_between()
@@ -739,6 +754,11 @@ fn thinking_bar(
                 when(opened, || icon::chevron_up(14.0)).otherwise(|| icon::chevron_down(14.0)),
                 "Expand or collapse the thinking",
             )
+            // The chevron shows while the pointer is over the thought's row,
+            // and for the keyboard's focus, as a call's does.
+            .opacity(0.0)
+            .group_hover(|s| s.opacity(1.0))
+            .group_focus_within(|s| s.opacity(1.0))
             .on_press(toggle),
         )
 }
