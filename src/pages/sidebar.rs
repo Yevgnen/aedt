@@ -116,7 +116,7 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
         .gap_1()
         .pb_1()
         .child(
-            button::bare()
+            view()
                 .w_full()
                 .group()
                 .flex_row()
@@ -125,14 +125,13 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
                 .min_h(px(sizes::LIST_ROW))
                 .px(px(sizes::LIST_ROW_INSET))
                 .text_color(move || theme().sidebar_foreground)
-                .on_press(move || store::create_session_in(workspace()))
                 .child(icon::folder_open(14.0))
                 .child(text(name).flex_1().text_size(px(13.0)))
                 .child(
-                    // The action shows while the row is under the pointer, and
-                    // takes the wash itself, not the row.
-                    view()
-                        .flex_none()
+                    // The only place a conversation starts, shown while the row
+                    // is under the pointer and washed when the pointer is on it.
+                    button::bare()
+                        .accessibility_label("Start a conversation")
                         .size(px(sizes::META_ACTION))
                         .items_center()
                         .justify_center()
@@ -143,6 +142,7 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
                         .transition_all()
                         .duration(motion::row_duration())
                         .ease_out()
+                        .on_press(move || store::create_session_in(workspace()))
                         .child(icon::plus(14.0)),
                 ),
         )
