@@ -480,8 +480,8 @@ fn has_reasoning(message: Memo<Option<Message>>) -> bool {
     })
 }
 
-/// The chain of thought above the answer: its text while it arrives and while
-/// the reader keeps it open, else one quiet row that opens it again.
+/// The chains of thought above the answer: their text while it arrives and
+/// while the reader keeps it open, else one quiet row that opens it again.
 fn thinking(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> impl IntoElement {
     let id = move || message.with(|message| message.as_ref().map(|message| message.id));
     let shown = move || {
@@ -554,13 +554,20 @@ const THINKING_TEXT_INSET: f32 = 26.0;
 const THINKING_FONT: f32 = 13.0;
 const THINKING_LINE: f32 = THINKING_FONT * MESSAGE_LINE;
 
-/// The thought itself, quieter than the answer it led to.
+/// The thoughts themselves, in order, quieter than the answer they led to.
 fn thinking_text(message: Memo<Option<Message>>) -> impl IntoElement {
     text(move || {
         message.with(|message| {
             message
                 .as_ref()
-                .map(|message| message.reasoning.clone())
+                .map(|message| {
+                    message
+                        .reasoning
+                        .iter()
+                        .map(SharedString::as_str)
+                        .collect::<Vec<_>>()
+                        .join("\n\n")
+                })
                 .unwrap_or_default()
         })
     })
@@ -569,7 +576,7 @@ fn thinking_text(message: Memo<Option<Message>>) -> impl IntoElement {
     .pb(px(THINKING_LINE))
     .text_size(px(THINKING_FONT))
     .line_height(LineHeight::Multiple(MESSAGE_LINE))
-    .text_color(tokens::meta)
+    .text_color(move || tokens::meta().opacity(0.8))
 }
 
 fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {

@@ -17,9 +17,9 @@ pub struct Message {
     pub id: u32,
     pub author: Author,
     pub body: SharedString,
-    /// The chain of thought the reply reasoned with, shown above it: empty for
-    /// a message that did not think.
-    pub reasoning: SharedString,
+    /// The chains of thought the reply reasoned with, in order and shown above
+    /// it: empty for a message that did not think, one entry per thought.
+    pub reasoning: Vec<SharedString>,
     /// The muted line under the message: when it was sent, and for a reply what
     /// it ran on and how long it took. `None` shows no line at all.
     pub meta: Option<Meta>,
@@ -100,12 +100,17 @@ impl Default for Workspace {
                     "11/25 10:12",
                     None,
                 ),
-                message(
-                    &mut next_message_id,
-                    Author::Assistant,
-                    "Pin three things down:\n\n1. The session is the only domain object, and messages belong to it;\n2. The list uses `virtual_list`, and no row keeps state;\n3. The composer's draft belongs to the page, not to the store.\n\n```rust\nlet draft = signal(String::new());\n```",
-                    "11/25 10:12",
-                    Some("deepseek-flash · 0.3 s"),
+                with_thoughts(
+                    message(
+                        &mut next_message_id,
+                        Author::Assistant,
+                        "Pin three things down:\n\n1. The session is the only domain object, and messages belong to it;\n2. The list uses `virtual_list`, and no row keeps state;\n3. The composer's draft belongs to the page, not to the store.\n\n```rust\nlet draft = signal(String::new());\n```",
+                        "11/25 10:12",
+                        Some("deepseek-flash · 0.3 s"),
+                    ),
+                    &["The questions after this one are about state, not layout. \
+                       Separate the two: decide where state lives first, then pick \
+                       the components that read it."],
                 ),
                 message(
                     &mut next_message_id,
@@ -128,12 +133,21 @@ impl Default for Workspace {
                     "11/25 10:17",
                     None,
                 ),
-                message(
-                    &mut next_message_id,
-                    Author::Assistant,
-                    "Because `virtual_list` reuses its cells: one cell shows different rows in turn. A row's signal travels with the cell to the next row, and states bleed. Keep each row's state in the data, keyed by message id; the cell reads only the one at its position.",
-                    "11/25 10:17",
-                    Some("deepseek-flash · 0.3 s"),
+                with_thoughts(
+                    message(
+                        &mut next_message_id,
+                        Author::Assistant,
+                        "Because `virtual_list` reuses its cells: one cell shows different rows in turn. A row's signal travels with the cell to the next row, and states bleed. Keep each row's state in the data, keyed by message id; the cell reads only the one at its position.",
+                        "11/25 10:17",
+                        Some("deepseek-flash · 0.3 s"),
+                    ),
+                    &[
+                        "The symptom is a value that follows the scroll instead of \
+                         the row: that is state living in the cell, not a paint bug.",
+                        "`virtual_list` recycles cells, so anything a cell keeps outlives \
+                         the row it showed. Move the state into the data, keyed by \
+                         message id, and the cell only reads it.",
+                    ],
                 ),
                 message(
                     &mut next_message_id,
@@ -156,12 +170,18 @@ impl Default for Workspace {
                     "11/25 10:24",
                     None,
                 ),
-                message(
-                    &mut next_message_id,
-                    Author::Assistant,
-                    "Each row compares its session id with the selected one: the selected row takes the `accent` fill and `foreground` text, and a lighter wash on hover. No left bar, and no bold text standing in for selection.",
-                    "11/25 10:24",
-                    Some("deepseek-flash · 0.2 s"),
+                with_thoughts(
+                    message(
+                        &mut next_message_id,
+                        Author::Assistant,
+                        "Each row compares its session id with the selected one: the selected row takes the `accent` fill and `foreground` text, and a lighter wash on hover. No left bar, and no bold text standing in for selection.",
+                        "11/25 10:24",
+                        Some("deepseek-flash · 0.2 s"),
+                    ),
+                    &[
+                        "Selection is a comparison, not a flag a row stores: the id \
+                       the row shows is enough for it to know whether it is the one.",
+                    ],
                 ),
                 message(
                     &mut next_message_id,
@@ -198,12 +218,20 @@ impl Default for Workspace {
                     "11/25 10:37",
                     None,
                 ),
-                message(
-                    &mut next_message_id,
-                    Author::Assistant,
-                    "That the keyboard can finish the main flow, focus is always visible, the empty, loading and failed states all exist, both light and dark have been seen, and the smallest window does not break the layout. Then run a real window on the target platform, not just screenshots.",
-                    "11/25 10:37",
-                    Some("deepseek-flash · 0.2 s"),
+                with_thoughts(
+                    message(
+                        &mut next_message_id,
+                        Author::Assistant,
+                        "That the keyboard can finish the main flow, focus is always visible, the empty, loading and failed states all exist, both light and dark have been seen, and the smallest window does not break the layout. Then run a real window on the target platform, not just screenshots.",
+                        "11/25 10:37",
+                        Some("deepseek-flash · 0.2 s"),
+                    ),
+                    &[
+                        "Most of these are states nobody clicks while testing: empty, \
+                         loading, failed, and the smallest window.",
+                        "A screenshot cannot show focus, scrolling or a window that \
+                         fails to open, so the last check has to be a real run.",
+                    ],
                 ),
             ],
         };
@@ -259,7 +287,7 @@ fn message(
         id: *next_id,
         author,
         body: body.into(),
-        reasoning: SharedString::default(),
+        reasoning: Vec::new(),
         meta: Some(Meta {
             time: time.into(),
             detail: detail.map(SharedString::from),
@@ -268,6 +296,14 @@ fn message(
     };
     *next_id += 1;
     message
+}
+
+/// `message` with the chains of thought it reasoned with, in order.
+fn with_thoughts(message: Message, thoughts: &[&'static str]) -> Message {
+    Message {
+        reasoning: thoughts.iter().map(|thought| (*thought).into()).collect(),
+        ..message
+    }
 }
 
 /// The clock time a message shows, in the machine's own time zone: `11/6
@@ -482,7 +518,7 @@ fn append_sent(
         id: user_id,
         author: Author::User,
         body: text.to_owned().into(),
-        reasoning: SharedString::default(),
+        reasoning: Vec::new(),
         meta: Some(Meta {
             time: sent_at.clone(),
             detail: None,
@@ -494,7 +530,7 @@ fn append_sent(
         id: reply_id,
         author: Author::Assistant,
         body: SharedString::default(),
-        reasoning: SharedString::default(),
+        reasoning: Vec::new(),
         meta: Some(Meta {
             time: sent_at,
             detail: None,
@@ -516,9 +552,16 @@ pub fn append_reply(session_id: u32, message_id: u32, thinking: &str, answer: &s
             return;
         };
         if !thinking.is_empty() {
-            let mut reasoned = message.reasoning.to_string();
-            reasoned.push_str(thinking);
-            message.reasoning = reasoned.into();
+            match message.reasoning.last_mut() {
+                Some(thought) => {
+                    let mut reasoned = thought.to_string();
+                    reasoned.push_str(thinking);
+                    *thought = reasoned.into();
+                }
+                // A reply that thinks again after a tool call starts another
+                // thought; until then every piece continues the last one.
+                None => message.reasoning.push(thinking.to_owned().into()),
+            }
         }
         if !answer.is_empty() {
             let mut body = message.body.to_string();
