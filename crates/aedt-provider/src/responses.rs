@@ -144,8 +144,12 @@ async fn stream(endpoint: Endpoint, request: CreateResponse, report: impl Fn(Rep
     while let Some(event) = events.next().await {
         match event {
             // The chain of thought and the answer are streamed apart: each is
-            // reported as its own part.
+            // reported as its own part. A provider thinking in summaries, such
+            // as Ollama's Responses, sends the thought as summary deltas.
             Ok(ResponseStreamEvent::ResponseReasoningTextDelta(delta)) => {
+                report(ReplyEvent::Thinking(delta.delta.into()));
+            }
+            Ok(ResponseStreamEvent::ResponseReasoningSummaryTextDelta(delta)) => {
                 report(ReplyEvent::Thinking(delta.delta.into()));
             }
             Ok(ResponseStreamEvent::ResponseOutputTextDelta(delta)) => {
