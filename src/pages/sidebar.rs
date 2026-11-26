@@ -113,7 +113,6 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
 
     view()
         .w_full()
-        .gap_1()
         .pb_1()
         .child(
             view()
