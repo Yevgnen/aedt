@@ -5,10 +5,6 @@ use nsh_core::prelude::*;
 
 use crate::{motion, sizes};
 
-/// A conversation's title: a point under a destination's, so the list of
-/// conversations reads quieter than the pages' names.
-const SESSION_TITLE: f32 = 13.0;
-
 /// A settings destination's title.
 const DESTINATION_TITLE: f32 = 14.0;
 
@@ -17,7 +13,7 @@ pub fn nav(
     title: impl IntoReactive<SharedString>,
     selected: impl Fn() -> bool + Copy + 'static,
 ) -> ButtonElement {
-    nav_row(None, title, selected, SESSION_TITLE)
+    nav_row(None, title, selected, sizes::TEXT_COMPACT)
 }
 
 /// A navigation row with a mark before its title, as a settings destination

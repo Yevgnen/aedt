@@ -298,7 +298,7 @@ fn message_preview(
                 // The answer sits one point smaller and a shade quieter than
                 // the question it belongs to.
                 text(body_of(reply))
-                    .text_size(px(13.0))
+                    .text_size(px(sizes::TEXT_COMPACT))
                     .number_of_lines(4)
                     .text_color(move || tokens::meta().opacity(0.55))
             },
@@ -1047,8 +1047,7 @@ const THINKING_TEXT_INSET: f32 = 26.0;
 
 /// The thought's own text size, and the blank line kept under it: one line of
 /// that text, so the answer opens a line below the thought.
-const THINKING_FONT: f32 = 13.0;
-const THINKING_LINE: f32 = THINKING_FONT * MESSAGE_LINE;
+const THINKING_LINE: f32 = sizes::TEXT_COMPACT * MESSAGE_LINE;
 
 /// The thought's own text, quieter than the answer it led to.
 fn thinking_text(message: Memo<Option<Message>>, at: usize) -> impl IntoElement {
@@ -1056,7 +1055,7 @@ fn thinking_text(message: Memo<Option<Message>>, at: usize) -> impl IntoElement 
         .w_full()
         .pl(px(THINKING_TEXT_INSET))
         .pb(px(THINKING_LINE))
-        .text_size(px(THINKING_FONT))
+        .text_size(px(sizes::TEXT_COMPACT))
         .line_height(LineHeight::Multiple(MESSAGE_LINE))
         .text_color(move || tokens::meta().opacity(0.7))
 }

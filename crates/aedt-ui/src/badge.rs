@@ -3,6 +3,8 @@
 use nsh_base::theme;
 use nsh_core::prelude::*;
 
+use crate::sizes;
+
 /// A neutral pill: for a state worth scanning, not for every label.
 pub fn badge(label: impl IntoReactive<SharedString>) -> impl IntoElement {
     view()
@@ -28,7 +30,7 @@ pub fn tag(label: impl IntoReactive<SharedString>) -> impl IntoElement {
         .py_0p5()
         .child(
             text(label)
-                .text_size(px(13.0))
+                .text_size(px(sizes::TEXT_COMPACT))
                 .text_color(move || theme().muted_foreground),
         )
 }

@@ -125,7 +125,7 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
                 .px(px(sizes::LIST_ROW_INSET))
                 .text_color(move || theme().sidebar_foreground)
                 .child(icon::folder_open(14.0))
-                .child(text(name).flex_1().text_size(px(13.0)))
+                .child(text(name).flex_1().text_size(px(sizes::TEXT_COMPACT)))
                 .child(
                     // The only place a conversation starts, shown while the row
                     // is under the pointer and washed when the pointer is on it.

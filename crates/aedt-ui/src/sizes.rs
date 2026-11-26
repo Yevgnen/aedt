@@ -46,6 +46,11 @@ pub const RAIL: f32 = 32.0;
 /// The rail's inset from the window's edge: the ticks do not touch it.
 pub const RAIL_INSET: f32 = 14.0;
 
+/// A row's secondary text: a point under a control's 14pt label, and the size
+/// an inline code keeps, so a value beside a title reads quieter than the title
+/// without dropping to a caption's 12 points.
+pub const TEXT_COMPACT: f32 = 13.0;
+
 /// A code block's font size: two points under the 13pt an inline code keeps,
 /// so a block reads as a quotation of code rather than as louder body text.
 pub const CODE_FONT: f32 = 11.0;

@@ -103,8 +103,12 @@ pub fn label_trigger(
         .duration(motion::row_duration())
         .ease_out()
         .child(mark)
-        .child(text(value).text_size(px(13.0)))
-        .child(text(note).text_size(px(13.0)).text_color(tokens::caption))
+        .child(text(value).text_size(px(sizes::TEXT_COMPACT)))
+        .child(
+            text(note)
+                .text_size(px(sizes::TEXT_COMPACT))
+                .text_color(tokens::caption),
+        )
         .child(icon::chevron_down(12.0))
 }
 
