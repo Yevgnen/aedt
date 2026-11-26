@@ -824,6 +824,9 @@ fn change_card(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
                 .flex_row()
                 .items_center()
                 .gap_2()
+                // The bar the view used to put over a change's first row; the
+                // file's name takes its place.
+                .bg(move || theme().muted)
                 .px_2()
                 .py_1()
                 .child(
@@ -896,8 +899,16 @@ fn diff_styles() -> DiffViewStyles {
     styles.line_deleted = Some(fill(tokens::diff_removed()));
     styles.word_added = Some(fill(tokens::diff_added_word()));
     styles.word_deleted = Some(fill(tokens::diff_removed_word()));
+    // The patch's hunk headers are for a reader counting lines in a file; the
+    // card's rows read as one change, under the file's name.
+    styles.separator = Some(faded());
 
     styles
+}
+
+/// A part that takes its row but shows nothing of it.
+fn faded() -> PartStyle {
+    PartStyle(Style::default().with(StyleKey::Opacity, PropertyValue::Number(0.0.into())))
 }
 
 /// `color` as a part's fill, in the appearance now: the view's own fills are
