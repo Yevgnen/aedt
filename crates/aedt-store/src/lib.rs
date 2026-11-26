@@ -20,6 +20,9 @@ pub struct Message {
     /// The chains of thought the reply reasoned with, in order and shown above
     /// it: empty for a message that did not think, one entry per thought.
     pub reasoning: Vec<SharedString>,
+    /// Whether the reply's thought shows open at first: the state a reply is
+    /// read with, until the reader folds it away.
+    pub reasoning_open: bool,
     /// The tool calls the reply made, in the order it made them.
     pub tools: Vec<ToolRun>,
     /// The muted line under the message: when it was sent, and for a reply what
@@ -45,6 +48,9 @@ pub struct ToolRun {
     pub failed: bool,
     /// Whether its result is still to come.
     pub running: bool,
+    /// Whether its output shows open at first, until the reader folds it
+    /// away.
+    pub open: bool,
 }
 
 /// What a message's muted line says.
@@ -118,7 +124,7 @@ impl Default for Workspace {
                     "11/25 10:12",
                     None,
                 ),
-                with_thoughts(
+                thought_open(with_thoughts(
                     message(
                         &mut next_message_id,
                         Author::Assistant,
@@ -129,7 +135,7 @@ impl Default for Workspace {
                     &["The questions after this one are about state, not layout. \
                        Separate the two: decide where state lives first, then pick \
                        the components that read it."],
-                ),
+                )),
                 message(
                     &mut next_message_id,
                     Author::User,
@@ -151,7 +157,7 @@ impl Default for Workspace {
                     "11/25 10:17",
                     None,
                 ),
-                with_thoughts(
+                thought_open(with_thoughts(
                     message(
                         &mut next_message_id,
                         Author::Assistant,
@@ -166,7 +172,7 @@ impl Default for Workspace {
                          the row it showed. Move the state into the data, keyed by \
                          message id, and the cell only reads it.",
                     ],
-                ),
+                )),
                 message(
                     &mut next_message_id,
                     Author::User,
@@ -208,12 +214,30 @@ impl Default for Workspace {
                     "11/25 10:28",
                     None,
                 ),
-                message(
-                    &mut next_message_id,
-                    Author::Assistant,
-                    "An assistant message renders Markdown with `text_view`, and a code block scrolls sideways in its own area, so it never bursts the column; a user message stays plain text, at most 560pt wide.\n\n```rust\nfn main() {\n    println!(\"Aedt\");\n}\n```\n\nThis long body is here to push the list into scrolling.",
-                    "11/25 10:28",
-                    Some("deepseek-flash · 0.4 s"),
+                with_tools(
+                    message(
+                        &mut next_message_id,
+                        Author::Assistant,
+                        "An assistant message renders Markdown with `text_view`, and a code block scrolls sideways in its own area, so it never bursts the column; a user message stays plain text, at most 560pt wide.\n\n```rust\nfn main() {\n    println!(\"Aedt\");\n}\n```\n\nThis long body is here to push the list into scrolling.",
+                        "11/25 10:28",
+                        Some("deepseek-flash · 0.4 s"),
+                    ),
+                    vec![
+                        tool(
+                            "call-1",
+                            "read",
+                            r#"{"path":"Cargo.toml"}"#,
+                            "[package]\nname = \"aedt\"\nversion = \"0.1.0\"\nedition = \"2024\"",
+                            false,
+                        ),
+                        tool(
+                            "call-2",
+                            "shell",
+                            r#"{"command":"wc -l src/pages/chat.rs"}"#,
+                            "747 src/pages/chat.rs",
+                            true,
+                        ),
+                    ],
                 ),
                 message(
                     &mut next_message_id,
@@ -264,24 +288,62 @@ impl Default for Workspace {
                     "11/25 09:41",
                     None,
                 ),
-                message(
-                    &mut next_message_id,
-                    Author::Assistant,
-                    "First check that the root fills the window: give it `.flex_1()` and the theme's background, or nothing gets drawn behind the window.",
-                    "11/25 09:41",
-                    Some("deepseek-flash · 0.2 s"),
+                with_tools(
+                    message(
+                        &mut next_message_id,
+                        Author::Assistant,
+                        "First check that the root fills the window: give it `.flex_1()` and the theme's background, or nothing gets drawn behind the window.",
+                        "11/25 09:41",
+                        Some("deepseek-flash · 0.2 s"),
+                    ),
+                    vec![tool(
+                        "call-3",
+                        "shell",
+                        r#"{"command":"ls -la src"}"#,
+                        "total 64\ndrwxr-xr-x   5 maximin  staff    160 11/25 09:38 .\n-rw-r--r--   1 maximin  staff     86 11/25 09:38 lib.rs\n-rw-r--r--   1 maximin  staff    188 11/25 09:38 llm.rs\ndrwxr-xr-x   4 maximin  staff    128 11/25 09:38 pages",
+                        true,
+                    )],
                 ),
             ],
         };
         let third = Session {
             id: 3,
             title: "Timeouts for tool calls".into(),
-            messages: vec![message(
-                &mut next_message_id,
-                Author::Assistant,
-                "Every tool call needs a timeout, and a timeout must reach the layer above apart from a cancellation.",
-                "11/25 08:15",
-                Some("deepseek-flash · 0.1 s"),
+            messages: vec![with_tools(
+                with_thoughts(
+                    message(
+                        &mut next_message_id,
+                        Author::Assistant,
+                        "Every tool call needs a timeout, and a timeout must reach the layer above apart from a cancellation: the caller retries one and reports the other.\n\n```rust\nlet timeout = Duration::from_secs(30);\n```",
+                        "11/25 08:15",
+                        Some("deepseek-flash · 0.1 s"),
+                    ),
+                    &[
+                        "The two look the same from below: both stop the wait. \
+                         Only the layer above can tell whether to try again.",
+                        "So the call has to answer with why it stopped, not with \
+                         whether it did.",
+                    ],
+                ),
+                vec![
+                    ToolRun {
+                        failed: true,
+                        ..tool(
+                            "call-4",
+                            "shell",
+                            r#"{"command":"rg timeouts src"}"#,
+                            "command not found: rg",
+                            true,
+                        )
+                    },
+                    tool(
+                        "call-5",
+                        "read",
+                        r#"{"path":"crates/aedt-harness/src/front.rs"}"#,
+                        "// The harness's own views mean nothing here, so no terminal or print front runs.",
+                        false,
+                    ),
+                ],
             )],
         };
 
@@ -306,6 +368,7 @@ fn message(
         author,
         body: body.into(),
         reasoning: Vec::new(),
+        reasoning_open: false,
         tools: Vec::new(),
         meta: Some(Meta {
             time: time.into(),
@@ -322,6 +385,39 @@ fn with_thoughts(message: Message, thoughts: &[&'static str]) -> Message {
     Message {
         reasoning: thoughts.iter().map(|thought| (*thought).into()).collect(),
         ..message
+    }
+}
+
+/// `message` with its thought shown open at first.
+fn thought_open(message: Message) -> Message {
+    Message {
+        reasoning_open: true,
+        ..message
+    }
+}
+
+/// `message` with the tool calls it made, in order.
+fn with_tools(message: Message, tools: Vec<ToolRun>) -> Message {
+    Message { tools, ..message }
+}
+
+/// One tool call a reply made, done and read: `open` says whether its output
+/// shows at first.
+fn tool(
+    id: &'static str,
+    name: &'static str,
+    arguments: &'static str,
+    output: &'static str,
+    open: bool,
+) -> ToolRun {
+    ToolRun {
+        id: id.into(),
+        name: name.into(),
+        arguments: arguments.into(),
+        output: output.into(),
+        failed: false,
+        running: false,
+        open,
     }
 }
 
@@ -538,6 +634,7 @@ fn append_sent(
         author: Author::User,
         body: text.to_owned().into(),
         reasoning: Vec::new(),
+        reasoning_open: false,
         tools: Vec::new(),
         meta: Some(Meta {
             time: sent_at.clone(),
@@ -551,6 +648,7 @@ fn append_sent(
         author: Author::Assistant,
         body: SharedString::default(),
         reasoning: Vec::new(),
+        reasoning_open: false,
         tools: Vec::new(),
         meta: Some(Meta {
             time: sent_at,
@@ -607,6 +705,7 @@ pub fn tool_started(session_id: u32, id: &str, name: &str, arguments: &str) {
             output: SharedString::default(),
             failed: false,
             running: true,
+            open: false,
         });
         message.reasoning.push(SharedString::default());
     });
@@ -673,6 +772,39 @@ pub fn fail_streaming(error: &str) {
             }
         }
     });
+}
+
+/// The messages of `session` whose thought shows open at first.
+pub fn open_thoughts(session_id: u32) -> Vec<u32> {
+    workspace().with(|workspace| {
+        session(workspace, session_id)
+            .map(|session| {
+                session
+                    .messages
+                    .iter()
+                    .filter(|message| message.reasoning_open)
+                    .map(|message| message.id)
+                    .collect()
+            })
+            .unwrap_or_default()
+    })
+}
+
+/// The tool calls of `session` whose output shows open at first.
+pub fn open_calls(session_id: u32) -> Vec<SharedString> {
+    workspace().with(|workspace| {
+        session(workspace, session_id)
+            .map(|session| {
+                session
+                    .messages
+                    .iter()
+                    .flat_map(|message| message.tools.iter())
+                    .filter(|tool| tool.open)
+                    .map(|tool| tool.id.clone())
+                    .collect()
+            })
+            .unwrap_or_default()
+    })
 }
 
 /// The reply still arriving in `session`.

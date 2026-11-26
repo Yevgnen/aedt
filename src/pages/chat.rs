@@ -21,10 +21,10 @@ const TICK_PAD: f32 = 4.0;
 pub(crate) fn pane(session_id: u32) -> View {
     let draft = signal(String::new());
     // The messages whose thinking the reader opened; closed again, a thought is
-    // one quiet row.
-    let open = signal(Vec::<u32>::new());
+    // one quiet row. A reply read with its thought open starts in it.
+    let open = signal(store::open_thoughts(session_id));
     // The tool calls whose output the reader opened, by the call's id.
-    let open_calls = signal(Vec::<SharedString>::new());
+    let open_calls = signal(store::open_calls(session_id));
     // The timeline's handle: the rail's ticks scroll it to their message.
     let timeline = element_ref();
     // The reader's place: the last user message the list shows.
