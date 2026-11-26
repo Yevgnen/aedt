@@ -610,7 +610,14 @@ fn model_picker() -> impl IntoElement {
                         .min_w(px(240.0))
                         .gap_1()
                         .child(menu::search(query, "Search models…"))
-                        .child(model_choices(query)),
+                        // The models scroll in their own view under the field,
+                        // so a wheel over them never takes the field's keys.
+                        .child(
+                            scroll()
+                                .max_h(px(360.0))
+                                .scrollbar(false)
+                                .child(model_choices(query)),
+                        ),
                 )
                 .on_open_change(move |event: &SubmenuEvent| {
                     // Each opening searches from the start of the list again.
