@@ -51,24 +51,30 @@ fn nav_row(
         .px(px(sizes::LIST_ROW_INSET))
         .py_1()
         .rounded(move || theme().radius)
-        // NSH ranks `hover:` above `selected:` (`rank::HOVER` 34 > `rank::SELECTED`
-        // 32), so a selected row keeps the selected fill by taking that same
-        // color while hovered.
-        .hover(|s| {
-            s.bg(move || {
-                if selected() {
-                    theme().accent
-                } else {
-                    theme().muted
-                }
-            })
-        })
+        .hover(|s| s.bg(move || theme().muted))
         .active(|s| s.bg(move || theme().accent))
-        .selected_style(|s| s.bg(move || theme().accent))
         .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
         .transition_colors()
         .duration(motion::row_duration())
         .ease_out()
+        // The selected wash is a layer of its own, and it changes at once: a
+        // row hands the wash on as another is selected, and an old wash fading
+        // out under the new one reads as a flash. The row's own hover still
+        // eases.
+        .child(
+            view()
+                .absolute()
+                .inset(px(0.0))
+                .rounded(move || theme().radius)
+                .pointer_events(PointerEvents::None)
+                .bg(move || {
+                    if selected() {
+                        theme().accent
+                    } else {
+                        AdaptiveColor::TRANSPARENT
+                    }
+                }),
+        )
         .when_some(mark, |row, mark| row.child(mark))
         .child(
             text(title)
