@@ -54,3 +54,29 @@ pub const TEXT_COMPACT: f32 = 13.0;
 /// A code block's font size: two points under the 13pt an inline code keeps,
 /// so a block reads as a quotation of code rather than as louder body text.
 pub const CODE_FONT: f32 = 11.0;
+
+/// The window the app opens in, in points.
+pub const WINDOW_W: f32 = 1320.0;
+pub const WINDOW_H: f32 = 880.0;
+
+/// The least height the window may take: the header and the composer card with
+/// its status line keep their room, and a few exchanges still read above the
+/// composer. Its width keeps its own freedom, so the pane can narrow to any
+/// width the layout holds.
+pub const WINDOW_MIN_H: f32 = 560.0;
+
+/// The card a message's question opens in, over the rail's ticks.
+pub const PREVIEW_W: f32 = 320.0;
+
+/// The picker's list: wide enough for a model's name beside its provider, and
+/// no taller than a few of them before it scrolls.
+pub const PICKER_MIN_W: f32 = 240.0;
+pub const PICKER_MAX_H: f32 = 360.0;
+
+/// The picker's effort list: one short word a row.
+pub const EFFORT_W: f32 = 160.0;
+
+/// The settings dialog, and the column its categories take inside it.
+pub const DIALOG_W: f32 = 720.0;
+pub const DIALOG_H: f32 = 520.0;
+pub const CATEGORIES_W: f32 = 180.0;

@@ -278,7 +278,7 @@ fn message_preview(
             let start = (height.get() - rows * pitch) / 2.0;
             px(start + row as f32 * pitch - 20.0)
         })
-        .w(px(320.0))
+        .w(px(sizes::PREVIEW_W))
         .p_3()
         .gap_2()
         .rounded(move || theme().radius)
@@ -1143,7 +1143,7 @@ fn model_picker() -> impl IntoElement {
                     "Model",
                     move || settings::selected().label,
                     view()
-                        .min_w(px(240.0))
+                        .min_w(px(sizes::PICKER_MIN_W))
                         .gap_1()
                         // The row that opened it takes no focus (a pointer
                         // over it would take the field's), so the keys stay
@@ -1157,7 +1157,7 @@ fn model_picker() -> impl IntoElement {
                         // so a wheel over them never takes the field's keys.
                         .child(
                             scroll()
-                                .max_h(px(360.0))
+                                .max_h(px(sizes::PICKER_MAX_H))
                                 .scrollbar(false)
                                 .child(model_choices(query, open)),
                         ),
@@ -1251,7 +1251,7 @@ struct ModelSection {
 /// The efforts a reply can ask for, the weakest first.
 fn effort_choices() -> impl IntoElement {
     view()
-        .min_w(px(160.0))
+        .min_w(px(sizes::EFFORT_W))
         .gap_1()
         .child(effort_choice(Effort::Default))
         .child(effort_choice(Effort::Low))

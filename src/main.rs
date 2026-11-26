@@ -2,6 +2,8 @@
 
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+use aedt_ui::sizes;
 #[cfg(target_os = "linux")]
 use nsh_platform_linux as platform;
 #[cfg(target_os = "macos")]
@@ -17,7 +19,7 @@ fn main() -> impl std::process::Termination {
         platform::AppOptions {
             app_id: "com.example.aedt".to_owned(),
             title: "Aedt".to_owned(),
-            size: (1320, 880),
+            size: (sizes::WINDOW_W as i32, sizes::WINDOW_H as i32),
             ..Default::default()
         },
     )

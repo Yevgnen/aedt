@@ -23,12 +23,6 @@ const MONO_FONT: &str = "Berkeley Mono, SF Mono, Menlo, monospace";
 /// The app's theme, the same file `nsh.json` names for `nsh run`.
 const THEME: &str = include_str!("../theme.json");
 
-/// The least height the window may take, in points: the header and the
-/// composer card with its status line keep their room, and a few exchanges
-/// still read above the composer. Its width keeps its own freedom, so the pane
-/// can narrow to any width the layout holds.
-const MIN_HEIGHT: f32 = 560.0;
-
 /// Applies the theme and the coding font. `cargo run` does not read
 /// `nsh.json`, so the app sets its own tokens at startup; a host theme naming
 /// the same tokens still wins.
@@ -75,12 +69,12 @@ pub fn App() -> impl IntoElement {
     title_bar.style = TitleBarStyle::Hidden;
     let mut attributes = WindowAttributes::default();
     attributes.title_bar = Some(title_bar);
-    attributes.min_size = Some(Some(size(px(0.0), px(MIN_HEIGHT))));
+    attributes.min_size = Some(Some(size(px(0.0), px(sizes::WINDOW_MIN_H))));
 
     app_window()
         .id("main")
         .title("Aedt")
         .attributes(attributes)
-        .default_size(size(px(1320.0), px(880.0)))
+        .default_size(size(px(sizes::WINDOW_W), px(sizes::WINDOW_H)))
         .content(shell::shell)
 }

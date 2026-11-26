@@ -37,8 +37,8 @@ fn card() -> impl IntoElement {
     view()
         .m(auto())
         .flex_row()
-        .w(px(720.0))
-        .h(px(520.0))
+        .w(px(sizes::DIALOG_W))
+        .h(px(sizes::DIALOG_H))
         .rounded_2xl()
         .border_1()
         .border_color(move || theme().border)
@@ -53,7 +53,7 @@ fn card() -> impl IntoElement {
 /// far is the providers', which is the chosen one.
 fn categories() -> impl IntoElement {
     view()
-        .w(px(180.0))
+        .w(px(sizes::CATEGORIES_W))
         .flex_none()
         .p_2()
         .gap_1()
