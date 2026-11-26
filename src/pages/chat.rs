@@ -799,92 +799,93 @@ const DIFF_ROW: f32 = 14.0;
 /// this is read through the view rather than pushing the reply down.
 const DIFF_ROWS: f32 = 24.0;
 
-/// The files a call changed: each with its path and how far it changed, over
-/// the lines of its diff.
+/// The files a call changed: each a card of its own, under a blank line that
+/// keeps it off the row that names the call.
 fn changes(tool: Memo<ToolRun>) -> impl IntoElement {
-    view().w_full().gap_2().child(each(
+    view().w_full().gap_2().pt_1().child(each(
         move || tool.with(|tool| tool.changes.clone()),
         |change| change.path.clone(),
-        move |change, _| {
-            view()
-                .w_full()
-                .gap_1()
-                .child(
-                    view()
-                        .w_full()
-                        .flex_row()
-                        .items_center()
-                        .gap_2()
-                        .child(
-                            text(move || change.with(|change| change.path.clone()))
-                                .flex_1()
-                                .min_w(px(0.0))
-                                .number_of_lines(1)
-                                .font_family(crate::MONO_FONT)
-                                .text_size(px(sizes::CODE_FONT))
-                                .text_color(tokens::meta),
-                        )
-                        .child(
-                            text(move || {
-                                change
-                                    .with(|change| format!("+{} −{}", change.added, change.removed))
-                            })
-                            .font_family(crate::MONO_FONT)
-                            .text_size(px(sizes::CODE_FONT))
-                            .text_color(tokens::meta),
-                        ),
-                )
-                // A file too large for the tool to diff has its counts alone.
-                .child(when(
-                    move || change.with(|change| !change.diff.is_empty()),
-                    move || diff_card(change),
-                ))
-        },
+        move |change, _| change_card(change),
     ))
 }
 
-/// One change's diff, drawn by the diff view: the rows it changed and the words
-/// changed within them, in the theme's own fills.
+/// One file a call changed: its path and how far the call changed it, over the
+/// rows of its diff, in one card.
+fn change_card(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
+    view()
+        .w_full()
+        .rounded(move || theme().radius)
+        // The rows' fills are square: the card's corners keep them.
+        .overflow_hidden()
+        .bg(tokens::code)
+        .child(
+            view()
+                .w_full()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .px_2()
+                .py_1()
+                .child(
+                    text(move || change.with(|change| change.path.clone()))
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .number_of_lines(1)
+                        .font_family(crate::MONO_FONT)
+                        .text_size(px(sizes::CODE_FONT))
+                        .text_color(tokens::meta),
+                )
+                .child(
+                    text(move || {
+                        change.with(|change| format!("+{} −{}", change.added, change.removed))
+                    })
+                    .flex_none()
+                    .font_family(crate::MONO_FONT)
+                    .text_size(px(sizes::CODE_FONT))
+                    .text_color(tokens::meta),
+                ),
+        )
+        // A file too large for the tool to diff has its counts alone.
+        .child(when(
+            move || change.with(|change| !change.diff.is_empty()),
+            move || diff_rows(change),
+        ))
+}
+
+/// The rows of one file's change, drawn by the diff view: the rows it changed
+/// and the words changed within them, in the theme's own fills.
 ///
 /// The view lays its rows out absolutely and fills the box it is given, so the
 /// card gives it the height they take — counted from the patch, its two header
 /// lines aside — up to [`DIFF_ROWS`], past which the view scrolls them.
-fn diff_card(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
+fn diff_rows(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
     let rows =
         move || change.with(|change| change.diff.lines().count().saturating_sub(2).max(1) as f32);
 
     view()
         .w_full()
-        .rounded(move || theme().radius)
-        .bg(tokens::code)
-        .px_2()
-        .py_1()
+        .h(move || px(rows().min(DIFF_ROWS) * DIFF_ROW))
         .child(
-            view()
-                .w_full()
-                .h(move || px(rows().min(DIFF_ROWS) * DIFF_ROW))
-                .child(
-                    diff_view()
-                        .patch(move || Some(change.with(|change| change.diff.clone())))
-                        .layout(DiffLayout::Unified)
-                        .inline(DiffInline::Word)
-                        // The view's own fills are its green and red; the card's
-                        // are the theme's, and no second one under them.
-                        .background(false)
-                        // The card names no lines: a change in a reply is read for what
-                        // it did, not for where in the file it sits.
-                        .line_numbers(false)
-                        // Its fills say what changed; a bar beside them says it again.
-                        .indicators(DiffIndicators::None)
-                        // Every row shows, so the height counted above is the
-                        // height the rows take.
-                        .expand_all(true)
-                        .font_size(px(sizes::CODE_FONT))
-                        .line_height(px(DIFF_ROW))
-                        .styles(diff_styles)
-                        // The view fills the box the card measured for it.
-                        .size_full(),
-                ),
+            diff_view()
+                .patch(move || Some(change.with(|change| change.diff.clone())))
+                .layout(DiffLayout::Unified)
+                .inline(DiffInline::Word)
+                // The view's own fills are its green and red; the card's
+                // are the theme's, and no second one under them.
+                .background(false)
+                // The card names no lines: a change in a reply is read for what
+                // it did, not for where in the file it sits.
+                .line_numbers(false)
+                // Its fills say what changed; a bar beside them says it again.
+                .indicators(DiffIndicators::None)
+                // Every row shows, so the height counted above is the
+                // height the rows take.
+                .expand_all(true)
+                .font_size(px(sizes::CODE_FONT))
+                .line_height(px(DIFF_ROW))
+                .styles(diff_styles)
+                // The view fills the box the card measured for it.
+                .size_full(),
         )
 }
 
