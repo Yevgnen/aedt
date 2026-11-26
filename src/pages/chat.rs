@@ -1,5 +1,7 @@
 //! The conversation: its header, its message timeline and its composer.
 
+use std::time::Duration;
+
 use aedt_provider::responses::Effort;
 use aedt_settings as settings;
 use aedt_store::{self as store, Author, Message};
@@ -611,11 +613,7 @@ fn model_picker() -> impl IntoElement {
                     view()
                         .min_w(px(240.0))
                         .gap_1()
-                        .child(
-                            menu::search(query, "Search models…")
-                                .auto_focus(true)
-                                .element_ref(&search),
-                        )
+                        .child(menu::search(query, "Search models…").element_ref(&search))
                         // The models scroll in their own view under the field,
                         // so a wheel over them never takes the field's keys.
                         .child(
@@ -628,8 +626,9 @@ fn model_picker() -> impl IntoElement {
                 .on_open_change(move |event: &SubmenuEvent| {
                     let SubmenuEvent::OpenChange(open, _) = event;
                     if *open {
-                        // The keys go to the search, not to the menu.
-                        search.focus();
+                        // The popup is made in this commit: the field takes
+                        // the keys once it is there.
+                        set_timeout(Duration::from_millis(50), move || search.focus());
                     } else {
                         // Each opening searches from the start again.
                         query.set(String::new());
