@@ -91,7 +91,7 @@ pub fn label_trigger(
         .gap_1()
         .px_1()
         .py_0p5()
-        .rounded(move || theme().radius)
+        .rounded_md()
         .text_color(move || theme().muted_foreground)
         .hover(|s| s.bg(move || theme().muted))
         .expanded(|s| s.bg(move || theme().accent))
