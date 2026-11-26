@@ -4,7 +4,7 @@
 use nsh_base::{ButtonElement, button, theme};
 use nsh_core::{element::StyleRefinement, prelude::*};
 
-use crate::{icon, motion, sizes};
+use crate::{icon, motion, sizes, state};
 
 /// An ordinary labeled action. The caller adds `.on_press` and its layout.
 pub fn secondary(label: impl IntoReactive<SharedString>) -> ButtonElement {
@@ -24,7 +24,7 @@ pub fn secondary(label: impl IntoReactive<SharedString>) -> ButtonElement {
         .bg(move || theme().secondary)
         .hover(|s| s.bg(move || theme().accent))
         .active(press)
-        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .focus_visible(state::focus_ring)
         .disabled_style(|s| s.opacity(0.4))
         .transition_all()
         .duration(motion::control_duration())
@@ -65,7 +65,7 @@ pub fn icon(
         })
         .hover(|s| s.bg(move || theme().primary.opacity(0.9)))
         .active(press)
-        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .focus_visible(state::focus_ring)
         .hit_slop(EdgeInsets::all(px(6.0)))
         .transition_all()
         .duration(motion::control_duration())
@@ -95,7 +95,7 @@ pub fn quiet(mark: impl IntoElement, label: impl IntoReactive<SharedString>) -> 
         .py(px(2.0))
         .rounded(move || theme().radius)
         .hover(|s| s.bg(move || theme().muted))
-        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .focus_visible(state::focus_ring)
         .transition_colors()
         .duration(motion::control_duration())
         .ease_out()
@@ -108,7 +108,7 @@ pub fn quiet(mark: impl IntoElement, label: impl IntoReactive<SharedString>) -> 
 pub fn bare() -> ButtonElement {
     button()
         .rounded(move || theme().radius)
-        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .focus_visible(state::focus_ring)
 }
 
 /// A button that adds to the list it stands before: a dashed edge around a
@@ -128,7 +128,7 @@ pub fn add(label: impl IntoReactive<SharedString>) -> ButtonElement {
         .text_color(move || theme().muted_foreground)
         .hover(|s| s.bg(move || theme().muted))
         .active(|s| s.bg(move || theme().accent))
-        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .focus_visible(state::focus_ring)
         .disabled_style(|s| s.opacity(0.4))
         .transition_colors()
         .duration(motion::control_duration())
@@ -149,7 +149,7 @@ pub fn ghost(label: impl IntoReactive<SharedString>) -> ButtonElement {
         .text_color(move || theme().foreground)
         .hover(|s| s.bg(move || theme().muted))
         .active(|s| s.bg(move || theme().accent))
-        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .focus_visible(state::focus_ring)
         .disabled_style(|s| s.opacity(0.4))
         .transition_colors()
         .duration(motion::control_duration())
@@ -174,7 +174,7 @@ pub fn ghost_icon(icon: impl IntoElement, accessibility_label: &'static str) -> 
         .rounded(move || theme().radius)
         .hover(|s| s.bg(move || theme().muted))
         .active(press)
-        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .focus_visible(state::focus_ring)
         .disabled_style(|s| s.opacity(0.4))
         .hit_slop(EdgeInsets::all(px(4.0)))
         .transition_all()

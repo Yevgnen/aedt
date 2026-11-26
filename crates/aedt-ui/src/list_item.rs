@@ -3,7 +3,7 @@
 use nsh_base::{ButtonElement, button, theme};
 use nsh_core::prelude::*;
 
-use crate::{motion, sizes};
+use crate::{motion, sizes, state};
 
 /// A settings destination's title.
 const DESTINATION_TITLE: f32 = 14.0;
@@ -49,7 +49,7 @@ fn nav_row(
         .rounded(move || theme().radius)
         .hover(|s| s.bg(move || theme().muted))
         .active(|s| s.bg(move || theme().accent))
-        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .focus_visible(state::focus_ring)
         .transition_colors()
         .duration(motion::row_duration())
         .ease_out()

@@ -8,7 +8,7 @@ use nsh_base::{
 };
 use nsh_core::prelude::*;
 
-use crate::{icon, motion, sizes, tokens};
+use crate::{icon, motion, sizes, state, tokens};
 
 /// A menu that `trigger` opens, its `items` in the app's floating card, on the
 /// side of the trigger `placement` names and lined up with the edge `align`
@@ -71,7 +71,7 @@ pub fn trigger(mark: impl IntoElement, label: impl IntoReactive<SharedString>) -
         // slot's props land on this row, so both states are drawn here: an
         // open row keeps the same wash a hovered one has.
         .expanded(|s| s.bg(move || theme().muted))
-        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .focus_visible(state::focus_ring)
         .transition_colors()
         .duration(motion::row_duration())
         .ease_out()
@@ -97,7 +97,7 @@ pub fn label_trigger(
         .text_color(move || theme().muted_foreground)
         .hover(|s| s.bg(move || theme().muted))
         .expanded(|s| s.bg(move || theme().muted))
-        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .focus_visible(state::focus_ring)
         .disabled_style(|s| s.opacity(0.4))
         .transition_colors()
         .duration(motion::row_duration())
@@ -197,7 +197,7 @@ pub fn select_trigger(value: impl IntoReactive<SharedString>) -> ButtonElement {
         .text_color(move || theme().foreground)
         .hover(|s| s.bg(move || theme().muted))
         .expanded(|s| s.border_color(move || theme().ring))
-        .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+        .focus_visible(state::focus_ring)
         .transition_colors()
         .duration(motion::control_duration())
         .ease_out()

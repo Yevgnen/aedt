@@ -3,7 +3,7 @@
 use nsh_base::{CollapsibleElement, collapsible, theme};
 use nsh_core::prelude::*;
 
-use crate::{icon, motion};
+use crate::{icon, motion, state};
 
 /// A section: `title` and a `mark` beside it always show; pressing the header
 /// opens `content` and pressing it again closes it. It starts closed.
@@ -26,7 +26,7 @@ pub fn section(
                 ..AccessibilityState::default()
             })
             .on_press(move || open.update(|open| *open = !*open))
-            .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
+            .focus_visible(state::focus_ring)
             .transition_colors()
             .duration(motion::control_duration())
             .child(

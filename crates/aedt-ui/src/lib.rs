@@ -14,6 +14,7 @@ pub mod menu;
 pub mod motion;
 pub mod separator;
 pub mod sizes;
+pub mod state;
 pub mod switch;
 pub mod tokens;
 
