@@ -5,7 +5,9 @@ use std::time::Duration;
 use aedt_provider::responses::Effort;
 use aedt_settings as settings;
 use aedt_store::{self as store, Author, Message, Part, ToolRun};
-use aedt_ui::{MESSAGE_LINE, badge, button, empty, icon, input, menu, motion, sizes, tokens};
+use aedt_ui::{
+    MESSAGE_LINE, badge, button, empty, icon, input, menu, motion, sizes, surface, tokens,
+};
 use nsh_base::{
     DiffIndicators, DiffInline, DiffLayout, DiffViewStyles, MarkdownOptions, SubmenuEvent,
     TextViewClasses, diff_view, text_view, text_view::PartStyle, theme,
@@ -265,7 +267,7 @@ fn message_preview(
             .and_then(|(_, index)| store::reply_at(session_id, index))
     });
 
-    view()
+    surface::card(surface::Surface::Preview)
         .absolute()
         // The card ends clear of the column and a little more: the lit tick is
         // the widest of them, reaching the rail's left edge, and would show
@@ -281,11 +283,6 @@ fn message_preview(
         .w(px(sizes::PREVIEW_W))
         .p_3()
         .gap_2()
-        .rounded(move || theme().radius)
-        .border_1()
-        .border_color(move || theme().border)
-        .bg(move || theme().card)
-        .shadow(tokens::floating_shadow())
         .child(
             text(body_of(question))
                 .text_sm()
@@ -1093,14 +1090,9 @@ fn composer_card(
     submit: impl Fn() + Copy + 'static,
     field: ElementRef,
 ) -> impl IntoElement {
-    view()
+    surface::card(surface::Surface::Composer)
         .p(px(sizes::CARD_PADDING))
         .gap_2()
-        .rounded_3xl()
-        .border_1()
-        .border_color(move || theme().border.opacity(0.6))
-        .bg(move || theme().card)
-        .shadow(tokens::floating_shadow())
         .child(
             input::composer(draft, submit)
                 .label("Message")

@@ -8,6 +8,7 @@ use nsh_base::{
 };
 use nsh_core::prelude::*;
 
+use crate::surface::{self, Surface};
 use crate::{icon, motion, sizes, state, tokens};
 
 /// A menu that `trigger` opens, its `items` in the app's floating card, on the
@@ -23,14 +24,7 @@ pub fn menu(
         .placement(placement)
         .align(align)
         .offset(px(4.0))
-        .popup_style(|s| {
-            s.p_1()
-                .rounded(move || theme().radius)
-                .border_1()
-                .border_color(move || theme().border)
-                .bg(move || theme().card)
-                .shadow(tokens::floating_shadow())
-        })
+        .popup_style(move |s| surface::restyle(Surface::Popup, s.p_1()))
         .trigger(trigger)
         .child(items)
 }

@@ -1,7 +1,9 @@
 //! The settings dialog: its categories on the left, the chosen one's content
 //! on the right. Every provider is configured here, with the models it lists.
 
-use aedt_ui::{badge, button, collapsible, field, icon, list_item, menu, sizes, switch, tokens};
+use aedt_ui::{
+    badge, button, collapsible, field, icon, list_item, menu, sizes, surface, switch, tokens,
+};
 use nsh_base::{dialog as base_dialog, theme};
 use nsh_core::prelude::*;
 
@@ -34,17 +36,12 @@ pub(crate) fn dialog(open: Signal<bool>) -> impl IntoElement {
 
 /// The dialog's card: the categories, then the chosen one.
 fn card() -> impl IntoElement {
-    view()
+    surface::card(surface::Surface::Dialog)
         .m(auto())
         .flex_row()
         .w(px(sizes::DIALOG_W))
         .h(px(sizes::DIALOG_H))
-        .rounded_2xl()
-        .border_1()
-        .border_color(move || theme().border)
-        .bg(move || theme().card)
         .text_color(move || theme().foreground)
-        .shadow(tokens::floating_shadow())
         .child(categories())
         .child(content())
 }
