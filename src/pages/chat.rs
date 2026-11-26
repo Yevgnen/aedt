@@ -576,7 +576,7 @@ fn thinking_text(message: Memo<Option<Message>>) -> impl IntoElement {
     .pb(px(THINKING_LINE))
     .text_size(px(THINKING_FONT))
     .line_height(LineHeight::Multiple(MESSAGE_LINE))
-    .text_color(move || tokens::meta().opacity(0.8))
+    .text_color(move || tokens::meta().opacity(0.7))
 }
 
 fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
