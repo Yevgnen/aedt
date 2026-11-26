@@ -1,6 +1,7 @@
-//! An OpenAI-compatible provider: the models it lists, and the responses it
-//! streams.
+//! An OpenAI-compatible provider: the models it lists, the responses it
+//! streams, and the chat completions it streams.
 
+pub mod chat;
 pub mod models;
 pub mod responses;
 

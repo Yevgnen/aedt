@@ -8,17 +8,46 @@ use aedt_provider::models::{ListedModel, list_models};
 use aedt_provider::responses::Effort;
 use aedt_provider::{DEEPSEEK_BASE_URL, DEEPSEEK_MODEL};
 use nsh_core::prelude::*;
-use serde::{Deserialize, Serialize};
 
 mod secrets;
 mod stored;
 
 /// A provider's API: the shape of its requests and of its model list.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProviderKind {
-    /// OpenAI's API, as other providers serve it: `/models` lists the models.
-    OpenAiCompatible,
+    /// OpenAI's Responses API: `/responses`, streamed as semantic events.
+    OpenAiResponses,
+    /// OpenAI's chat completions API: `/chat/completions`, streamed as
+    /// server-sent events.
+    OpenAiChatCompletions,
+}
+
+impl ProviderKind {
+    /// How a provider of this kind is kept.
+    fn kept(self) -> stored::Kind {
+        match self {
+            Self::OpenAiResponses => stored::Kind::Responses,
+            Self::OpenAiChatCompletions => stored::Kind::ChatCompletions,
+        }
+    }
+
+    /// The kind `kept` names. The one the app had before chat completions is
+    /// settled by the endpoint: DeepSeek's and Ollama's own serve the Responses
+    /// API, the gateways chat completions.
+    fn restored(kept: stored::Kind, base_url: &str) -> Self {
+        match kept {
+            stored::Kind::Responses => Self::OpenAiResponses,
+            stored::Kind::ChatCompletions => Self::OpenAiChatCompletions,
+            stored::Kind::Compatible => {
+                let base = base_url.trim_end_matches('/');
+                if base == DEEPSEEK_BASE_URL || base == "https://ollama.com/v1" {
+                    Self::OpenAiResponses
+                } else {
+                    Self::OpenAiChatCompletions
+                }
+            }
+        }
+    }
 }
 
 /// One model a provider serves.
@@ -72,10 +101,6 @@ struct Provider {
     /// The models the reader switched off, by id: their choice outlives the list
     /// a provider answers with.
     disabled: Vec<SharedString>,
-    /// Whether the reader has had a say in which models are offered: a provider
-    /// the app seeds starts with the DeepSeek V4.1 Flash family only, and the
-    /// first list it answers settles that.
-    curated: bool,
     /// The models it lists, as its last ask found them.
     models: Models,
     /// Which ask the last answer belongs to: an older answer does not land.
@@ -93,6 +118,8 @@ pub struct Choice {
     pub provider: u32,
     /// That provider's name, as the picker's section says it.
     pub provider_name: SharedString,
+    /// How that provider's requests are made.
+    pub kind: ProviderKind,
     pub id: SharedString,
     pub label: SharedString,
     /// The base URL and key of the provider that serves it.
@@ -157,25 +184,21 @@ impl Settings {
         })
     }
 
-    /// The settings a new install starts from: DeepSeek and the gateways that
-    /// serve its V4.1 Flash, each with the key its name's environment variable
-    /// may hold.
+    /// The settings a new install starts from: DeepSeek, whose key its name's
+    /// environment variable may hold. Every other provider is added in the
+    /// settings, where its API is chosen.
     fn seeded() -> Self {
-        let mut providers = vec![
-            Provider::seeded(1, "DeepSeek", DEEPSEEK_BASE_URL, true),
-            Provider::seeded(2, "Ollama", "https://ollama.com/v1", false),
-            Provider::seeded(3, "OpenCode", "https://opencode.ai/inference/go/v1", false),
-            Provider::seeded(4, "RightNow", "https://api.rightnowai.co/v1", false),
-            Provider::seeded(5, "LithosAI", "https://api.lithosai.cloud/v1", false),
-            Provider::seeded(6, "Baseten", "https://inference.baseten.co/v1", false),
-        ];
-        for provider in &mut providers {
-            adopt_environment_key(provider);
-        }
+        let mut provider = Provider::seeded(
+            1,
+            "DeepSeek",
+            DEEPSEEK_BASE_URL,
+            ProviderKind::OpenAiResponses,
+        );
+        adopt_environment_key(&mut provider);
 
         Self {
-            next_provider_id: providers.len() as u32 + 1,
-            providers,
+            providers: vec![provider],
+            next_provider_id: 2,
             selected: DEEPSEEK_MODEL.into(),
             selected_provider: Some(1),
             effort: Effort::High,
@@ -193,10 +216,9 @@ impl Settings {
                 .map(|provider| stored::Provider {
                     id: provider.id,
                     name: provider.name.to_string(),
-                    kind: provider.kind,
+                    kind: provider.kind.kept(),
                     base_url: provider.base_url.clone(),
                     disabled: provider.disabled.iter().map(|id| id.to_string()).collect(),
-                    curated: provider.curated,
                 })
                 .collect(),
             selected: self.selected.to_string(),
@@ -208,17 +230,16 @@ impl Settings {
 
 impl Provider {
     /// A provider the app starts from: saved, with no key of its own and no
-    /// models yet. `curated` says the reader's switches are theirs already.
-    fn seeded(id: u32, name: &'static str, base_url: &str, curated: bool) -> Self {
+    /// models yet.
+    fn seeded(id: u32, name: &'static str, base_url: &str, kind: ProviderKind) -> Self {
         Self {
             id,
             name: name.into(),
-            kind: ProviderKind::OpenAiCompatible,
+            kind,
             base_url: base_url.to_owned(),
             api_key: String::new(),
             env_key: None,
             disabled: Vec::new(),
-            curated,
             models: Models::Idle,
             ask: 0,
             saved: true,
@@ -238,12 +259,11 @@ impl Provider {
         let mut provider = Self {
             id: kept.id,
             name: name.into(),
-            kind: kept.kind,
+            kind: ProviderKind::restored(kept.kind, &kept.base_url),
             base_url: kept.base_url,
             api_key: keys.get(&kept.id.to_string()).cloned().unwrap_or_default(),
             env_key: None,
             disabled: kept.disabled.into_iter().map(SharedString::from).collect(),
-            curated: kept.curated,
             models: Models::Idle,
             ask: 0,
             saved: true,
@@ -360,6 +380,7 @@ fn choice(provider: &Provider, model: &Model) -> Choice {
     Choice {
         provider: provider.id,
         provider_name: provider.name.clone(),
+        kind: provider.kind,
         id: model.id.clone(),
         label: model.label.clone(),
         base_url: provider.base_url.clone(),
@@ -395,6 +416,7 @@ pub fn selected() -> Choice {
     found.unwrap_or_else(|| Choice {
         provider: picked.unwrap_or_default(),
         provider_name: SharedString::default(),
+        kind: ProviderKind::OpenAiChatCompletions,
         label: id.clone(),
         id,
         base_url: String::new(),
@@ -462,7 +484,6 @@ pub fn add_provider(kind: ProviderKind) {
             api_key: String::new(),
             env_key: None,
             disabled: Vec::new(),
-            curated: true,
             models: Models::Idle,
             ask: 0,
             saved: false,
@@ -470,15 +491,15 @@ pub fn add_provider(kind: ProviderKind) {
     });
 }
 
-/// Makes `id` a provider of `kind`, while it is being added. Its name stays
-/// what it was: the reader's, or none until they name it.
+/// Makes `id` speak `kind`. Its name stays what it was: the reader's, or none
+/// until they name it.
 pub fn select_kind(id: u32, kind: ProviderKind) {
     settings().update(|settings| {
-        let Some(provider) = draft_mut(settings, id) else {
-            return;
-        };
-        provider.kind = kind;
+        if let Some(provider) = provider_mut(settings, id) {
+            provider.kind = kind;
+        }
     });
+    save();
 }
 
 /// Keeps the provider `id`: it is one of the reader's from now on, and the
@@ -696,7 +717,6 @@ pub fn refresh_models(id: u32) {
     Owner::detached().run(|| {
         spawn(async move {
             let listed = list_models(&base_url, &api_key).await;
-            let mut settled = false;
             settings().update(|settings| {
                 let Some(provider) = provider_mut(settings, id) else {
                     return;
@@ -705,37 +725,14 @@ pub fn refresh_models(id: u32) {
                     return;
                 }
                 let shown = provider.models.shown().to_vec();
+                let disabled = provider.disabled.clone();
                 provider.models = match listed {
-                    Ok(listed) => {
-                        // The first list a provider the app seeded answers
-                        // offers the DeepSeek V4.1 Flash family and nothing else.
-                        if !provider.curated {
-                            provider.disabled = listed
-                                .iter()
-                                .filter(|model| !is_deepseek_flash(model))
-                                .map(|model| SharedString::from(model.id.clone()))
-                                .collect();
-                            provider.curated = true;
-                            settled = true;
-                        }
-                        let disabled = provider.disabled.clone();
-                        Models::Ready(merged(listed, &disabled))
-                    }
+                    Ok(listed) => Models::Ready(merged(listed, &disabled)),
                     Err(why) => Models::Failed(shown, why),
                 };
             });
-            if settled {
-                save();
-            }
         });
     });
-}
-
-/// Whether `model` is one of the DeepSeek V4.1 Flash family: what a provider the
-/// app seeded offers until the reader says otherwise.
-fn is_deepseek_flash(model: &ListedModel) -> bool {
-    let name = format!("{} {}", model.id, model.name.as_deref().unwrap_or_default()).to_lowercase();
-    name.contains("deepseek") && name.contains("4.1") && name.contains("flash")
 }
 
 /// `listed` as the models to show: the reader's switches decide which one is

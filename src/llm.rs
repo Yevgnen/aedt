@@ -12,6 +12,7 @@ use aedt_store::{self as store, Author, Message};
 use nsh_core::prelude::*;
 
 use aedt_settings as settings;
+use aedt_settings::ProviderKind;
 
 /// Sends `text` to the conversation and starts the reply its model writes: the
 /// store keeps the conversation, the settings name the model and its provider.
@@ -38,13 +39,22 @@ pub(crate) fn ask(session_id: u32, text: &str) {
             let reveal = reveal.clone();
             move |event| collect(&reveal, event)
         };
-        responses::reply(
-            endpoint,
-            model.id.clone(),
-            effort,
-            turns(&sent.history),
-            collect,
-        );
+        match model.kind {
+            ProviderKind::OpenAiResponses => responses::reply(
+                endpoint,
+                model.id.clone(),
+                effort,
+                turns(&sent.history),
+                collect,
+            ),
+            ProviderKind::OpenAiChatCompletions => aedt_provider::chat::reply(
+                endpoint,
+                model.id.clone(),
+                effort,
+                turns(&sent.history),
+                collect,
+            ),
+        }
         spawn(reveal_answer(
             session_id,
             sent.reply_id,

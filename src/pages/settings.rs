@@ -139,7 +139,7 @@ fn page() -> impl IntoElement {
 /// name and kind are chosen.
 fn add_provider() -> impl IntoElement {
     button::add("Add model provider").on_press(|| {
-        settings::add_provider(ProviderKind::OpenAiCompatible);
+        settings::add_provider(ProviderKind::OpenAiChatCompletions);
     })
 }
 
@@ -154,7 +154,7 @@ fn add_form(id: u32) -> impl IntoElement {
                 .w_full()
                 .gap_3()
                 .child(name_field(id))
-                .child(type_field(id))
+                .child(api_field(id))
                 .child(provider_fields(id)),
         )
         .child(models(id))
@@ -185,20 +185,28 @@ fn name_field(id: u32) -> impl IntoElement {
     )
 }
 
-/// What kind of provider is being added: a field that opens the kinds the app
-/// speaks.
-fn type_field(id: u32) -> impl IntoElement {
+/// What API a provider speaks: a field that opens the APIs the app speaks.
+fn api_field(id: u32) -> impl IntoElement {
     view()
         .w_full()
         .gap_1()
-        .child(field::label("Type"))
+        .child(field::label("API"))
         .child(menu::menu(
             menu::select_trigger(move || kind_label(settings::kind(id))),
             Placement::Bottom,
             Align::Start,
-            menu::item(icon::database(14.0), "OpenAI compatible").on_select(move || {
-                settings::select_kind(id, ProviderKind::OpenAiCompatible);
-            }),
+            view()
+                .gap_1()
+                .child(
+                    menu::item(icon::database(14.0), "Responses").on_select(move || {
+                        settings::select_kind(id, ProviderKind::OpenAiResponses);
+                    }),
+                )
+                .child(
+                    menu::item(icon::database(14.0), "Chat completions").on_select(move || {
+                        settings::select_kind(id, ProviderKind::OpenAiChatCompletions);
+                    }),
+                ),
         ))
 }
 
@@ -265,14 +273,16 @@ fn provider_body(id: u32) -> impl IntoElement {
     view()
         .w_full()
         .gap_4()
+        .child(api_field(id))
         .child(provider_fields(id))
         .child(models(id))
 }
 
-/// What API a provider of `kind` speaks, as its badge says it.
+/// What API a provider of `kind` speaks, as its picker says it.
 fn kind_label(kind: Option<ProviderKind>) -> SharedString {
     match kind {
-        Some(ProviderKind::OpenAiCompatible) => "OpenAI compatible".into(),
+        Some(ProviderKind::OpenAiResponses) => "Responses".into(),
+        Some(ProviderKind::OpenAiChatCompletions) => "Chat completions".into(),
         None => SharedString::default(),
     }
 }

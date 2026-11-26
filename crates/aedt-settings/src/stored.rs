@@ -6,31 +6,34 @@
 use nsh_core::storage::Storage;
 use serde::{Deserialize, Serialize};
 
-use crate::{Effort, ProviderKind};
+use crate::Effort;
 
 /// The storage key the settings are kept under.
 const KEY: &str = "aedt.settings";
+
+/// How a kept provider speaks: the two kinds the app has, and the one it had
+/// before chat completions.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub(crate) enum Kind {
+    #[serde(rename = "openAiResponses")]
+    Responses,
+    #[serde(rename = "openAiChatCompletions")]
+    ChatCompletions,
+    /// The single kind the app had when it spoke only the Responses API.
+    #[serde(rename = "openAiCompatible")]
+    Compatible,
+}
 
 /// A provider as it is kept: how to reach it, never the key that does.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct Provider {
     pub(crate) id: u32,
     pub(crate) name: String,
-    pub(crate) kind: ProviderKind,
+    pub(crate) kind: Kind,
     pub(crate) base_url: String,
     /// The models the reader switched off, by id.
     #[serde(default)]
     pub(crate) disabled: Vec<String>,
-    /// Whether the reader's switches are theirs already; a provider whose
-    /// models they never saw starts without them.
-    #[serde(default = "settled")]
-    pub(crate) curated: bool,
-}
-
-/// Whether a kept provider's switches are the reader's: one kept before the app
-/// settled any is.
-fn settled() -> bool {
-    true
 }
 
 /// The settings as they are kept.
