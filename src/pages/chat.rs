@@ -766,11 +766,15 @@ fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
         llm::ask(session_id, &text);
         draft.set(String::new());
     };
+    // Opening a conversation puts the reader in the composer: the field takes
+    // the keys once it is on screen.
+    let field = element_ref();
+    set_timeout(Duration::from_millis(50), move || field.focus());
 
     view()
         .pb_2()
         .gap_2()
-        .child(composer_card(draft, can_send, submit))
+        .child(composer_card(draft, can_send, submit, field))
         // One line reserved for the status bar; it holds no text yet.
         .child(view().h_5().pl(px(sizes::CARD_PADDING)).justify_center())
 }
@@ -783,6 +787,7 @@ fn composer_card(
     draft: Signal<String>,
     can_send: impl Fn() -> bool + Copy + 'static,
     submit: impl Fn() + Copy + 'static,
+    field: ElementRef,
 ) -> impl IntoElement {
     view()
         .p(px(sizes::CARD_PADDING))
@@ -792,7 +797,11 @@ fn composer_card(
         .border_color(move || theme().border.opacity(0.6))
         .bg(move || theme().card)
         .shadow(tokens::floating_shadow())
-        .child(input::composer(draft, submit).label("Message"))
+        .child(
+            input::composer(draft, submit)
+                .label("Message")
+                .element_ref(&field),
+        )
         .child(
             view()
                 .flex_row()
