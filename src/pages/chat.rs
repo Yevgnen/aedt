@@ -503,7 +503,9 @@ fn thinking(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> impl Into
         .child(when(shown, move || thinking_text(message)))
 }
 
-/// The row a thought folds into: a bulb and one word, pressed to open it.
+/// The row a thought folds into: a bulb and one word at the left, and the
+/// chevron that opens it at the right, whose own wash on hover keeps the row
+/// itself quiet.
 fn thinking_bar(
     id: impl Fn() -> Option<u32> + Copy + 'static,
     open: Signal<Vec<u32>>,
@@ -520,11 +522,37 @@ fn thinking_bar(
         });
     };
 
-    button::quiet(icon::bulb(14.0), "Thinking")
-        .accessibility_label("Expand or collapse the thinking")
+    view()
+        .w_full()
+        .flex_row()
+        .items_center()
+        .justify_between()
+        .gap_2()
         .text_color(tokens::meta)
-        .on_press(toggle)
+        .child(
+            view()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .px_1()
+                .py(px(2.0))
+                .child(icon::bulb(14.0))
+                .child(text("Thinking").text_xs()),
+        )
+        .child(
+            button::ghost_icon(icon::chevron_down(14.0), "Expand or collapse the thinking")
+                .on_press(toggle),
+        )
 }
+
+/// Where a thought's text starts: under the word beside its bulb, past the
+/// row's inset, the mark and the gap between them.
+const THINKING_TEXT_INSET: f32 = 26.0;
+
+/// The thought's own text size, and the blank line kept under it: one line of
+/// that text, so the answer opens a line below the thought.
+const THINKING_FONT: f32 = 13.0;
+const THINKING_LINE: f32 = THINKING_FONT * MESSAGE_LINE;
 
 /// The thought itself, quieter than the answer it led to.
 fn thinking_text(message: Memo<Option<Message>>) -> impl IntoElement {
@@ -537,7 +565,9 @@ fn thinking_text(message: Memo<Option<Message>>) -> impl IntoElement {
         })
     })
     .w_full()
-    .text_size(px(13.0))
+    .pl(px(THINKING_TEXT_INSET))
+    .pb(px(THINKING_LINE))
+    .text_size(px(THINKING_FONT))
     .line_height(LineHeight::Multiple(MESSAGE_LINE))
     .text_color(tokens::meta)
 }
