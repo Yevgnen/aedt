@@ -617,7 +617,14 @@ fn model_picker() -> impl IntoElement {
                     view()
                         .min_w(px(240.0))
                         .gap_1()
-                        .child(menu::search(query, "Search models…").element_ref(&search))
+                        // The row that opened it takes no focus (a pointer
+                        // over it would take the field's), so the keys stay
+                        // in the field as the list is searched.
+                        .child(
+                            menu::search(query, "Search models…")
+                                .auto_focus(true)
+                                .element_ref(&search),
+                        )
                         // The models scroll in their own view under the field,
                         // so a wheel over them never takes the field's keys.
                         .child(

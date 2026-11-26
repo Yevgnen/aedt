@@ -213,7 +213,13 @@ pub fn submenu(
     base_submenu()
         .offset(px(4.0))
         .trigger(
-            button()
+            view()
+                // A menu's items take the keyboard focus as the pointer moves
+                // over them, and the row under the pointer when a submenu
+                // opens would take it from a field of the submenu's own (a
+                // picker's search): the row opens on a press and on hover, and
+                // takes no focus of its own.
+                .focusable(false)
                 .flex_row()
                 .items_center()
                 .gap_2()
@@ -222,7 +228,6 @@ pub fn submenu(
                 .rounded(move || theme().radius)
                 .text_color(move || theme().muted_foreground)
                 .hover(|s| s.bg(move || theme().muted))
-                .focus(|s| s.bg(move || theme().muted))
                 .expanded(|s| s.bg(move || theme().accent))
                 .transition_colors()
                 .duration(motion::row_duration())
