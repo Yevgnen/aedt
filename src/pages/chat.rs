@@ -866,6 +866,7 @@ fn model_picker() -> impl IntoElement {
     menu::controlled(
         open,
         menu::label_trigger(
+            move || settings::selected().provider_name,
             move || settings::selected().label,
             move || SharedString::from(effort_label(settings::effort())),
         )
