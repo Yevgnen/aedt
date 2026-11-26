@@ -6,6 +6,7 @@ pub mod badge;
 pub mod button;
 pub mod code;
 pub mod collapsible;
+pub mod diff;
 pub mod empty;
 pub mod field;
 pub mod icon;
