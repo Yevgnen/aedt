@@ -7,8 +7,8 @@ use aedt_settings as settings;
 use aedt_store::{self as store, Author, Message, Part, ToolRun};
 use aedt_ui::{MESSAGE_LINE, badge, button, empty, icon, input, menu, motion, sizes, tokens};
 use nsh_base::{
-    DiffInline, DiffLayout, DiffViewStyles, MarkdownOptions, SubmenuEvent, TextViewClasses,
-    diff_view, text_view, text_view::PartStyle, theme,
+    DiffIndicators, DiffInline, DiffLayout, DiffViewStyles, MarkdownOptions, SubmenuEvent,
+    TextViewClasses, diff_view, text_view, text_view::PartStyle, theme,
 };
 use nsh_core::{
     LineHeight, PropertyValue, StyleKey,
@@ -874,6 +874,8 @@ fn diff_card(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
                         // The card names no lines: a change in a reply is read for what
                         // it did, not for where in the file it sits.
                         .line_numbers(false)
+                        // Its fills say what changed; a bar beside them says it again.
+                        .indicators(DiffIndicators::None)
                         // Every row shows, so the height counted above is the
                         // height the rows take.
                         .expand_all(true)
