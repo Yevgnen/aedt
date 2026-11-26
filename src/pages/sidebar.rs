@@ -146,7 +146,9 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
                         .child(icon::plus(14.0)),
                 ),
         )
-        .child(view().w_full().gap_1().pl(px(24.0)).child(each(
+        // The rows sit against one another: their hover fills touch, as a
+        // column of them reads, where a gap would cut each into a block.
+        .child(view().w_full().pl(px(24.0)).child(each(
             move || group.with(|group| group.sessions.clone()),
             |session| session.id,
             |session, _| session_row(session),
