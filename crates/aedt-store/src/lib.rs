@@ -525,8 +525,18 @@ pub fn create_session() {
     create_session_in(workspace);
 }
 
-/// Adds an empty session above the others and shows it, in `workspace`.
+/// Adds an empty session above the others and shows it, in `workspace`; when
+/// the session on show is already an empty one in that workspace, it stays
+/// the one shown rather than another empty one joining it.
 pub fn create_session_in(workspace: Option<u32>) {
+    let already_new = state().with(|state| {
+        session(state, state.selected)
+            .is_some_and(|session| session.workspace == workspace && session.messages.is_empty())
+    });
+    if already_new {
+        return;
+    }
+
     let id = state().with(|state| state.next_session_id);
     state().update(|state| {
         state.next_session_id += 1;
