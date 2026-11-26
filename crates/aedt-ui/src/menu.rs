@@ -3,7 +3,7 @@
 //! (placement, focus, keyboard navigation, dismissal); the look is here.
 
 use nsh_base::{
-    ButtonElement, Input, MenuElement, MenuItemElement, SubmenuElement, button, input,
+    ButtonElement, Input, MenuElement, MenuEvent, MenuItemElement, SubmenuElement, button, input,
     menu as base_menu, menu_item as base_item, submenu as base_submenu, theme,
 };
 use nsh_core::prelude::*;
@@ -33,6 +33,24 @@ pub fn menu(
         })
         .trigger(trigger)
         .child(items)
+}
+
+/// The same menu with `open` in the app's hands: a row of it can close it,
+/// as an item of an uncontrolled one closes it by itself.
+pub fn controlled(
+    open: Signal<bool>,
+    trigger: impl IntoElement,
+    placement: Placement,
+    align: Align,
+    items: impl IntoElement,
+) -> MenuElement {
+    menu(trigger, placement, align, items)
+        .open(move || Some(open.get()))
+        .on_open_change(move |event: &MenuEvent| {
+            if let MenuEvent::OpenChange(next, _) = event {
+                open.set(*next);
+            }
+        })
 }
 
 /// A row that opens a menu: a mark and its label, in the app's quiet chrome.
@@ -113,6 +131,38 @@ pub fn choice(
     row(base_item())
         .role(AccessibilityRole::MenuItemRadio)
         .checked(move || Some(chosen()))
+        .child(
+            text(label)
+                .flex_1()
+                .min_w(px(0.0))
+                .number_of_lines(1)
+                .text_sm(),
+        )
+        .child(when(chosen, || icon::check(14.0)))
+}
+
+/// A picker's row that leaves the keyboard focus alone: a list under a search
+/// field keeps the keys while the pointer moves over its rows, which a menu
+/// item would take. The caller adds `.on_press`, and the check `chosen` draws.
+pub fn option(
+    label: impl IntoReactive<SharedString>,
+    chosen: impl Fn() -> bool + Copy + 'static,
+) -> ButtonElement {
+    crate::button::bare()
+        .role(AccessibilityRole::MenuItemRadio)
+        .w_full()
+        .flex_row()
+        .items_center()
+        .gap_2()
+        .min_h(px(sizes::LIST_ROW))
+        .px(px(sizes::LIST_ROW_INSET))
+        .rounded(move || theme().radius)
+        .text_color(move || theme().foreground)
+        .hover(|s| s.bg(move || theme().muted))
+        .active(|s| s.bg(move || theme().accent))
+        .transition_colors()
+        .duration(motion::row_duration())
+        .ease_out()
         .child(
             text(label)
                 .flex_1()

@@ -596,8 +596,12 @@ fn model_picker() -> impl IntoElement {
     let query = signal(String::new());
     // The field that takes the keys as the list opens.
     let search = element_ref();
+    // The menu's rows are plain presses, which leave the search's keys alone:
+    // the app closes it when one is chosen.
+    let open = signal(false);
 
-    menu::menu(
+    menu::controlled(
+        open,
         menu::label_trigger(
             move || settings::selected().label,
             move || SharedString::from(effort_label(settings::effort())),
@@ -620,7 +624,7 @@ fn model_picker() -> impl IntoElement {
                             scroll()
                                 .max_h(px(360.0))
                                 .scrollbar(false)
-                                .child(model_choices(query)),
+                                .child(model_choices(query, open)),
                         ),
                 )
                 .on_open_change(move |event: &SubmenuEvent| {
@@ -646,7 +650,7 @@ fn model_picker() -> impl IntoElement {
 /// The models the settings offer, grouped under the provider that serves them
 /// and narrowed to `query` (every one while it is empty), the chosen one
 /// checked.
-fn model_choices(query: Signal<String>) -> impl IntoElement {
+fn model_choices(query: Signal<String>, open: Signal<bool>) -> impl IntoElement {
     each(
         move || {
             let query = query.with(|query| query.trim().to_lowercase());
@@ -669,7 +673,7 @@ fn model_choices(query: Signal<String>) -> impl IntoElement {
             sections
         },
         |section| section.provider,
-        |section, _| {
+        move |section, _| {
             view()
                 .w_full()
                 .gap_1()
@@ -679,8 +683,8 @@ fn model_choices(query: Signal<String>) -> impl IntoElement {
                 .child(each(
                     move || section.with(|section| section.choices.clone()),
                     |choice| choice.id.clone(),
-                    |choice, _| {
-                        menu::choice(
+                    move |choice, _| {
+                        menu::option(
                             move || choice.with(|choice| choice.label.clone()),
                             move || {
                                 let selected = settings::selected();
@@ -689,10 +693,11 @@ fn model_choices(query: Signal<String>) -> impl IntoElement {
                                 })
                             },
                         )
-                        .on_select(move || {
+                        .on_press(move || {
                             let (provider, id) =
                                 choice.with(|choice| (choice.provider, choice.id.clone()));
                             settings::select_model(provider, id.as_str());
+                            open.set(false);
                         })
                     },
                 ))
