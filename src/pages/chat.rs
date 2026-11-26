@@ -123,7 +123,7 @@ fn header(session_id: u32) -> impl IntoElement {
 
 fn timeline_view(
     session_id: u32,
-    open: Signal<Vec<u32>>,
+    open: Signal<Vec<(u32, usize)>>,
     open_calls: Signal<Vec<SharedString>>,
     handle: &ElementRef,
     current: Signal<Option<usize>>,
@@ -304,7 +304,7 @@ fn body_of(body: Memo<Option<Message>>) -> impl Fn() -> SharedString + Copy + 's
 /// A cell, made once and given other messages as it is reused.
 fn message_row(
     session_id: u32,
-    open: Signal<Vec<u32>>,
+    open: Signal<Vec<(u32, usize)>>,
     open_calls: Signal<Vec<SharedString>>,
     at: Position,
 ) -> impl IntoElement {
@@ -429,19 +429,33 @@ fn message_detail(message: Memo<Option<Message>>) -> impl IntoElement {
 
 fn assistant_message(
     message: Memo<Option<Message>>,
-    open: Signal<Vec<u32>>,
+    open: Signal<Vec<(u32, usize)>>,
     open_calls: Signal<Vec<SharedString>>,
 ) -> impl IntoElement {
     view()
         .w_full()
         .gap_1()
-        .child(when(
-            move || has_reasoning(message),
-            move || thinking(message, open),
-        ))
-        .child(when(
-            move || has_tools(message),
-            move || tool_runs(message, open_calls),
+        // The reply as it happened: what it thought, the call it made, what it
+        // thought next, and so on — its answer's text under them all.
+        .child(thought(message, || 0, open))
+        .child(each(
+            move || {
+                message.with(|message| {
+                    message
+                        .as_ref()
+                        .map(|message| message.tools.clone())
+                        .unwrap_or_default()
+                })
+            },
+            |tool| tool.id.clone(),
+            move |tool, call| {
+                view()
+                    .w_full()
+                    .gap_1()
+                    .child(tool_run(tool, open_calls))
+                    // The thought that followed the call.
+                    .child(thought(message, move || call.get() + 1, open))
+            },
         ))
         .child(
             text_view()
@@ -489,38 +503,73 @@ fn assistant_message(
         )
 }
 
-/// Whether the reply reasoned before answering.
-fn has_reasoning(message: Memo<Option<Message>>) -> bool {
+/// What the thought of `slot` says: the entry before the call at its place,
+/// and after the last call everything the reply thought since — one entry per
+/// call, but a reply's first thought may hold more than one paragraph.
+fn thought_text(message: &Message, slot: usize) -> String {
+    if slot < message.tools.len() {
+        return message
+            .reasoning
+            .get(slot)
+            .map_or_else(String::new, |thought| thought.trim_end().to_owned());
+    }
+
+    message
+        .reasoning
+        .iter()
+        .skip(slot)
+        .map(SharedString::as_str)
+        .filter(|thought| !thought.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join("\n\n")
+        .trim_end()
+        .to_owned()
+}
+
+/// Whether the thought of `slot` has arrived.
+fn has_thought(message: Memo<Option<Message>>, slot: impl Fn() -> usize + Copy + 'static) -> bool {
     message.with(|message| {
         message
             .as_ref()
-            .is_some_and(|message| !message.reasoning.is_empty())
+            .is_some_and(|message| !thought_text(message, slot()).is_empty())
     })
 }
 
-/// Whether the reply called any tool.
-fn has_tools(message: Memo<Option<Message>>) -> bool {
+/// Whether the thought of `slot` is the one arriving: the reply streams and
+/// its answer has not begun.
+fn writing(message: Memo<Option<Message>>, slot: impl Fn() -> usize + Copy + 'static) -> bool {
     message.with(|message| {
-        message
-            .as_ref()
-            .is_some_and(|message| !message.tools.is_empty())
+        message.as_ref().is_some_and(|message| {
+            message.streaming && message.body.is_empty() && slot() == message.tools.len()
+        })
     })
 }
 
-/// The tools the reply called, in the order it called them.
-fn tool_runs(message: Memo<Option<Message>>, open: Signal<Vec<SharedString>>) -> impl IntoElement {
-    view().w_full().gap_1().child(each(
+/// One thought of the reply: its text under the quiet row that folds it away,
+/// shown while it arrives and while the reader keeps it open. A slot nothing
+/// reasoned in shows nothing.
+fn thought(
+    message: Memo<Option<Message>>,
+    slot: impl Fn() -> usize + Copy + 'static,
+    open: Signal<Vec<(u32, usize)>>,
+) -> impl IntoElement {
+    let key = move || message.with(|message| message.as_ref().map(|message| (message.id, slot())));
+    let shown = move || {
+        let opened = key().is_some_and(|key| open.with(|open| open.contains(&key)));
+
+        opened || writing(message, slot)
+    };
+
+    when(
+        move || has_thought(message, slot),
         move || {
-            message.with(|message| {
-                message
-                    .as_ref()
-                    .map(|message| message.tools.clone())
-                    .unwrap_or_default()
-            })
+            view()
+                .w_full()
+                .gap_1()
+                .child(thinking_bar(key, open))
+                .child(when(shown, move || thinking_text(message, slot)))
         },
-        |tool| tool.id.clone(),
-        move |tool, _| tool_run(tool, open),
-    ))
+    )
 }
 
 /// One call: the tool, the arguments it was given and how it went, over what
@@ -648,48 +697,25 @@ fn arguments_card(tool: ReadSignal<ToolRun>) -> impl IntoElement {
         )
 }
 
-/// The chains of thought above the answer: their text while it arrives and
-/// while the reader keeps it open, else one quiet row that opens it again.
-fn thinking(message: Memo<Option<Message>>, open: Signal<Vec<u32>>) -> impl IntoElement {
-    let id = move || message.with(|message| message.as_ref().map(|message| message.id));
-    let shown = move || {
-        let opened = id().is_some_and(|id| open.with(|open| open.contains(&id)));
-        // Until the answer starts, the thought is what is being written.
-        let writing = message.with(|message| {
-            message
-                .as_ref()
-                .is_some_and(|message| message.streaming && message.body.is_empty())
-        });
-
-        opened || writing
-    };
-
-    view()
-        .w_full()
-        .gap_1()
-        .child(thinking_bar(id, open))
-        .child(when(shown, move || thinking_text(message)))
-}
-
 /// The row a thought folds into: a bulb and one word at the left, and the
 /// chevron that opens it at the right, whose own wash on hover keeps the row
 /// itself quiet.
 fn thinking_bar(
-    id: impl Fn() -> Option<u32> + Copy + 'static,
-    open: Signal<Vec<u32>>,
+    key: impl Fn() -> Option<(u32, usize)> + Copy + 'static,
+    open: Signal<Vec<(u32, usize)>>,
 ) -> impl IntoElement {
     let toggle = move || {
-        let Some(id) = id() else {
+        let Some(key) = key() else {
             return;
         };
-        open.update(|open| match open.iter().position(|shown| *shown == id) {
+        open.update(|open| match open.iter().position(|shown| *shown == key) {
             Some(at) => {
                 open.remove(at);
             }
-            None => open.push(id),
+            None => open.push(key),
         });
     };
-    let opened = move || id().is_some_and(|id| open.with(|open| open.contains(&id)));
+    let opened = move || key().is_some_and(|key| open.with(|open| open.contains(&key)));
 
     view()
         .w_full()
@@ -726,25 +752,16 @@ const THINKING_TEXT_INSET: f32 = 26.0;
 const THINKING_FONT: f32 = 13.0;
 const THINKING_LINE: f32 = THINKING_FONT * MESSAGE_LINE;
 
-/// The thoughts themselves, in order, quieter than the answer they led to.
-fn thinking_text(message: Memo<Option<Message>>) -> impl IntoElement {
+/// The thought's own text, quieter than the answer it led to.
+fn thinking_text(
+    message: Memo<Option<Message>>,
+    slot: impl Fn() -> usize + Copy + 'static,
+) -> impl IntoElement {
     text(move || {
         message.with(|message| {
             message
                 .as_ref()
-                .map(|message| {
-                    // A tool call ends a thought, and the next one starts after
-                    // it: an empty entry between them is a break in the stream,
-                    // not a thought of its own. Trailing lines the model wrote
-                    // are kept out of the blank line under the thought.
-                    let thoughts: Vec<&str> = message
-                        .reasoning
-                        .iter()
-                        .map(SharedString::as_str)
-                        .filter(|thought| !thought.trim().is_empty())
-                        .collect();
-                    thoughts.join("\n\n").trim_end().to_owned()
-                })
+                .map(|message| thought_text(message, slot()))
                 .unwrap_or_default()
         })
     })

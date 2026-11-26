@@ -1004,8 +1004,10 @@ pub fn fail_streaming(error: &str) {
     keep();
 }
 
-/// The messages of `session` whose thought shows open at first.
-pub fn open_thoughts(session_id: u32) -> Vec<u32> {
+/// The thought slots of `session` that show open at first, each by its
+/// message and the call it follows: a reply's thought opens under its
+/// message's id.
+pub fn open_thoughts(session_id: u32) -> Vec<(u32, usize)> {
     state().with(|workspace| {
         session(workspace, session_id)
             .map(|session| {
@@ -1013,7 +1015,9 @@ pub fn open_thoughts(session_id: u32) -> Vec<u32> {
                     .messages
                     .iter()
                     .filter(|message| message.reasoning_open)
-                    .map(|message| message.id)
+                    .flat_map(|message| {
+                        (0..=message.tools.len()).map(move |slot| (message.id, slot))
+                    })
                     .collect()
             })
             .unwrap_or_default()
