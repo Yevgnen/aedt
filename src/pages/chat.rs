@@ -871,6 +871,9 @@ fn diff_card(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
                         // The view's own fills are its green and red; the card's
                         // are the theme's, and no second one under them.
                         .background(false)
+                        // The card names no lines: a change in a reply is read for what
+                        // it did, not for where in the file it sits.
+                        .line_numbers(false)
                         // Every row shows, so the height counted above is the
                         // height the rows take.
                         .expand_all(true)
