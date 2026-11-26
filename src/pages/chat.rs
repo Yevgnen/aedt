@@ -534,7 +534,8 @@ fn tool_run(tool: ReadSignal<ToolRun>) -> impl IntoElement {
                         .flex_1()
                         .min_w(px(0.0))
                         .number_of_lines(1)
-                        .text_xs()
+                        .font_family(crate::MONO_FONT)
+                        .text_size(px(sizes::CODE_FONT))
                         .text_color(tokens::meta),
                 )
                 .child(when(
@@ -558,7 +559,8 @@ fn tool_run(tool: ReadSignal<ToolRun>) -> impl IntoElement {
                     .child(
                         text(move || tool.with(|tool| tool.output.clone()))
                             .w_full()
-                            .text_size(px(12.0))
+                            .font_family(crate::MONO_FONT)
+                            .text_size(px(sizes::CODE_FONT))
                             .line_height(LineHeight::Multiple(MESSAGE_LINE))
                             .text_color(tokens::meta)
                             .number_of_lines(12),
