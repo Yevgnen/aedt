@@ -61,10 +61,10 @@ pub(crate) fn ask(session_id: u32, text: &str) {
         .history
         .iter()
         .take(sent.history.len().saturating_sub(1))
-        .filter(|message| !message.body.is_empty())
+        .filter(|message| !message.body().is_empty())
         .map(|message| Turn {
             user: message.author == Author::User,
-            text: message.body.to_string(),
+            text: message.body(),
         })
         .collect();
 

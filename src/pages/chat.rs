@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use aedt_provider::responses::Effort;
 use aedt_settings as settings;
-use aedt_store::{self as store, Author, Message, ToolRun};
+use aedt_store::{self as store, Author, Message, Part, ToolRun};
 use aedt_ui::{MESSAGE_LINE, badge, button, empty, icon, input, menu, motion, sizes, tokens};
 use nsh_base::{MarkdownOptions, SubmenuEvent, TextViewClasses, hover_card, text_view, theme};
 use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
@@ -301,9 +301,10 @@ fn message_preview(
 /// What `body` says, as the preview's text binds it.
 fn body_of(body: Memo<Option<Message>>) -> impl Fn() -> SharedString + Copy + 'static {
     move || {
-        body.with(|body| {
-            body.as_ref()
-                .map(|body| body.body.clone())
+        body.with(|message| {
+            message
+                .as_ref()
+                .map(|message| SharedString::from(message.body()))
                 .unwrap_or_default()
         })
     }
@@ -343,7 +344,7 @@ fn user_message(message: Memo<Option<Message>>) -> impl IntoElement {
                             message.with(|message| {
                                 message
                                     .as_ref()
-                                    .map(|message| message.body.clone())
+                                    .map(|message| SharedString::from(message.body()))
                                     .unwrap_or_default()
                             })
                         })
@@ -372,7 +373,7 @@ fn copy_message(message: Memo<Option<Message>>) -> impl IntoElement {
         let body = message.with(|message| {
             message
                 .as_ref()
-                .map(|message| message.body.to_string())
+                .map(|message| message.body())
                 .unwrap_or_default()
         });
         if body.is_empty() {
@@ -443,51 +444,27 @@ fn assistant_message(
     view()
         .w_full()
         .gap_1()
-        // The reply as it happened: what it thought, the call it made, what it
-        // thought next, and so on — its answer's text under them all.
-        .child(thought(message, || 0, open))
+        // The reply in the order it happened: what it thought, the call it
+        // made, what it answered, and so on, each where it came.
         .child(each(
             move || {
                 message.with(|message| {
                     message
                         .as_ref()
-                        .map(|message| message.tools.clone())
+                        .map(|message| {
+                            message
+                                .parts
+                                .iter()
+                                .cloned()
+                                .enumerate()
+                                .collect::<Vec<_>>()
+                        })
                         .unwrap_or_default()
                 })
             },
-            |tool| tool.id.clone(),
-            move |tool, call| {
-                view()
-                    .w_full()
-                    .gap_1()
-                    .child(tool_run(tool, calls))
-                    // The thought that followed the call.
-                    .child(thought(message, move || call.get() + 1, open))
-            },
+            |(at, _)| *at,
+            move |part, _| part_of(message, part, open, calls),
         ))
-        .child(
-            text_view()
-                .markdown(move || {
-                    message.with(|message| message.as_ref().map(|message| message.body.clone()))
-                })
-                .classes(TextViewClasses {
-                    link: Some("text-link".into()),
-                    ..TextViewClasses::default()
-                })
-                // While the reply is still arriving, the text view shows its
-                // open syntax as closed and again only the blocks that changed.
-                .options(move || MarkdownOptions {
-                    streaming: message
-                        .with(|message| message.as_ref().is_some_and(|message| message.streaming)),
-                    ..MarkdownOptions::default()
-                })
-                .selectable(true)
-                .code_block_scrollbar(false)
-                .gap_2()
-                .text_sm()
-                .line_height(LineHeight::Multiple(MESSAGE_LINE))
-                .text_color(move || theme().foreground),
-        )
         .child(
             // The model and the duration show while the pointer is over the row
             // they share; when the reply was sent always shows.
@@ -511,71 +488,126 @@ fn assistant_message(
         )
 }
 
-/// What the thought of `slot` says: the entry before the call at its place,
-/// and after the last call everything the reply thought since — one entry per
-/// call, but a reply's first thought may hold more than one paragraph.
-fn thought_text(message: &Message, slot: usize) -> String {
-    if slot < message.tools.len() {
-        return message
-            .reasoning
-            .get(slot)
-            .map_or_else(String::new, |thought| thought.trim_end().to_owned());
-    }
+/// One stretch of the reply, drawn by what it is: a thought, a call, or a
+/// stretch of what it answered.
+fn part_of(
+    message: Memo<Option<Message>>,
+    part: ReadSignal<(usize, Part)>,
+    open: Signal<Vec<(u32, usize)>>,
+    calls: Signal<Vec<CallFold>>,
+) -> impl IntoElement {
+    let at = part.with_untracked(|(at, _)| *at);
 
-    message
-        .reasoning
-        .iter()
-        .skip(slot)
-        .map(SharedString::as_str)
-        .filter(|thought| !thought.trim().is_empty())
-        .collect::<Vec<_>>()
-        .join("\n\n")
-        .trim_end()
-        .to_owned()
+    match part.with_untracked(|(_, part)| part.clone()) {
+        Part::Thought(_) => thought(message, at, open).into_element(),
+        Part::Text(_) => text_part(message, at).into_element(),
+        Part::Tool(_) => {
+            // The call this part holds, which is the one the card reads as it
+            // runs and once its result is in.
+            let tool = computed(move || {
+                message.with(|message| {
+                    message
+                        .as_ref()
+                        .and_then(|message| match message.parts.get(at) {
+                            Some(Part::Tool(tool)) => Some(tool.clone()),
+                            _ => None,
+                        })
+                        .unwrap_or_default()
+                })
+            });
+
+            tool_run(tool, calls).into_element()
+        }
+    }
 }
 
-/// Whether the thought of `slot` has arrived.
-fn has_thought(message: Memo<Option<Message>>, slot: impl Fn() -> usize + Copy + 'static) -> bool {
+/// A stretch of the reply's answer, read as Markdown, the last one while it
+/// still arrives as one being written.
+fn text_part(message: Memo<Option<Message>>, at: usize) -> impl IntoElement {
+    text_view()
+        .markdown(move || {
+            message.with(|message| {
+                message
+                    .as_ref()
+                    .and_then(|message| match message.parts.get(at) {
+                        Some(Part::Text(text)) => Some(text.clone()),
+                        _ => None,
+                    })
+                    .unwrap_or_default()
+            })
+        })
+        .classes(TextViewClasses {
+            link: Some("text-link".into()),
+            ..TextViewClasses::default()
+        })
+        // While the stretch is still arriving, the text view shows its open
+        // syntax as closed and again only the blocks that changed.
+        .options(move || MarkdownOptions {
+            streaming: message.with(|message| {
+                message
+                    .as_ref()
+                    .is_some_and(|message| message.streaming && message.parts.len() == at + 1)
+            }),
+            ..MarkdownOptions::default()
+        })
+        .selectable(true)
+        .code_block_scrollbar(false)
+        .gap_2()
+        .text_sm()
+        .line_height(LineHeight::Multiple(MESSAGE_LINE))
+        .text_color(move || theme().foreground)
+}
+
+/// What the thought at `at` says, trimmed, while that part is a thought.
+fn thought_text(message: Memo<Option<Message>>, at: usize) -> Option<String> {
     message.with(|message| {
         message
             .as_ref()
-            .is_some_and(|message| !thought_text(message, slot()).is_empty())
+            .and_then(|message| match message.parts.get(at) {
+                Some(Part::Thought(text)) => Some(text.trim_end().to_owned()),
+                _ => None,
+            })
     })
 }
 
-/// Whether the thought of `slot` is the one arriving: the reply streams and
-/// its answer has not begun.
-fn writing(message: Memo<Option<Message>>, slot: impl Fn() -> usize + Copy + 'static) -> bool {
+/// Whether the thought at `at` has arrived.
+fn has_thought(message: Memo<Option<Message>>, at: usize) -> bool {
+    thought_text(message, at).is_some_and(|text| !text.is_empty())
+}
+
+/// Whether the thought at `at` is the one arriving: it is the last part of a
+/// reply still being written.
+fn writing(message: Memo<Option<Message>>, at: usize) -> bool {
     message.with(|message| {
-        message.as_ref().is_some_and(|message| {
-            message.streaming && message.body.is_empty() && slot() == message.tools.len()
-        })
+        message
+            .as_ref()
+            .is_some_and(|message| message.streaming && message.parts.len() == at + 1)
     })
 }
 
 /// One thought of the reply: its text under the quiet row that folds it away,
-/// shown while it arrives and while the reader keeps it open. A slot nothing
+/// shown while it arrives and while the reader keeps it open. A part nothing
 /// reasoned in shows nothing.
 fn thought(
     message: Memo<Option<Message>>,
-    slot: impl Fn() -> usize + Copy + 'static,
+    at: usize,
     open: Signal<Vec<(u32, usize)>>,
 ) -> impl IntoElement {
-    let key = move || message.with(|message| message.as_ref().map(|message| (message.id, slot())));
+    let key = move || message.with(|message| message.as_ref().map(|message| (message.id, at)));
     let shown = move || {
         let opened = key().is_some_and(|key| open.with(|open| open.contains(&key)));
 
-        opened || writing(message, slot)
+        opened || writing(message, at)
     };
 
     when(
-        move || has_thought(message, slot),
+        move || has_thought(message, at),
         move || {
             view()
                 .w_full()
                 .gap_1()
                 .child(thinking_bar(key, open))
-                .child(when(shown, move || thinking_text(message, slot)))
+                .child(when(shown, move || thinking_text(message, at)))
         },
     )
 }
@@ -593,7 +625,7 @@ struct CallFold {
 /// it returned — shown once the reader opens it, and from the start while it
 /// changed files, so an edit's diff reads at once. The output stops at a dozen
 /// lines; the agent read the whole of it.
-fn tool_run(tool: ReadSignal<ToolRun>, calls: Signal<Vec<CallFold>>) -> impl IntoElement {
+fn tool_run(tool: Memo<ToolRun>, calls: Signal<Vec<CallFold>>) -> impl IntoElement {
     let id = move || tool.with(|tool| tool.id.clone());
     let shown = move || {
         let id = id();
@@ -731,7 +763,7 @@ fn tool_run(tool: ReadSignal<ToolRun>, calls: Signal<Vec<CallFold>>) -> impl Int
 
 /// What an edit did, where the row names the call: the first file it changed
 /// and how far the call changed what it touched, in all.
-fn edit_summary(tool: ReadSignal<ToolRun>) -> impl IntoElement {
+fn edit_summary(tool: Memo<ToolRun>) -> impl IntoElement {
     view()
         .w_full()
         .flex_row()
@@ -775,7 +807,7 @@ const DIFF_LINES: usize = 40;
 
 /// The files a call changed: each with its path and how far it changed, over
 /// the lines of its diff.
-fn changes(tool: ReadSignal<ToolRun>) -> impl IntoElement {
+fn changes(tool: Memo<ToolRun>) -> impl IntoElement {
     view().w_full().gap_2().child(each(
         move || tool.with(|tool| tool.changes.clone()),
         |change| change.path.clone(),
@@ -891,7 +923,7 @@ fn lines_of(change: &store::ToolChange) -> Vec<DiffLine> {
 
 /// The arguments a call was given, the whole of them, read as JSON: over the
 /// line that previews them while the pointer rests on it.
-fn arguments_card(tool: ReadSignal<ToolRun>) -> impl IntoElement {
+fn arguments_card(tool: Memo<ToolRun>) -> impl IntoElement {
     scroll()
         .max_h(px(420.0))
         .child(
@@ -973,24 +1005,14 @@ const THINKING_FONT: f32 = 13.0;
 const THINKING_LINE: f32 = THINKING_FONT * MESSAGE_LINE;
 
 /// The thought's own text, quieter than the answer it led to.
-fn thinking_text(
-    message: Memo<Option<Message>>,
-    slot: impl Fn() -> usize + Copy + 'static,
-) -> impl IntoElement {
-    text(move || {
-        message.with(|message| {
-            message
-                .as_ref()
-                .map(|message| thought_text(message, slot()))
-                .unwrap_or_default()
-        })
-    })
-    .w_full()
-    .pl(px(THINKING_TEXT_INSET))
-    .pb(px(THINKING_LINE))
-    .text_size(px(THINKING_FONT))
-    .line_height(LineHeight::Multiple(MESSAGE_LINE))
-    .text_color(move || tokens::meta().opacity(0.7))
+fn thinking_text(message: Memo<Option<Message>>, at: usize) -> impl IntoElement {
+    text(move || thought_text(message, at).unwrap_or_default())
+        .w_full()
+        .pl(px(THINKING_TEXT_INSET))
+        .pb(px(THINKING_LINE))
+        .text_size(px(THINKING_FONT))
+        .line_height(LineHeight::Multiple(MESSAGE_LINE))
+        .text_color(move || tokens::meta().opacity(0.7))
 }
 
 fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {

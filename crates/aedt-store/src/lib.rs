@@ -18,15 +18,12 @@ pub enum Author {
 pub struct Message {
     pub id: u32,
     pub author: Author,
-    pub body: SharedString,
-    /// The chains of thought the reply reasoned with, in order and shown above
-    /// it: empty for a message that did not think, one entry per thought.
-    pub reasoning: Vec<SharedString>,
+    /// What it says, in the order it was written: a reply's thoughts, the
+    /// calls it made and the stretches of its answer, as they came.
+    pub parts: Vec<Part>,
     /// Whether the reply's thought shows open at first: the state a reply is
     /// read with, until the reader folds it away.
     pub reasoning_open: bool,
-    /// The tool calls the reply made, in the order it made them.
-    pub tools: Vec<ToolRun>,
     /// The muted line under the message: when it was sent, and for a reply what
     /// it ran on and how long it took. `None` shows no line at all.
     pub meta: Option<Meta>,
@@ -36,8 +33,33 @@ pub struct Message {
     pub streaming: bool,
 }
 
-/// One tool call a reply made: what the model asked, and what came of it.
+/// One stretch of a message, in the order the reply wrote it.
 #[derive(Clone, Debug, PartialEq)]
+pub enum Part {
+    /// A chain of thought that led to what came next.
+    Thought(SharedString),
+    /// A tool call the reply made.
+    Tool(ToolRun),
+    /// A stretch of what the reply answered.
+    Text(SharedString),
+}
+
+impl Message {
+    /// What it answered, as it stands: the text of every stretch it wrote, in
+    /// order. Empty for a reply that only thought or called tools.
+    pub fn body(&self) -> String {
+        self.parts
+            .iter()
+            .filter_map(|part| match part {
+                Part::Text(text) => Some(text.as_str()),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+/// One tool call a reply made: what the model asked, and what came of it.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct ToolRun {
     /// The call's id, which its result answers.
     pub id: SharedString,
@@ -425,10 +447,8 @@ fn message(
     let message = Message {
         id: *next_id,
         author,
-        body: body.into(),
-        reasoning: Vec::new(),
+        parts: vec![Part::Text(body.into())],
         reasoning_open: false,
-        tools: Vec::new(),
         meta: Some(Meta {
             time: time.into(),
             detail: detail.map(SharedString::from),
@@ -439,12 +459,14 @@ fn message(
     message
 }
 
-/// `message` with the chains of thought it reasoned with, in order.
-fn with_thoughts(message: Message, thoughts: &[&'static str]) -> Message {
-    Message {
-        reasoning: thoughts.iter().map(|thought| (*thought).into()).collect(),
-        ..message
-    }
+/// `message` with the chains of thought it reasoned with, in order: one block
+/// above what it says, as a reply that thought before it spoke reads.
+fn with_thoughts(mut message: Message, thoughts: &[&'static str]) -> Message {
+    message
+        .parts
+        .insert(0, Part::Thought(thoughts.join("\n\n").into()));
+
+    message
 }
 
 /// `message` with its thought shown open at first.
@@ -455,9 +477,18 @@ fn thought_open(message: Message) -> Message {
     }
 }
 
-/// `message` with the tool calls it made, in order.
-fn with_tools(message: Message, tools: Vec<ToolRun>) -> Message {
-    Message { tools, ..message }
+/// `message` with the tool calls it made, in order, before what it answered.
+fn with_tools(mut message: Message, tools: Vec<ToolRun>) -> Message {
+    let at = message
+        .parts
+        .iter()
+        .position(|part| matches!(part, Part::Text(_)))
+        .unwrap_or(message.parts.len());
+    message
+        .parts
+        .splice(at..at, tools.into_iter().map(Part::Tool));
+
+    message
 }
 
 /// One tool call a reply made, done and read: `open` says whether its output
@@ -878,10 +909,8 @@ fn append_sent(state: &mut State, session_id: u32, text: &str) -> Option<(u32, V
     session.messages.push(Message {
         id: user_id,
         author: Author::User,
-        body: text.to_owned().into(),
-        reasoning: Vec::new(),
+        parts: vec![Part::Text(text.to_owned().into())],
         reasoning_open: false,
-        tools: Vec::new(),
         meta: Some(Meta {
             time: sent_at.clone(),
             detail: None,
@@ -892,10 +921,8 @@ fn append_sent(state: &mut State, session_id: u32, text: &str) -> Option<(u32, V
     session.messages.push(Message {
         id: reply_id,
         author: Author::Assistant,
-        body: SharedString::default(),
-        reasoning: Vec::new(),
+        parts: Vec::new(),
         reasoning_open: false,
-        tools: Vec::new(),
         meta: Some(Meta {
             time: sent_at,
             detail: None,
@@ -907,7 +934,7 @@ fn append_sent(state: &mut State, session_id: u32, text: &str) -> Option<(u32, V
 }
 
 /// Appends what arrived of the reply still streaming in `session`: its
-/// thinking first, then its answer.
+/// thinking first, then its answer, each where the reply's order puts it.
 pub fn append_stream(session_id: u32, thinking: &str, answer: &str) {
     if thinking.is_empty() && answer.is_empty() {
         return;
@@ -917,19 +944,26 @@ pub fn append_stream(session_id: u32, thinking: &str, answer: &str) {
             return;
         };
         if !thinking.is_empty() {
-            match message.reasoning.last_mut() {
-                Some(thought) => {
+            match message.parts.last_mut() {
+                Some(Part::Thought(thought)) => {
                     let mut reasoned = thought.to_string();
                     reasoned.push_str(thinking);
                     *thought = reasoned.into();
                 }
-                None => message.reasoning.push(thinking.to_owned().into()),
+                _ => message
+                    .parts
+                    .push(Part::Thought(thinking.to_owned().into())),
             }
         }
         if !answer.is_empty() {
-            let mut body = message.body.to_string();
-            body.push_str(answer);
-            message.body = body.into();
+            match message.parts.last_mut() {
+                Some(Part::Text(text)) => {
+                    let mut body = text.to_string();
+                    body.push_str(answer);
+                    *text = body.into();
+                }
+                _ => message.parts.push(Part::Text(answer.to_owned().into())),
+            }
         }
     });
 }
@@ -937,14 +971,14 @@ pub fn append_stream(session_id: u32, thinking: &str, answer: &str) {
 /// Records that the reply streaming in `session` asked for a tool call: `id`,
 /// its name and the arguments the model sent, shown while the tool runs.
 ///
-/// A call ends the thought that led to it: what the model thinks while it runs,
-/// or after, is a thought of its own.
+/// The call takes its place in the reply as it came: what the model thought
+/// next is a thought of its own, after it.
 pub fn tool_started(session_id: u32, id: &str, name: &str, arguments: &str) {
     state().update(|workspace| {
         let Some(message) = streaming(workspace, session_id) else {
             return;
         };
-        message.tools.push(ToolRun {
+        message.parts.push(Part::Tool(ToolRun {
             id: id.to_owned().into(),
             name: name.to_owned().into(),
             arguments: arguments.to_owned().into(),
@@ -953,8 +987,7 @@ pub fn tool_started(session_id: u32, id: &str, name: &str, arguments: &str) {
             running: true,
             open: false,
             changes: Vec::new(),
-        });
-        message.reasoning.push(SharedString::default());
+        }));
     });
 }
 
@@ -971,7 +1004,10 @@ pub fn tool_finished(
         let Some(message) = streaming(workspace, session_id) else {
             return;
         };
-        let Some(tool) = message.tools.iter_mut().find(|tool| tool.id.as_str() == id) else {
+        let Some(tool) = message.parts.iter_mut().find_map(|part| match part {
+            Part::Tool(tool) if tool.id.as_str() == id => Some(tool),
+            _ => None,
+        }) else {
             return;
         };
         tool.output = output.to_owned().into();
@@ -1009,7 +1045,9 @@ pub fn fail_stream(session_id: u32, error: &str) {
         let Some(message) = streaming(workspace, session_id) else {
             return;
         };
-        message.body = format!("Request failed: {error}").into();
+        message
+            .parts
+            .push(Part::Text(format!("Request failed: {error}").into()));
         message.streaming = false;
     });
     keep();
@@ -1022,7 +1060,9 @@ pub fn fail_streaming(error: &str) {
         for session in &mut workspace.sessions {
             for message in &mut session.messages {
                 if message.streaming {
-                    message.body = format!("Request failed: {error}").into();
+                    message
+                        .parts
+                        .push(Part::Text(format!("Request failed: {error}").into()));
                     message.streaming = false;
                 }
             }
@@ -1032,8 +1072,8 @@ pub fn fail_streaming(error: &str) {
 }
 
 /// The thought slots of `session` that show open at first, each by its
-/// message and the call it follows: a reply's thought opens under its
-/// message's id.
+/// message and its place in it: a reply's thought opens under its message's
+/// id.
 pub fn open_thoughts(session_id: u32) -> Vec<(u32, usize)> {
     state().with(|workspace| {
         session(workspace, session_id)
@@ -1043,7 +1083,12 @@ pub fn open_thoughts(session_id: u32) -> Vec<(u32, usize)> {
                     .iter()
                     .filter(|message| message.reasoning_open)
                     .flat_map(|message| {
-                        (0..=message.tools.len()).map(move |slot| (message.id, slot))
+                        message
+                            .parts
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, part)| matches!(part, Part::Thought(_)))
+                            .map(move |(at, _)| (message.id, at))
                     })
                     .collect()
             })
@@ -1059,9 +1104,11 @@ pub fn open_calls(session_id: u32) -> Vec<SharedString> {
                 session
                     .messages
                     .iter()
-                    .flat_map(|message| message.tools.iter())
-                    .filter(|tool| tool.open)
-                    .map(|tool| tool.id.clone())
+                    .flat_map(|message| message.parts.iter())
+                    .filter_map(|part| match part {
+                        Part::Tool(tool) if tool.open => Some(tool.id.clone()),
+                        _ => None,
+                    })
                     .collect()
             })
             .unwrap_or_default()

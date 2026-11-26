@@ -2,10 +2,10 @@
 //! sessions in them with their messages, and the ids the next ones take. It
 //! sits in the app's storage beside the settings.
 
-use nsh_core::{prelude::SharedString, storage::Storage};
+use nsh_core::storage::Storage;
 use serde::{Deserialize, Serialize};
 
-use crate::{Author, Message, Meta, Session, State, ToolChange, ToolRun, Workspace};
+use crate::{Author, Message, Meta, Part, Session, State, ToolChange, ToolRun, Workspace};
 
 /// The storage key the state is kept under.
 const KEY: &str = "aedt.store";
@@ -42,14 +42,30 @@ struct KeptSession {
 struct KeptMessage {
     id: u32,
     author: KeptAuthor,
-    body: String,
+    /// What it wrote, in the order it wrote it.
     #[serde(default)]
-    reasoning: Vec<String>,
+    parts: Vec<KeptPart>,
     #[serde(default)]
     reasoning_open: bool,
-    #[serde(default)]
-    tools: Vec<KeptTool>,
     meta: Option<KeptMeta>,
+    /// What it answered, and its thoughts and calls beside it, before the
+    /// parts were kept: read to make the parts of an answer kept by an older
+    /// app.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    body: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    reasoning: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    tools: Vec<KeptTool>,
+}
+
+/// One stretch of a message, as it is kept.
+#[derive(Deserialize, Serialize)]
+#[serde(tag = "part", rename_all = "lowercase")]
+enum KeptPart {
+    Thought { text: String },
+    Tool { tool: KeptTool },
+    Text { text: String },
 }
 
 #[derive(Clone, Copy, Deserialize, PartialEq, Serialize)]
@@ -184,28 +200,58 @@ impl KeptMessage {
     /// The message, or none for a reply that never got a word: the app quit
     /// while its model was still starting it.
     fn into_message(self) -> Option<Message> {
-        let body: SharedString = self.body.into();
-        let reasoning: Vec<SharedString> = self.reasoning.into_iter().map(Into::into).collect();
-        let tools: Vec<ToolRun> = self.tools.into_iter().map(KeptTool::into_tool).collect();
-        if self.author == KeptAuthor::Assistant
-            && body.is_empty()
-            && reasoning.is_empty()
-            && tools.is_empty()
-        {
+        let parts = match self.parts.is_empty() {
+            false => self.parts.into_iter().map(KeptPart::into_part).collect(),
+            // Kept before parts: its thought came before each call, then the
+            // call, then what it answered.
+            true => legacy_parts(self.reasoning, self.tools, self.body),
+        };
+        let empty = parts.iter().all(|part| match part {
+            Part::Tool(_) => false,
+            Part::Thought(text) | Part::Text(text) => text.trim().is_empty(),
+        });
+        if self.author == KeptAuthor::Assistant && empty {
             return None;
         }
 
         Some(Message {
             id: self.id,
             author: self.author.into(),
-            body,
-            reasoning,
+            parts,
             reasoning_open: self.reasoning_open,
-            tools,
             meta: self.meta.map(KeptMeta::into_meta),
             streaming: false,
         })
     }
+}
+
+/// The parts of a message kept as one body beside its thoughts and calls: the
+/// thought before each call, the call, then what it answered.
+fn legacy_parts(reasoning: Vec<String>, tools: Vec<KeptTool>, body: Option<String>) -> Vec<Part> {
+    let calls: Vec<ToolRun> = tools.into_iter().map(KeptTool::into_tool).collect();
+    let count = calls.len();
+    let mut parts = Vec::with_capacity(count * 2 + 2);
+    for (at, tool) in calls.into_iter().enumerate() {
+        if let Some(thought) = reasoning.get(at).filter(|text| !text.trim().is_empty()) {
+            parts.push(Part::Thought(thought.to_owned().into()));
+        }
+        parts.push(Part::Tool(tool));
+    }
+    // What it thought after the last call, in the one block it was read as.
+    let tail: Vec<&str> = reasoning
+        .iter()
+        .skip(count)
+        .map(String::as_str)
+        .filter(|text| !text.trim().is_empty())
+        .collect();
+    if !tail.is_empty() {
+        parts.push(Part::Thought(tail.join("\n\n").into()));
+    }
+    if let Some(body) = body.filter(|body| !body.is_empty()) {
+        parts.push(Part::Text(body.into()));
+    }
+
+    parts
 }
 
 impl KeptTool {
@@ -276,15 +322,38 @@ impl From<&Message> for KeptMessage {
         Self {
             id: message.id,
             author: message.author.into(),
-            body: message.body.to_string(),
-            reasoning: message
-                .reasoning
-                .iter()
-                .map(|thought| thought.to_string())
-                .collect(),
+            parts: message.parts.iter().map(KeptPart::from).collect(),
             reasoning_open: message.reasoning_open,
-            tools: message.tools.iter().map(KeptTool::from).collect(),
             meta: message.meta.as_ref().map(KeptMeta::from),
+            body: None,
+            reasoning: Vec::new(),
+            tools: Vec::new(),
+        }
+    }
+}
+
+impl From<&Part> for KeptPart {
+    fn from(part: &Part) -> Self {
+        match part {
+            Part::Thought(text) => Self::Thought {
+                text: text.to_string(),
+            },
+            Part::Tool(tool) => Self::Tool {
+                tool: KeptTool::from(tool),
+            },
+            Part::Text(text) => Self::Text {
+                text: text.to_string(),
+            },
+        }
+    }
+}
+
+impl KeptPart {
+    fn into_part(self) -> Part {
+        match self {
+            Self::Thought { text } => Part::Thought(text.into()),
+            Self::Tool { tool } => Part::Tool(tool.into_tool()),
+            Self::Text { text } => Part::Text(text.into()),
         }
     }
 }
