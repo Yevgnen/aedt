@@ -1,0 +1,14 @@
+[package]
+name = "rig-harness-spike"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# A probe of its own: not a member of aedt's workspace.
+[workspace]
+
+[dependencies]
+bevy_app = "=0.20.1"
+bevy_ecs = { version = "=0.20.1", default-features = false, features = ["std", "multi_threaded"] }
+bevy_tasks = { version = "=0.20.1", default-features = false, features = ["multi_threaded"] }
+rig-harness = "=0.47.1"
