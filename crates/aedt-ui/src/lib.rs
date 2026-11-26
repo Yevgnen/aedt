@@ -12,6 +12,7 @@ pub mod field;
 pub mod icon;
 pub mod input;
 pub mod list_item;
+pub mod markdown;
 pub mod menu;
 pub mod motion;
 pub mod separator;

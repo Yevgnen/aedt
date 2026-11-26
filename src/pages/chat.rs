@@ -6,10 +6,10 @@ use aedt_provider::responses::Effort;
 use aedt_settings as settings;
 use aedt_store::{self as store, Author, Message, Part, ToolRun};
 use aedt_ui::{
-    MESSAGE_LINE, badge, button, code, diff, empty, icon, input, menu, motion, sizes, surface,
-    tokens,
+    MESSAGE_LINE, badge, button, code, diff, empty, icon, input, markdown, menu, motion, sizes,
+    surface, tokens,
 };
-use nsh_base::{MarkdownOptions, SubmenuEvent, TextViewClasses, text_view, theme};
+use nsh_base::{SubmenuEvent, theme};
 use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::llm;
@@ -521,9 +521,11 @@ fn part_of(
 
 /// A stretch of the reply's answer, read as Markdown, the last one while it
 /// still arrives as one being written.
+/// A stretch of the reply's answer, read as Markdown, the last one while it
+/// still arrives as one being written.
 fn text_part(message: Memo<Option<Message>>, at: usize) -> impl IntoElement {
-    text_view()
-        .markdown(move || {
+    markdown::body(
+        move || {
             message.with(|message| {
                 message
                     .as_ref()
@@ -533,27 +535,17 @@ fn text_part(message: Memo<Option<Message>>, at: usize) -> impl IntoElement {
                     })
                     .unwrap_or_default()
             })
-        })
-        .classes(TextViewClasses {
-            link: Some("text-link".into()),
-            ..TextViewClasses::default()
-        })
+        },
         // While the stretch is still arriving, the text view shows its open
         // syntax as closed and again only the blocks that changed.
-        .options(move || MarkdownOptions {
-            streaming: message.with(|message| {
+        move || {
+            message.with(|message| {
                 message
                     .as_ref()
                     .is_some_and(|message| message.streaming && message.parts.len() == at + 1)
-            }),
-            ..MarkdownOptions::default()
-        })
-        .selectable(true)
-        .code_block_scrollbar(false)
-        .gap_2()
-        .text_sm()
-        .line_height(LineHeight::Multiple(MESSAGE_LINE))
-        .text_color(move || theme().foreground)
+            })
+        },
+    )
 }
 
 /// What the thought at `at` says, trimmed, while that part is a thought.
