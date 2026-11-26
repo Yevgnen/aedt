@@ -68,8 +68,9 @@ pub fn trigger(mark: impl IntoElement, label: impl IntoReactive<SharedString>) -
         .text_color(move || theme().muted_foreground)
         .hover(|s| s.bg(move || theme().muted))
         // The menu marks its trigger expanded while it is open, and the
-        // slot's props land on this row, so both states are drawn here.
-        .expanded(|s| s.bg(move || theme().accent))
+        // slot's props land on this row, so both states are drawn here: an
+        // open row keeps the same wash a hovered one has.
+        .expanded(|s| s.bg(move || theme().muted))
         .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
         .transition_colors()
         .duration(motion::row_duration())
@@ -94,7 +95,7 @@ pub fn label_trigger(
         .rounded_md()
         .text_color(move || theme().muted_foreground)
         .hover(|s| s.bg(move || theme().muted))
-        .expanded(|s| s.bg(move || theme().accent))
+        .expanded(|s| s.bg(move || theme().muted))
         .focus_visible(|s| s.outline(px(2.0)).outline_color(move || theme().ring))
         .disabled_style(|s| s.opacity(0.4))
         .transition_colors()
@@ -228,7 +229,7 @@ pub fn submenu(
                 .rounded(move || theme().radius)
                 .text_color(move || theme().muted_foreground)
                 .hover(|s| s.bg(move || theme().muted))
-                .expanded(|s| s.bg(move || theme().accent))
+                .expanded(|s| s.bg(move || theme().muted))
                 .transition_colors()
                 .duration(motion::row_duration())
                 .ease_out()
