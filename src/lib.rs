@@ -6,19 +6,12 @@ mod llm;
 mod pages;
 mod shell;
 
-use aedt_ui::{MESSAGE_LINE, sizes, tokens};
-use nsh_base::{TextViewPart, TextViewParts};
+use aedt_ui::{code, sizes};
 use nsh_core::{
-    LineHeight,
     desktop::{TitleBarOptions, TitleBarStyle, WindowAttributes},
     element::desktop::window as app_window,
     prelude::*,
 };
-
-/// The app's coding font, most preferred first. CoreText sets text in the
-/// first installed family, so a machine without Berkeley Mono falls back to
-/// another monospaced family instead of the proportional system font.
-const MONO_FONT: &str = "Berkeley Mono, SF Mono, Menlo, monospace";
 
 /// The app's theme, the same file `nsh.json` names for `nsh run`.
 const THEME: &str = include_str!("../theme.json");
@@ -35,7 +28,7 @@ fn apply_theme() {
             current
         }
     };
-    tokens.set_font("font-mono", MONO_FONT);
+    tokens.set_font("font-mono", code::MONO_FONT);
     set_tokens(tokens);
 }
 
@@ -58,12 +51,7 @@ pub fn App() -> impl IntoElement {
     // A code block draws its border in the token's border color, which reads as
     // an outline around its fill: the fill's own color leaves no outline while
     // the 1pt width stays. Its lines are as tight as a message's prose.
-    provide_context(TextViewParts::new().part(TextViewPart::CodeBlock, |s| {
-        s.bg(tokens::code)
-            .border_color(tokens::code)
-            .text_size(px(sizes::CODE_FONT))
-            .line_height(LineHeight::Multiple(MESSAGE_LINE))
-    }));
+    provide_context(code::parts());
 
     let mut title_bar = TitleBarOptions::default();
     title_bar.style = TitleBarStyle::Hidden;

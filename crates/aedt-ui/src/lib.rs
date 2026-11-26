@@ -4,6 +4,7 @@
 pub mod avatar;
 pub mod badge;
 pub mod button;
+pub mod code;
 pub mod collapsible;
 pub mod empty;
 pub mod field;

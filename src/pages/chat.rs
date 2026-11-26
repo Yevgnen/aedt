@@ -6,7 +6,7 @@ use aedt_provider::responses::Effort;
 use aedt_settings as settings;
 use aedt_store::{self as store, Author, Message, Part, ToolRun};
 use aedt_ui::{
-    MESSAGE_LINE, badge, button, empty, icon, input, menu, motion, sizes, surface, tokens,
+    MESSAGE_LINE, badge, button, code, empty, icon, input, menu, motion, sizes, surface, tokens,
 };
 use nsh_base::{
     DiffIndicators, DiffInline, DiffLayout, DiffViewStyles, MarkdownOptions, SubmenuEvent,
@@ -689,7 +689,7 @@ fn tool_run(tool: Memo<ToolRun>, calls: Signal<Vec<CallFold>>) -> impl IntoEleme
                             text(move || tool.with(|tool| tool.arguments.clone()))
                                 .w_full()
                                 .number_of_lines(1)
-                                .font_family(crate::MONO_FONT)
+                                .font_family(code::MONO_FONT)
                                 .text_size(px(sizes::CODE_FONT))
                                 .text_color(tokens::meta)
                         }),
@@ -727,24 +727,15 @@ fn tool_run(tool: Memo<ToolRun>, calls: Signal<Vec<CallFold>>) -> impl IntoEleme
         .child(when(
             move || shown() && tool.with(|tool| tool.changes.is_empty() && !tool.output.is_empty()),
             move || {
-                view()
-                    .w_full()
-                    .rounded(move || theme().radius)
-                    .bg(tokens::code)
-                    .px_2()
-                    .py_1()
-                    // A blank line under the last one, as tall as the text: the
-                    // result ends where it did, not against the block's edge.
-                    .pb(px(sizes::CODE_FONT))
-                    .child(
-                        text(move || tool.with(|tool| tool.output.clone()))
-                            .w_full()
-                            .font_family(crate::MONO_FONT)
-                            .text_size(px(sizes::CODE_FONT))
-                            .line_height(LineHeight::Multiple(MESSAGE_LINE))
-                            .text_color(tokens::meta)
-                            .number_of_lines(12),
-                    )
+                code::block().child(
+                    text(move || tool.with(|tool| tool.output.clone()))
+                        .w_full()
+                        .font_family(code::MONO_FONT)
+                        .text_size(px(sizes::CODE_FONT))
+                        .line_height(LineHeight::Multiple(MESSAGE_LINE))
+                        .text_color(tokens::meta)
+                        .number_of_lines(12),
+                )
             },
         ))
 }
@@ -769,7 +760,7 @@ fn edit_summary(tool: Memo<ToolRun>) -> impl IntoElement {
             .flex_1()
             .min_w(px(0.0))
             .number_of_lines(1)
-            .font_family(crate::MONO_FONT)
+            .font_family(code::MONO_FONT)
             .text_size(px(sizes::CODE_FONT))
             .text_color(tokens::meta),
         )
@@ -783,7 +774,7 @@ fn edit_summary(tool: Memo<ToolRun>) -> impl IntoElement {
                 })
             })
             .flex_none()
-            .font_family(crate::MONO_FONT)
+            .font_family(code::MONO_FONT)
             .text_size(px(sizes::CODE_FONT))
             .text_color(tokens::meta),
         )
@@ -831,7 +822,7 @@ fn change_card(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
                         .flex_1()
                         .min_w(px(0.0))
                         .number_of_lines(1)
-                        .font_family(crate::MONO_FONT)
+                        .font_family(code::MONO_FONT)
                         .text_size(px(sizes::CODE_FONT))
                         .text_color(tokens::meta),
                 )
@@ -840,7 +831,7 @@ fn change_card(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
                         change.with(|change| format!("+{} −{}", change.added, change.removed))
                     })
                     .flex_none()
-                    .font_family(crate::MONO_FONT)
+                    .font_family(code::MONO_FONT)
                     .text_size(px(sizes::CODE_FONT))
                     .text_color(tokens::meta),
                 ),
