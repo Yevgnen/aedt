@@ -115,15 +115,6 @@ fn status_line(session_id: u32, notice: Signal<Option<SharedString>>) -> impl In
 /// server's name with the dot that says how it stands.
 fn mcp_line(servers: Signal<Vec<McpStatus>>) -> impl IntoElement {
     let hovered = signal(false);
-    let connected = computed(move || {
-        servers.with(|servers| {
-            servers
-                .iter()
-                .filter(|server| server.state == McpState::Running)
-                .count()
-        })
-    });
-    let total = computed(move || servers.with(Vec::len));
 
     view()
         .relative()
@@ -131,17 +122,10 @@ fn mcp_line(servers: Signal<Vec<McpStatus>>) -> impl IntoElement {
         .flex_row()
         .items_center()
         .pr_3()
+        .text_color(tokens::caption)
         .on_mouse_enter(move |_: &MouseEvent| hovered.set(true))
         .on_mouse_leave(move |_: &MouseEvent| hovered.set(false))
-        .child(
-            view()
-                .flex_row()
-                .items_center()
-                .gap_1()
-                .text_color(tokens::caption)
-                .child(icon::plug(12.0))
-                .child(text(move || format!("{}/{}", connected.get(), total.get())).text_xs()),
-        )
+        .child(icon::plug(12.0))
         .child(when(move || hovered.get(), move || mcp_servers(servers)))
 }
 
