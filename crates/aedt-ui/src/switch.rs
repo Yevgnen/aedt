@@ -23,7 +23,7 @@ pub fn toggle(
                 .rounded_full()
                 .bg(move || theme().muted)
                 .transition_colors()
-                .duration(motion::control_duration())
+                .duration(motion::row_duration())
                 .checked(|s| s.bg(tokens::checked))
         })
         .thumb_style(|s| {
@@ -32,7 +32,7 @@ pub fn toggle(
                 .bg(move || theme().background)
                 .shadow_sm()
                 .transition_transform()
-                .duration(motion::control_duration())
+                .duration(motion::row_duration())
                 .checked(|s| s.translate_x(px(20.0)))
         })
 }

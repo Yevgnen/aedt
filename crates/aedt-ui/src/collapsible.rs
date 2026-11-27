@@ -28,7 +28,7 @@ pub fn section(
             .on_press(move || open.update(|open| *open = !*open))
             .focus_visible(state::focus_ring)
             .transition_colors()
-            .duration(motion::control_duration())
+            .duration(motion::row_duration())
             .child(
                 text(title)
                     .flex_1()

@@ -27,7 +27,7 @@ pub fn secondary(label: impl IntoReactive<SharedString>) -> ButtonElement {
         .focus_visible(state::focus_ring)
         .disabled_style(|s| s.opacity(0.4))
         .transition_all()
-        .duration(motion::control_duration())
+        .duration(motion::row_duration())
         .ease_out()
         .child(
             text(label)
@@ -68,7 +68,7 @@ pub fn icon(
         .focus_visible(state::focus_ring)
         .hit_slop(EdgeInsets::all(px(6.0)))
         .transition_all()
-        .duration(motion::control_duration())
+        .duration(motion::row_duration())
         .ease_out()
         .child(
             text(glyph)
@@ -112,7 +112,7 @@ pub fn add(label: impl IntoReactive<SharedString>) -> ButtonElement {
         .focus_visible(state::focus_ring)
         .disabled_style(|s| s.opacity(0.4))
         .transition_colors()
-        .duration(motion::control_duration())
+        .duration(motion::row_duration())
         .ease_out()
         .child(icon::plus(14.0))
         .child(text(label).text_sm())
@@ -133,7 +133,7 @@ pub fn ghost(label: impl IntoReactive<SharedString>) -> ButtonElement {
         .focus_visible(state::focus_ring)
         .disabled_style(|s| s.opacity(0.4))
         .transition_colors()
-        .duration(motion::control_duration())
+        .duration(motion::row_duration())
         .ease_out()
         .child(text(label).text_sm())
 }
@@ -159,7 +159,7 @@ pub fn ghost_icon(icon: impl IntoElement, accessibility_label: &'static str) -> 
         .disabled_style(|s| s.opacity(0.4))
         .hit_slop(EdgeInsets::all(px(4.0)))
         .transition_all()
-        .duration(motion::control_duration())
+        .duration(motion::row_duration())
         .ease_out()
         .child(icon)
 }

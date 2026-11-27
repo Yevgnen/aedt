@@ -15,10 +15,13 @@ use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
 
 use crate::llm;
 
-/// A tick's bar height, and the padding that fills its pitch: adjacent ticks'
-/// hit areas touch, so sliding along the column never leaves it between them.
+/// A tick's bar height, the padding that fills its pitch, and its length at
+/// rest and lit: adjacent ticks' hit areas touch, so sliding along the column
+/// never leaves it between them.
 const TICK_HEIGHT: f32 = 2.0;
 const TICK_PAD: f32 = 4.0;
+const TICK_LEN: f32 = 10.0;
+const TICK_LEN_LIT: f32 = 18.0;
 
 /// One session's conversation. The caller keys it by the session, so
 /// switching conversations resets the draft and the scroll position.
@@ -274,11 +277,16 @@ fn tick(
         .on_press(jump)
         .child(
             // Every tick rests light and short; the lit ones — under the
-            // pointer, or where the reader is — are dark and long.
+            // pointer, or where the reader is — are dark and long. The length
+            // is a scale over a fixed bar: a transition moves colors and
+            // transforms, not widths, so a bar that grew would jump while its
+            // color eased.
             view()
                 .h(px(TICK_HEIGHT))
-                .w(move || px(if lit() { 18.0 } else { 10.0 }))
+                .w(px(TICK_LEN_LIT))
                 .rounded_full()
+                .origin_right()
+                .scale_x(move || if lit() { 1.0 } else { TICK_LEN / TICK_LEN_LIT })
                 .bg(move || {
                     if lit() {
                         theme().primary_foreground
@@ -287,7 +295,8 @@ fn tick(
                     }
                 })
                 .transition_all()
-                .duration(motion::control_duration()),
+                .duration(motion::row_duration())
+                .ease_out(),
         )
 }
 

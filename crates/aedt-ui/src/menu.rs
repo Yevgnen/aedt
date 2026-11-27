@@ -193,7 +193,7 @@ pub fn select_trigger(value: impl IntoReactive<SharedString>) -> ButtonElement {
         .expanded(|s| s.border_color(move || theme().ring))
         .focus_visible(state::focus_ring)
         .transition_colors()
-        .duration(motion::control_duration())
+        .duration(motion::row_duration())
         .ease_out()
         .child(text(value).flex_1().min_w(px(0.0)).text_sm())
         .child(

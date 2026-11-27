@@ -90,5 +90,5 @@ fn control(
         .text_color(move || theme().foreground)
         .focus(|s| s.border_color(move || theme().ring))
         .transition_colors()
-        .duration(motion::control_duration())
+        .duration(motion::row_duration())
 }

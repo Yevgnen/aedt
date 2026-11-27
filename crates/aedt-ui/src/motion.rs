@@ -6,18 +6,11 @@ use nsh_core::prelude::*;
 /// A hover wash or a color change.
 pub const INSTANT: f32 = 120.0;
 
-/// A control's press and focus feedback.
-pub const FAST: f32 = 180.0;
-
 /// Moving into place: an echo panel entering, a selection following.
 pub const BASE: f32 = 240.0;
 
-/// How long a control's transition lasts, honoring reduced motion.
-pub fn control_duration() -> impl Fn() -> f32 + Copy {
-    || if reduce_motion() { 0.0 } else { FAST }
-}
-
-/// How long a row's hover and selection wash lasts, honoring reduced motion.
+/// How long a control's or a row's hover and selection wash lasts, honoring
+/// reduced motion.
 pub fn row_duration() -> impl Fn() -> f32 + Copy {
     || if reduce_motion() { 0.0 } else { INSTANT }
 }
