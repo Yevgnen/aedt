@@ -4,7 +4,7 @@
 use nsh_base::{ButtonElement, button, theme};
 use nsh_core::{element::StyleRefinement, prelude::*};
 
-use crate::{icon, motion, sizes, state};
+use crate::{icon, motion, sizes, state, tokens};
 
 /// An ordinary labeled action. The caller adds `.on_press` and its layout.
 pub fn secondary(label: impl IntoReactive<SharedString>) -> ButtonElement {
@@ -105,6 +105,36 @@ pub fn quiet_icon(mark: impl IntoElement, accessibility_label: &'static str) -> 
         .active(press)
         .focus_visible(state::focus_ring)
         .hit_slop(EdgeInsets::all(px(6.0)))
+        .transition_all()
+        .duration(motion::row_duration())
+        .ease_out()
+        .child(view().text_color(move || theme().foreground).child(mark))
+}
+
+/// A round icon button that floats over the content it acts on: the popup
+/// surface and the floating shadow, so it reads as laid on the conversation
+/// rather than in it. The caller places it.
+pub fn floating_icon(mark: impl IntoElement, accessibility_label: &'static str) -> ButtonElement {
+    let reduce = reduce_motion();
+    let press = move |s: StyleRefinement| {
+        let s = s.bg(move || theme().accent);
+        if reduce { s } else { s.scale(0.95) }
+    };
+
+    button()
+        .accessibility_label(accessibility_label)
+        .size(px(sizes::CONTROL))
+        .items_center()
+        .justify_center()
+        .rounded_full()
+        .bg(move || theme().popover)
+        .border_1()
+        .border_color(move || theme().border)
+        .shadow(tokens::floating_shadow())
+        .hover(|s| s.bg(move || theme().accent))
+        .active(press)
+        .focus_visible(state::focus_ring)
+        .hit_slop(EdgeInsets::all(px(4.0)))
         .transition_all()
         .duration(motion::row_duration())
         .ease_out()
