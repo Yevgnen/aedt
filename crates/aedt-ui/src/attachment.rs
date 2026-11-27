@@ -93,8 +93,8 @@ pub fn thumbnail(
 }
 
 /// A picture a sent message carried, shown as a message of its own: the picture
-/// whole in a rounded tile, with nothing behind it, so the page it showed reads
-/// as it was sent.
+/// whole in a rounded tile, with nothing behind it, and held to the tile's right
+/// edge, where the message it came with sits.
 pub fn picture(path: SharedString) -> impl IntoElement {
     view()
         .w(px(sizes::PICTURE_W))
@@ -106,7 +106,10 @@ pub fn picture(path: SharedString) -> impl IntoElement {
             image(path)
                 .w(px(sizes::PICTURE_W))
                 .h(px(sizes::PICTURE_H))
-                .object_fit(ResizeMode::Contain),
+                .object_fit(ResizeMode::Contain)
+                // A picture that does not fill the box keeps to its right edge:
+                // a tall page leaves its room on the left, not on both sides.
+                .object_right(),
         )
 }
 
