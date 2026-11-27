@@ -65,7 +65,10 @@ fn nav_row(
                 .pointer_events(PointerEvents::None)
                 .bg(move || {
                     if selected() {
-                        theme().accent
+                        // The theme's selection, a touch lighter than the
+                        // accent the rest of the app washes with, so the row
+                        // on show sits quietly among its neighbours.
+                        theme().selection()
                     } else {
                         AdaptiveColor::TRANSPARENT
                     }
