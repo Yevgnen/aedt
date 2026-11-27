@@ -1,5 +1,6 @@
 //! The conversation: its header, its message timeline and its composer.
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use aedt_provider::responses::Effort;
@@ -23,18 +24,9 @@ const TICK_PAD: f32 = 4.0;
 /// switching conversations resets the draft and the scroll position.
 pub(crate) fn pane(session_id: u32) -> View {
     let draft = signal(String::new());
-    // The messages whose thinking the reader opened; closed again, a thought is
-    // one quiet row. A reply read with its thought open starts in it.
-    let open = signal(store::open_thoughts(session_id));
-    // What each call shows, once the reader decided it: a call they have not
-    // decided on shows its output where the mock data opened it, and its diff
-    // whenever it changed files.
-    let calls = signal(
-        store::open_calls(session_id)
-            .into_iter()
-            .map(|call| CallFold { call, open: true })
-            .collect::<Vec<_>>(),
-    );
+    // What the reader folded open or away: a reply read with its thought open
+    // starts in it, and a call shows its output where the store left it open.
+    let folds = Folds::of(session_id);
     // The timeline's handle: the rail's ticks scroll it to their message.
     let timeline = element_ref();
     // The reader's place: the last user message the list shows.
@@ -62,7 +54,7 @@ pub(crate) fn pane(session_id: u32) -> View {
                             .max_w(px(sizes::COMPOSER_MAX))
                             .min_h(px(0.0))
                             .px(px(sizes::COMPOSER_SIDE))
-                            .child(timeline_view(session_id, open, calls, &timeline, current)),
+                            .child(timeline_view(session_id, folds, &timeline, current)),
                         rail(session_id, timeline, current),
                     )
                     .flex_1()
@@ -103,6 +95,64 @@ fn column(content: impl IntoElement, aside: impl IntoElement) -> View {
         .child(aside)
 }
 
+/// What the reader folded open or away in a conversation: a thought of a
+/// message, and a tool call.
+#[derive(Clone, Copy)]
+struct Folds {
+    /// The thoughts the reader opened, each by its message and its place in it.
+    thoughts: Signal<Vec<(u32, usize)>>,
+    /// What each call shows, by the call's id: absent until the reader decides.
+    calls: Signal<HashMap<SharedString, bool>>,
+}
+
+impl Folds {
+    /// The folds of `session`: a reply read with its thought open starts in it,
+    /// and a call shows its output where the store left it open.
+    fn of(session_id: u32) -> Self {
+        Self {
+            thoughts: signal(store::open_thoughts(session_id)),
+            calls: signal(
+                store::open_calls(session_id)
+                    .into_iter()
+                    .map(|call| (call, true))
+                    .collect(),
+            ),
+        }
+    }
+
+    /// Whether the thought at `key` shows.
+    fn thought_open(self, key: (u32, usize)) -> bool {
+        self.thoughts.with(|thoughts| thoughts.contains(&key))
+    }
+
+    /// Opens or folds away the thought at `key`.
+    fn toggle_thought(self, key: (u32, usize)) {
+        self.thoughts.update(
+            |thoughts| match thoughts.iter().position(|shown| *shown == key) {
+                Some(at) => {
+                    thoughts.remove(at);
+                }
+                None => thoughts.push(key),
+            },
+        );
+    }
+
+    /// Whether `tool` shows what it returned: the reader's decision, or, before
+    /// they made one, whether it changed files.
+    fn call_open(self, tool: &ToolRun) -> bool {
+        self.calls
+            .with(|calls| calls.get(&tool.id).copied())
+            .unwrap_or(!tool.changes.is_empty())
+    }
+
+    /// Shows or folds away the call `id`, as the reader decided.
+    fn set_call(self, id: SharedString, open: bool) {
+        self.calls.update(|calls| {
+            calls.insert(id, open);
+        });
+    }
+}
+
 fn header(session_id: u32) -> impl IntoElement {
     view()
         .flex_row()
@@ -131,14 +181,13 @@ fn header(session_id: u32) -> impl IntoElement {
 
 fn timeline_view(
     session_id: u32,
-    open: Signal<Vec<(u32, usize)>>,
-    calls: Signal<Vec<CallFold>>,
+    folds: Folds,
     handle: &ElementRef,
     current: Signal<Option<usize>>,
 ) -> impl IntoElement {
     virtual_list(
         move || store::message_count(session_id),
-        move |at| message_row(session_id, open, calls, at),
+        move |at| message_row(session_id, folds, at),
     )
     .keys(move || store::message_ids(session_id))
     .element_ref(handle)
@@ -309,19 +358,14 @@ fn body_of(body: Memo<Option<Message>>) -> impl Fn() -> SharedString + Copy + 's
 }
 
 /// A cell, made once and given other messages as it is reused.
-fn message_row(
-    session_id: u32,
-    open: Signal<Vec<(u32, usize)>>,
-    calls: Signal<Vec<CallFold>>,
-    at: Position,
-) -> impl IntoElement {
+fn message_row(session_id: u32, folds: Folds, at: Position) -> impl IntoElement {
     let message = computed(move || store::message_at(session_id, at.index()));
     let from_user =
         move || message.with(|message| message.as_ref().is_some_and(|m| m.author == Author::User));
 
     view().w_full().child(
         when(from_user, move || user_message(message))
-            .otherwise(move || assistant_message(message, open, calls)),
+            .otherwise(move || assistant_message(message, folds)),
     )
 }
 
@@ -434,11 +478,7 @@ fn message_detail(message: Memo<Option<Message>>) -> impl IntoElement {
     .text_color(move || tokens::caption().opacity(0.8))
 }
 
-fn assistant_message(
-    message: Memo<Option<Message>>,
-    open: Signal<Vec<(u32, usize)>>,
-    calls: Signal<Vec<CallFold>>,
-) -> impl IntoElement {
+fn assistant_message(message: Memo<Option<Message>>, folds: Folds) -> impl IntoElement {
     view()
         .w_full()
         .gap_1()
@@ -461,7 +501,7 @@ fn assistant_message(
                 })
             },
             |(at, _)| *at,
-            move |part, _| part_of(message, part, open, calls),
+            move |part, _| part_of(message, part, folds),
         ))
         .child(
             // The model and the duration show while the pointer is over the row
@@ -491,13 +531,12 @@ fn assistant_message(
 fn part_of(
     message: Memo<Option<Message>>,
     part: ReadSignal<(usize, Part)>,
-    open: Signal<Vec<(u32, usize)>>,
-    calls: Signal<Vec<CallFold>>,
+    folds: Folds,
 ) -> impl IntoElement {
     let at = part.with_untracked(|(at, _)| *at);
 
     match part.with_untracked(|(_, part)| part.clone()) {
-        Part::Thought(_) => thought(message, at, open).into_element(),
+        Part::Thought(_) => thought(message, at, folds).into_element(),
         Part::Text(_) => text_part(message, at).into_element(),
         Part::Tool(_) => {
             // The call this part holds, which is the one the card reads as it
@@ -514,7 +553,7 @@ fn part_of(
                 })
             });
 
-            tool_run(tool, calls).into_element()
+            tool_run(tool, folds).into_element()
         }
     }
 }
@@ -578,14 +617,10 @@ fn writing(message: Memo<Option<Message>>, at: usize) -> bool {
 /// One thought of the reply: its text under the quiet row that folds it away,
 /// shown while it arrives and while the reader keeps it open. A part nothing
 /// reasoned in shows nothing.
-fn thought(
-    message: Memo<Option<Message>>,
-    at: usize,
-    open: Signal<Vec<(u32, usize)>>,
-) -> impl IntoElement {
+fn thought(message: Memo<Option<Message>>, at: usize, folds: Folds) -> impl IntoElement {
     let key = move || message.with(|message| message.as_ref().map(|message| (message.id, at)));
     let shown = move || {
-        let opened = key().is_some_and(|key| open.with(|open| open.contains(&key)));
+        let opened = key().is_some_and(|key| folds.thought_open(key));
 
         opened || writing(message, at)
     };
@@ -596,49 +631,24 @@ fn thought(
             view()
                 .w_full()
                 .gap_1()
-                .child(thinking_bar(key, open))
+                .child(thinking_bar(key, folds))
                 .child(when(shown, move || thinking_text(message, at)))
         },
     )
-}
-
-/// A call the reader opened or folded away.
-#[derive(Clone, PartialEq)]
-struct CallFold {
-    /// The call.
-    call: SharedString,
-    /// Whether it shows what it returned.
-    open: bool,
 }
 
 /// One call: the tool, the arguments it was given and how it went, over what
 /// it returned — shown once the reader opens it, and from the start while it
 /// changed files, so an edit's diff reads at once. The output stops at a dozen
 /// lines; the agent read the whole of it.
-fn tool_run(tool: Memo<ToolRun>, calls: Signal<Vec<CallFold>>) -> impl IntoElement {
+fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
     let id = move || tool.with(|tool| tool.id.clone());
-    let shown = move || {
-        let id = id();
-
-        calls
-            .with(|calls| {
-                calls
-                    .iter()
-                    .find(|fold| fold.call == id)
-                    .map(|fold| fold.open)
-            })
-            .unwrap_or_else(|| tool.with(|tool| !tool.changes.is_empty()))
-    };
+    let shown = move || tool.with(|tool| folds.call_open(tool));
     let toggle = move || {
         let id = id();
         let open = !shown();
 
-        calls.update(
-            |calls| match calls.iter_mut().find(|fold| fold.call == id) {
-                Some(fold) => fold.open = open,
-                None => calls.push(CallFold { call: id, open }),
-            },
-        );
+        folds.set_call(id, open);
     };
 
     view()
@@ -793,20 +803,15 @@ fn change_card(change: ReadSignal<store::ToolChange>) -> impl IntoElement {
 /// itself quiet.
 fn thinking_bar(
     key: impl Fn() -> Option<(u32, usize)> + Copy + 'static,
-    open: Signal<Vec<(u32, usize)>>,
+    folds: Folds,
 ) -> impl IntoElement {
     let toggle = move || {
         let Some(key) = key() else {
             return;
         };
-        open.update(|open| match open.iter().position(|shown| *shown == key) {
-            Some(at) => {
-                open.remove(at);
-            }
-            None => open.push(key),
-        });
+        folds.toggle_thought(key);
     };
-    let opened = move || key().is_some_and(|key| open.with(|open| open.contains(&key)));
+    let opened = move || key().is_some_and(|key| folds.thought_open(key));
 
     view()
         .w_full()
