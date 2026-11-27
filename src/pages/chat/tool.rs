@@ -115,44 +115,23 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
         ))
 }
 
-/// What an edit did, where the row names the call: the first file it changed
-/// and how far the call changed what it touched, in all.
+/// What an edit did, where the row names the call: the first file it changed.
+/// How far it changed each file is in the card under it, line by line.
 fn edit_summary(tool: Memo<ToolRun>) -> impl IntoElement {
-    view()
-        .w_full()
-        .flex_row()
-        .items_center()
-        .gap_2()
-        .child(
-            text(move || {
-                tool.with(|tool| {
-                    tool.changes
-                        .first()
-                        .map(|change| change.path.clone())
-                        .unwrap_or_default()
-                })
-            })
-            .flex_1()
-            .min_w(px(0.0))
-            .number_of_lines(1)
-            .font_family(code::MONO_FONT)
-            .text_size(px(sizes::CODE_FONT))
-            .text_color(tokens::meta),
-        )
-        .child(
-            text(move || {
-                tool.with(|tool| {
-                    let added: usize = tool.changes.iter().map(|change| change.added).sum();
-                    let removed: usize = tool.changes.iter().map(|change| change.removed).sum();
-
-                    format!("+{added} −{removed}")
-                })
-            })
-            .flex_none()
-            .font_family(code::MONO_FONT)
-            .text_size(px(sizes::CODE_FONT))
-            .text_color(tokens::meta),
-        )
+    text(move || {
+        tool.with(|tool| {
+            tool.changes
+                .first()
+                .map(|change| change.path.clone())
+                .unwrap_or_default()
+        })
+    })
+    .w_full()
+    .min_w(px(0.0))
+    .number_of_lines(1)
+    .font_family(code::MONO_FONT)
+    .text_size(px(sizes::CODE_FONT))
+    .text_color(tokens::meta)
 }
 
 /// The files a call changed: each a card of its own, under a blank line that
