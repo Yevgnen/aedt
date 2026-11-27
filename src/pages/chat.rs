@@ -775,14 +775,15 @@ fn thought_bottom(message: Memo<Option<Message>>, at: usize) -> f32 {
     if answered { THINKING_LINE } else { ROW_INSET }
 }
 
-/// The thought's own text, quieter than the answer it led to.
+/// The thought's own text, quieter than the answer it led to: the ink a call's
+/// arguments take.
 fn thinking_text(message: Memo<Option<Message>>, at: usize) -> impl IntoElement {
     text(move || thought_text(message, at).unwrap_or_default())
         .w_full()
         .pl(px(THINKING_TEXT_INSET))
         .text_size(px(sizes::TEXT_COMPACT))
         .line_height(LineHeight::Multiple(MESSAGE_LINE))
-        .text_color(move || tokens::meta().opacity(0.7))
+        .text_color(tokens::caption)
 }
 
 /// The thought's last lines, up to [`PREVIEW_LINES`] of them: the box grows
@@ -804,7 +805,7 @@ fn thinking_preview(message: Memo<Option<Message>>, at: usize) -> impl IntoEleme
                     .flex_none()
                     .text_size(px(sizes::TEXT_COMPACT))
                     .line_height(LineHeight::Multiple(MESSAGE_LINE))
-                    .text_color(move || tokens::meta().opacity(0.7)),
+                    .text_color(tokens::caption),
             ),
     )
 }
