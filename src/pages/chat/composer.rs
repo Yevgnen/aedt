@@ -87,9 +87,19 @@ fn composer_card(
         .p(px(sizes::CARD_PADDING))
         .gap_2()
         .child(
-            input::composer(draft, submit)
-                .label("Message")
-                .element_ref(&field),
+            view()
+                .relative()
+                .child(
+                    input::composer(draft, submit)
+                        .label("Message")
+                        .element_ref(&field),
+                )
+                // While the microphone listens, its meter floats over the
+                // field: what is being said has not been written down yet.
+                .child(when(
+                    move || aedt_bridge::voice::state().get().recording,
+                    waveform,
+                )),
         )
         .child(
             view()
@@ -103,6 +113,62 @@ fn composer_card(
                 .child(when(move || settings::speech().is_some(), voice_button))
                 .child(button::icon("↑", "Send", can_send).on_press(submit)),
         )
+}
+
+/// How many bars the meter has.
+const WAVE_BARS: usize = 11;
+
+/// The bars the field shows while the microphone listens: the middle one
+/// tallest, and their heights following the voice.
+const WAVE_PROFILE: [f32; WAVE_BARS] = [
+    0.32, 0.52, 0.74, 0.9, 0.62, 1.0, 0.62, 0.9, 0.74, 0.52, 0.32,
+];
+
+/// One bar's width, the gap beside it, and the shortest and tallest it gets.
+const WAVE_BAR: f32 = 3.0;
+const WAVE_GAP: f32 = 3.0;
+const WAVE_MIN: f32 = 5.0;
+const WAVE_MAX: f32 = 22.0;
+
+/// The meter, floated over the field while the microphone listens: the field's
+/// own words give way to it.
+fn waveform() -> impl IntoElement {
+    let meter = aedt_bridge::voice::meter();
+    let mut bars = view().flex_row().items_center().gap(px(WAVE_GAP));
+    for index in 0..WAVE_BARS {
+        bars = bars.child(bar(index, meter));
+    }
+
+    view()
+        .absolute()
+        .top(px(0.0))
+        .bottom(px(0.0))
+        .left(px(0.0))
+        .right(px(0.0))
+        .items_center()
+        .justify_center()
+        .bg(move || theme().card)
+        .child(bars)
+}
+
+/// One bar, `index` from the start, as tall as the meter and its place in the
+/// profile say.
+fn bar(index: usize, meter: Signal<aedt_bridge::voice::Meter>) -> impl IntoElement {
+    view()
+        .w(px(WAVE_BAR))
+        .rounded_full()
+        .bg(move || theme().primary)
+        .h(move || px(height(index, meter.get())))
+}
+
+/// How tall the bar at `index` stands for `meter`: the profile, the loudness,
+/// and a ripple that travels along the row as the measurements come.
+fn height(index: usize, meter: aedt_bridge::voice::Meter) -> f32 {
+    let level = 0.12 + 0.88 * meter.level.clamp(0.0, 1.0);
+    let ripple = 0.72 + 0.28 * (meter.frame as f32 * 0.55 + index as f32 * 0.8).sin();
+
+    (WAVE_MIN + (WAVE_MAX - WAVE_MIN) * WAVE_PROFILE[index] * level * ripple)
+        .clamp(WAVE_MIN, WAVE_MAX)
 }
 
 /// The microphone beside the model: a press starts recording, and the next one

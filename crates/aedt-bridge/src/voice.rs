@@ -5,7 +5,7 @@ use std::{
     cell::RefCell,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
         mpsc::{self, TryRecvError},
     },
     thread,
@@ -45,6 +45,22 @@ pub fn state() -> Signal<Voice> {
     global::<Voice>()
 }
 
+/// The microphone's loudness, for the bars the composer floats while it
+/// listens.
+#[derive(Clone, Copy, Default)]
+pub struct Meter {
+    /// How loud the last moment was: full scale at 1.0.
+    pub level: f32,
+    /// How many measurements have come: the bars ripple along the row as they
+    /// arrive.
+    pub frame: u32,
+}
+
+/// The microphone's loudness, one for the app.
+pub fn meter() -> Signal<Meter> {
+    global::<Meter>()
+}
+
 thread_local! {
     /// The recording in flight, if any. The engine thread keeps the handle; the
     /// capture thread reads the stop flag and fills the samples.
@@ -67,13 +83,15 @@ pub fn start() -> Result<(), String> {
 
     let stop = Arc::new(AtomicBool::new(false));
     let samples = Arc::new(Mutex::new(Vec::new()));
+    let level = Arc::new(AtomicU32::new(0));
     let (sender, recorded) = mpsc::channel::<Result<Vec<u8>, String>>();
     let thread = {
         let stop = Arc::clone(&stop);
         let samples = Arc::clone(&samples);
+        let level = Arc::clone(&level);
         thread::Builder::new()
             .name("aedt-voice".to_owned())
-            .spawn(move || capture(&stop, &samples, &sender))
+            .spawn(move || capture(&stop, &samples, &level, &sender))
             .map_err(|error| format!("the microphone thread did not start: {error}"))?
     };
     RECORDER.with(|slot| *slot.borrow_mut() = Some(Recorder { stop, thread }));
@@ -84,7 +102,7 @@ pub fn start() -> Result<(), String> {
 
     // Under no owner of its own: a pane going away must not stop the words
     // from coming back into whatever composer shows next.
-    Owner::detached().run(|| spawn(async move { hear(recorded).await }));
+    Owner::detached().run(|| spawn(async move { hear(recorded, level).await }));
 
     Ok(())
 }
@@ -141,14 +159,30 @@ pub fn take() {
 
 /// Waits for the recording to end, then has the provider write it down. The
 /// capture thread reports the file it made, or why it made none.
-async fn hear(recorded: mpsc::Receiver<Result<Vec<u8>, String>>) {
+async fn hear(recorded: mpsc::Receiver<Result<Vec<u8>, String>>, level: Arc<AtomicU32>) {
+    let meter = meter();
+    let mut frame = 0u32;
+    let mut tick = 0u8;
     let outcome = loop {
         match recorded.try_recv() {
             Ok(outcome) => break outcome,
-            Err(TryRecvError::Empty) => timer(Duration::from_millis(16)).await,
+            Err(TryRecvError::Empty) => {
+                // Every other turn, near thirty a second: the bars follow
+                // the voice rather than step.
+                if tick == 0 {
+                    frame = frame.wrapping_add(1);
+                    meter.set(Meter {
+                        level: f32::from_bits(level.load(Ordering::Relaxed)),
+                        frame,
+                    });
+                }
+                tick = (tick + 1) % 2;
+                timer(Duration::from_millis(16)).await;
+            }
             Err(TryRecvError::Disconnected) => break Err("the microphone went away".to_owned()),
         }
     };
+    meter.set(Meter::default());
     // The thread is done once it has sent: joining it reaps it without waiting.
     RECORDER.with(|slot| {
         if let Some(recorder) = slot.borrow_mut().take() {
@@ -191,9 +225,10 @@ fn fail(why: impl Into<SharedString>) {
 fn capture(
     stop: &AtomicBool,
     samples: &Arc<Mutex<Vec<f32>>>,
+    level: &Arc<AtomicU32>,
     done: &mpsc::Sender<Result<Vec<u8>, String>>,
 ) {
-    let result = listen(stop, samples).and_then(|rate| {
+    let result = listen(stop, samples, level).and_then(|rate| {
         let mono = samples
             .lock()
             .map(|samples| samples.clone())
@@ -213,7 +248,11 @@ fn capture(
 /// Opens the default microphone and fills `samples` with it at its own rate
 /// until `stop` is set or the longest recording is reached. `Err` says why the
 /// microphone could not be used.
-fn listen(stop: &AtomicBool, samples: &Arc<Mutex<Vec<f32>>>) -> Result<u32, String> {
+fn listen(
+    stop: &AtomicBool,
+    samples: &Arc<Mutex<Vec<f32>>>,
+    level: &Arc<AtomicU32>,
+) -> Result<u32, String> {
     let host = cpal::default_host();
     let device = host
         .default_input_device()
@@ -228,11 +267,11 @@ fn listen(stop: &AtomicBool, samples: &Arc<Mutex<Vec<f32>>>) -> Result<u32, Stri
     let limit = rate as usize * MAX_SECONDS as usize;
 
     let stream = match format {
-        SampleFormat::F32 => input::<f32>(&device, config, channels, samples, limit),
-        SampleFormat::I16 => input::<i16>(&device, config, channels, samples, limit),
-        SampleFormat::U16 => input::<u16>(&device, config, channels, samples, limit),
-        SampleFormat::I32 => input::<i32>(&device, config, channels, samples, limit),
-        SampleFormat::F64 => input::<f64>(&device, config, channels, samples, limit),
+        SampleFormat::F32 => input::<f32>(&device, config, channels, samples, level, limit),
+        SampleFormat::I16 => input::<i16>(&device, config, channels, samples, level, limit),
+        SampleFormat::U16 => input::<u16>(&device, config, channels, samples, level, limit),
+        SampleFormat::I32 => input::<i32>(&device, config, channels, samples, level, limit),
+        SampleFormat::F64 => input::<f64>(&device, config, channels, samples, level, limit),
         other => {
             return Err(format!(
                 "the microphone's samples are {other}, which this app does not read"
@@ -269,6 +308,7 @@ fn input<T>(
     config: StreamConfig,
     channels: usize,
     samples: &Arc<Mutex<Vec<f32>>>,
+    level: &Arc<AtomicU32>,
     limit: usize,
 ) -> Result<cpal::Stream, cpal::Error>
 where
@@ -276,6 +316,7 @@ where
     f32: FromSample<T>,
 {
     let samples = Arc::clone(samples);
+    let level = Arc::clone(level);
 
     device.build_input_stream(
         config,
@@ -283,16 +324,31 @@ where
             let Ok(mut samples) = samples.lock() else {
                 return;
             };
+            let mut squares = 0.0;
+            let mut count = 0usize;
             for frame in data.chunks(channels) {
                 if samples.len() >= limit {
-                    return;
+                    break;
                 }
-                samples.push(f32::from_sample_(frame[0]));
+                let sample = f32::from_sample_(frame[0]);
+                squares += sample * sample;
+                count += 1;
+                samples.push(sample);
+            }
+            if count > 0 {
+                let rms = (squares / count as f32).sqrt();
+                level.store(loudness(rms).to_bits(), Ordering::Relaxed);
             }
         },
         |error| eprintln!("voice: {error}"),
         None,
     )
+}
+
+/// `rms` (full scale at 1.0) as the meter's 0..1: speech sits near a tenth of
+/// full scale, so the middle of the meter is ordinary talk.
+fn loudness(rms: f32) -> f32 {
+    (rms * 3.0).clamp(0.0, 1.0).sqrt()
 }
 
 /// `samples` at `from` Hz taken down to `to` Hz: each one the mean of the
