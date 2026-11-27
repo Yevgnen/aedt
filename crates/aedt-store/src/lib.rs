@@ -390,6 +390,20 @@ pub fn add_workspace(path: &str) -> Option<u32> {
     added
 }
 
+/// Takes the workspace `id` out of the sidebar, its folder left where it is:
+/// its conversations join the ones held in none.
+pub fn remove_workspace(id: u32) {
+    state().update(|state| {
+        state.workspaces.retain(|workspace| workspace.id != id);
+        for session in &mut state.sessions {
+            if session.workspace == Some(id) {
+                session.workspace = None;
+            }
+        }
+    });
+    keep();
+}
+
 /// The conversations, grouped: each workspace's under it, the ones held in
 /// none last, and the archived ones never (tracked where it is read).
 pub fn groups() -> Vec<Group> {

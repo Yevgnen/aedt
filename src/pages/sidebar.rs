@@ -116,6 +116,10 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
             None => SharedString::from("Ungrouped"),
         })
     };
+    // The workspace this row stands for: the ones held in none have no folder
+    // to take out of the sidebar.
+    let workspace_id =
+        group.with_untracked(|group| group.workspace.as_ref().map(|workspace| workspace.id));
     // The conversations show until the reader folds them: the list is what
     // the sidebar is for.
     let open = signal(true);
@@ -153,6 +157,9 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
                 .otherwise(|| icon::folder_minus(14.0)),
         )
         .child(text(name).flex_1().text_size(px(sizes::TEXT_COMPACT)))
+        .when_some(workspace_id, |header, id| {
+            header.child(workspace_actions(id))
+        })
         .child(
             // The only place a conversation starts, shown while the row
             // is under the pointer and washed when the pointer is on it.
@@ -193,6 +200,33 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
             |session| session.id,
             |session, _| session_row(session),
         )))
+}
+
+/// The actions of the workspace `id`, at the end of its row while the pointer
+/// is over it: taking it out of the sidebar, its folder left where it is.
+fn workspace_actions(id: u32) -> impl IntoElement {
+    menu::menu(
+        button::bare()
+            .accessibility_label("Workspace actions")
+            .size(px(sizes::META_ACTION))
+            .items_center()
+            .justify_center()
+            .rounded_md()
+            .opacity(0.0)
+            .group_hover(|s| s.opacity(1.0))
+            // The pointer leaves the row to pick an item; the menu marks the
+            // button it opens, which keeps it shown while it is open.
+            .expanded(|s| s.opacity(1.0))
+            .hover(|s| s.bg(move || theme().muted))
+            .transition_all()
+            .duration(motion::row_duration())
+            .ease_out()
+            .child(icon::more(14.0)),
+        Placement::Bottom,
+        Align::End,
+        menu::item(icon::x(14.0), "Remove workspace")
+            .on_select(move || store::remove_workspace(id)),
+    )
 }
 
 /// One conversation: its title, selected while it is the one on show, and the
