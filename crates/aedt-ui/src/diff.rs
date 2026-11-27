@@ -87,16 +87,20 @@ pub fn card(change: impl Fn() -> Change + Copy + 'static) -> View {
 /// card gives it the height they take — counted from the patch, its header
 /// lines aside — up to [`ROWS`], past which the view scrolls them.
 fn rows(change: Memo<Change>) -> impl IntoElement {
-    let sides = computed(move || change.with(|change| sides_of(&change.patch)));
-    let count = move || change.with(|change| rows_of(&change.patch));
+    let parsed = computed(move || {
+        change.with(|change| Parsed {
+            sides: sides_of(&change.patch),
+            rows: rows_of(&change.patch),
+        })
+    });
 
     view()
         .w_full()
-        .h(move || px(count().min(ROWS) * ROW))
+        .h(move || px(parsed.with(|parsed| parsed.rows).min(ROWS) * ROW))
         .child(
             diff_view()
-                .old_value(move || sides.with(|sides| Some(sides.before.clone())))
-                .new_value(move || sides.with(|sides| Some(sides.after.clone())))
+                .old_value(move || parsed.with(|parsed| Some(parsed.sides.before.clone())))
+                .new_value(move || parsed.with(|parsed| Some(parsed.sides.after.clone())))
                 // The hunks' own lines are the whole of what reads: a line
                 // kept around a change is in them already.
                 .context_lines(0)
@@ -119,6 +123,14 @@ fn rows(change: Memo<Change>) -> impl IntoElement {
                 // The view fills the box the card measured for it.
                 .size_full(),
         )
+}
+
+/// A patch read once: the two texts the view compares, and the rows they take,
+/// so a layout that asks for the height does not walk the patch again.
+#[derive(PartialEq)]
+struct Parsed {
+    sides: Sides,
+    rows: f32,
 }
 
 /// How many rows `patch` draws: its lines, less the file's two headers and its
