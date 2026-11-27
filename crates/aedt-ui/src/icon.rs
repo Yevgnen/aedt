@@ -203,6 +203,36 @@ const PANEL_LEFT: &str = concat!(
     r#"</svg>"#,
 );
 
+/// A frame with its right column marked (Lucide's `panel-right`): the files a
+/// press shows or hides.
+const PANEL_RIGHT: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<rect width="18" height="18" x="3" y="3" rx="2"/>"#,
+    r#"<path d="M15 3v18"/>"#,
+    r#"</svg>"#,
+);
+
+/// A folder (Lucide's `folder`): a directory the files panel lists closed.
+const FOLDER: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>"#,
+    r#"</svg>"#,
+);
+
+/// A page with its corner folded (Lucide's `file`): a file the panel lists.
+const FILE: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>"#,
+    r#"<path d="M14 2v4a2 2 0 0 0 2 2h4"/>"#,
+    r#"</svg>"#,
+);
+
 /// A plus (Lucide's `plus`): an action that adds something.
 const PLUS: &str = concat!(
     r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
@@ -285,6 +315,22 @@ pub fn wrench(size: f32) -> impl IntoElement {
 /// The folder with a plus, `size` points square, in the caller's text color.
 pub fn folder_plus(size: f32) -> impl IntoElement {
     icon(FOLDER_PLUS, size)
+}
+
+/// The files mark, `size` points square, in the caller's text color.
+pub fn panel_right(size: f32) -> impl IntoElement {
+    icon(PANEL_RIGHT, size)
+}
+
+/// The closed folder, `size` points square, in the caller's text color.
+pub fn folder(size: f32) -> impl IntoElement {
+    icon(FOLDER, size)
+}
+
+/// The page with its corner folded, `size` points square, in the caller's text
+/// color.
+pub fn file(size: f32) -> impl IntoElement {
+    icon(FILE, size)
 }
 
 /// The open folder, `size` points square, in the caller's text color.

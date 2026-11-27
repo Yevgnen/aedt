@@ -4,7 +4,7 @@ use aedt_store as store;
 use nsh_base::theme;
 use nsh_core::prelude::*;
 
-use crate::pages::{chat, settings, sidebar};
+use crate::pages::{chat, files, settings, sidebar};
 
 pub(crate) fn shell() -> View {
     // Whose pane shows: a memo of the selected id, so a reply streaming into
@@ -21,6 +21,9 @@ pub(crate) fn shell() -> View {
     // Whether the sidebar shows: the toggle in its own top row hides it, and the
     // one the conversation's header then carries brings it back.
     let sidebar_open = signal(true);
+    // Whether the files panel shows: the conversation's header opens it, and the
+    // panel's own top row shuts it.
+    let files_open = signal(false);
 
     view()
         .flex_1()
@@ -38,9 +41,17 @@ pub(crate) fn shell() -> View {
                 // A new conversation replaces the pane and its state.
                 .child(dynamic(move || {
                     let id = selected.get();
-                    untracked(|| chat::pane(id, sidebar_open).key(format!("chat-{id}")))
+                    untracked(|| chat::pane(id, sidebar_open, files_open).key(format!("chat-{id}")))
                 })),
         )
+        // The files of the conversation's folder, beside it while they show.
+        .child(when(
+            move || files_open.get(),
+            move || {
+                let id = selected.get();
+                untracked(|| files::panel(id, files_open).key(format!("files-{id}")))
+            },
+        ))
         // The settings, over everything while they are open.
         .child(settings::dialog(settings_open))
 }

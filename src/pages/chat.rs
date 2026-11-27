@@ -18,7 +18,7 @@ use tool::tool_run;
 
 /// One session's conversation. The caller keys it by the session, so
 /// switching conversations resets the draft and the scroll position.
-pub(crate) fn pane(session_id: u32, sidebar: Signal<bool>) -> View {
+pub(crate) fn pane(session_id: u32, sidebar: Signal<bool>, files: Signal<bool>) -> View {
     let draft = signal(String::new());
     // What the reader folded open or away: a reply read with its thought open
     // starts in it, and a call shows its output where the store left it open.
@@ -37,7 +37,7 @@ pub(crate) fn pane(session_id: u32, sidebar: Signal<bool>) -> View {
         .min_w(px(0.0))
         .bg(move || theme().background)
         .bind_motion(&enter)
-        .child(header(session_id, sidebar))
+        .child(header(session_id, sidebar, files))
         .child(
             view()
                 .flex_1()
@@ -170,7 +170,7 @@ impl Folds {
     }
 }
 
-fn header(session_id: u32, sidebar: Signal<bool>) -> impl IntoElement {
+fn header(session_id: u32, sidebar: Signal<bool>, files: Signal<bool>) -> impl IntoElement {
     view()
         // The sidebar's first block beside it: its top row and its heading. The
         // title centers between the traffic lights and that heading.
@@ -214,6 +214,15 @@ fn header(session_id: u32, sidebar: Signal<bool>) -> impl IntoElement {
             .font_weight(FontWeight::SEMIBOLD)
             .text_color(move || theme().foreground),
         )
+        // The files of the conversation's folder open at the window's right end,
+        // where the panel's own toggle takes this place while it shows.
+        .child(when(
+            move || !files.get(),
+            move || {
+                button::ghost_icon(icon::panel_right(14.0), "Show the files")
+                    .on_press(move || files.set(true))
+            },
+        ))
 }
 
 fn timeline_view(
