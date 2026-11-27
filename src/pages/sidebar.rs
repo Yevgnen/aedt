@@ -187,9 +187,10 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
         .w_full()
         .pb_1()
         .child(header)
-        // The rows sit against one another: their hover fills touch, as a
-        // column of them reads, where a gap would cut each into a block.
-        .content(view().w_full().pl(px(24.0 - LIST_EDGE)).child(each(
+        // The rows keep a hair of air between them: one row's wash ends
+        // before the next one's begins, so a selected row beside a hovered
+        // one still reads as two rows.
+        .content(view().w_full().pl(px(24.0 - LIST_EDGE)).gap_1().child(each(
             move || group.with(|group| group.sessions.clone()),
             |session| session.id,
             |session, _| session_row(session),
