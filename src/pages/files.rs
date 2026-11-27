@@ -186,7 +186,10 @@ fn entry_row(
         .pl(px(sizes::SIDEBAR_INSET + depth as f32 * 12.0))
         .pr_2()
         .rounded(move || theme().radius)
-        .text_color(move || theme().sidebar_foreground)
+        // The app's own ink, as a session's title and a message take it: the
+        // sidebar's background without the theme's near-black `sidebar-foreground`,
+        // which the app's theme leaves to the default.
+        .text_color(move || theme().foreground)
         .hover(|s| s.bg(move || theme().muted))
         .on_press(move || {
             if dir {
