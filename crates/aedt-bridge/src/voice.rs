@@ -143,7 +143,7 @@ pub fn toggle() {
 
         return;
     }
-    if voice.transcribing || settings::speech().is_none() {
+    if voice.transcribing || settings::deepseek().is_none() {
         return;
     }
 
@@ -209,7 +209,7 @@ async fn hear(recorded: mpsc::Receiver<Result<Option<Vec<u8>>, String>>, level: 
         Ok(None) => return settle(),
         Err(why) => return fail(why),
     };
-    let Some(provider) = settings::speech() else {
+    let Some(provider) = settings::deepseek() else {
         return fail("no DeepSeek provider is set up to write speech down".to_owned());
     };
 

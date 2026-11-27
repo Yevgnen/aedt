@@ -246,7 +246,7 @@ fn composer_card(
                                 .child(model_picker())
                                 // The microphone: only a provider that writes
                                 // speech down can give the button anything to do.
-                                .child(when(move || settings::speech().is_some(), voice_button))
+                                .child(when(move || settings::deepseek().is_some(), voice_button))
                                 .child(button::icon("↑", "Send", can_send).on_press(submit)),
                         ),
                 )

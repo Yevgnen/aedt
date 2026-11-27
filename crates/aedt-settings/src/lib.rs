@@ -229,20 +229,20 @@ fn variables(text: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-/// What writes the reader's speech down: the provider it reaches, with the
-/// base URL and key the request carries.
-pub struct Speech {
+/// A provider that reaches DeepSeek's own answers, with the base URL and key
+/// its requests carry: where the reader's speech and a session's title go.
+pub struct DeepSeek {
     /// The provider's base URL, as the settings keep it.
     pub base_url: String,
     /// The key its requests carry.
     pub api_key: String,
 }
 
-/// The provider that writes the reader's speech down: DeepSeek, whose
-/// speech-to-text the app calls, while one of its providers has a key (tracked
+/// The provider that reaches DeepSeek's own answers: its speech-to-text and a
+/// session's title both go there, while one of its providers has a key (tracked
 /// where it is read). A proxy that fronts DeepSeek under another host does not
-/// count: the request goes to DeepSeek's own speech path.
-pub fn speech() -> Option<Speech> {
+/// count: the requests go to DeepSeek's own paths.
+pub fn deepseek() -> Option<DeepSeek> {
     settings().with(|settings| {
         settings
             .providers
@@ -251,7 +251,7 @@ pub fn speech() -> Option<Speech> {
             .find(|provider| {
                 reaches_deepseek(&provider.base_url) && !provider.api_key.trim().is_empty()
             })
-            .map(|provider| Speech {
+            .map(|provider| DeepSeek {
                 base_url: provider.base_url.trim().to_owned(),
                 api_key: provider.api_key.trim().to_owned(),
             })
