@@ -59,6 +59,9 @@ pub(crate) fn shell() -> View {
     // other's header opens it and its own top row shuts it.
     let sidebar_open = signal(true);
     let files_open = signal(false);
+    // The reader's own showing of the changes panel inside the conversation:
+    // the mark beside the workspace's Zed mark opens it.
+    let changes_open = signal(false);
     // While the window is too narrow for a panel beside the conversation, the
     // reader's own showing waits: the panel steps aside, and shows only where
     // they ask for it anyway. The setting stays as they left it, so a wider
@@ -135,8 +138,15 @@ pub(crate) fn shell() -> View {
                 .child(dynamic(move || {
                     let id = selected.get();
                     untracked(|| {
-                        chat::pane(id, sidebar_shown, show_sidebar, files_shown, show_files)
-                            .key(format!("chat-{id}"))
+                        chat::pane(
+                            id,
+                            sidebar_shown,
+                            show_sidebar,
+                            files_shown,
+                            show_files,
+                            changes_open,
+                        )
+                        .key(format!("chat-{id}"))
                     })
                 })),
         )

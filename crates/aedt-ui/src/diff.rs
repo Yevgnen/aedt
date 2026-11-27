@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 use nsh_base::theme;
 use nsh_core::{LineHeight, prelude::*};
 
-use crate::{MESSAGE_LINE, code, highlight, sizes, tokens};
+use crate::{MESSAGE_LINE, code, highlight, icon, motion, sizes, state, tokens};
 
 /// One file a call changed, as the card shows it.
 #[derive(Clone, PartialEq)]
@@ -74,60 +74,131 @@ pub fn card(change: impl Fn() -> Change + Copy + 'static) -> View {
     let change = computed(change);
     let items = computed(move || change.with(|change| items_of(&change.path, &change.patch)));
 
+    container()
+        .child(title(change))
+        // A file too large for the tool to diff has its counts alone.
+        .child(when(
+            move || change.with(|change| !change.patch.is_empty()),
+            move || lines(items),
+        ))
+}
+
+/// The card of one file a change made, folded by `open`: its header shows
+/// always, and pressing it shows the diff or folds it away.
+pub fn foldable_card(
+    change: impl Fn() -> Change + Copy + 'static,
+    open: impl Fn() -> bool + Clone + 'static,
+    toggle: impl Fn() + Clone + 'static,
+) -> View {
+    let change = computed(change);
+    let items = computed(move || change.with(|change| items_of(&change.path, &change.patch)));
+    let shown = {
+        let open = open.clone();
+        move || open() && change.with(|change| !change.patch.is_empty())
+    };
+
+    container()
+        .child(fold_title(change, open, toggle))
+        .child(when(shown, move || lines(items)))
+}
+
+/// The card's box: a file's header, and its lines while they show.
+fn container() -> View {
     view()
         .w_full()
         .rounded(move || theme().radius)
         // A line's fill is square: the card's corners keep it.
         .overflow_hidden()
         .bg(tokens::code)
+}
+
+/// The card's header: the file's path, and how far the change moved it.
+fn title(change: Memo<Change>) -> impl IntoElement {
+    view()
+        .w_full()
+        .flex_row()
+        .items_center()
+        .gap_2()
+        .bg(move || theme().muted)
+        .px_2()
+        .py_1()
+        .child(path(change))
+        .child(counts(change))
+}
+
+/// The header of a card the reader can fold: the chevron says which way it
+/// opens, and a press on any of the row does the same as the chevron does.
+fn fold_title(
+    change: Memo<Change>,
+    open: impl Fn() -> bool + Clone + 'static,
+    toggle: impl Fn() + Clone + 'static,
+) -> impl IntoElement {
+    view()
+        .w_full()
+        .flex_row()
+        .items_center()
+        .gap_1()
+        .bg(move || theme().muted)
+        .px_2()
+        .py_1()
+        .role(AccessibilityRole::Button)
+        .accessibility_state({
+            let open = open.clone();
+            move || AccessibilityState {
+                expanded: Some(open()),
+                ..AccessibilityState::default()
+            }
+        })
+        .on_press(toggle)
+        .focus_visible(state::focus_ring)
+        .hover(|s| s.bg(move || theme().accent))
+        .transition_colors()
+        .duration(motion::row_duration())
         .child(
-            view()
-                .w_full()
-                .flex_row()
-                .items_center()
-                .gap_2()
-                .bg(move || theme().muted)
-                .px_2()
-                .py_1()
-                .child(
-                    text(move || change.with(|change| change.path.clone()))
-                        .flex_1()
-                        .min_w(px(0.0))
-                        .number_of_lines(1)
-                        .font_family(code::MONO_FONT)
-                        .text_size(px(sizes::CODE_FONT))
-                        .text_color(tokens::meta),
-                )
-                .child(
-                    text(move || {
-                        change.with(|change| format!("+{} −{}", change.added, change.removed))
-                    })
-                    .flex_none()
-                    .font_family(code::MONO_FONT)
-                    .text_size(px(sizes::CODE_FONT))
-                    .text_color(tokens::meta),
-                ),
+            view().flex_none().text_color(tokens::meta).child(
+                when(open, || icon::chevron_down(12.0)).otherwise(|| icon::chevron_right(12.0)),
+            ),
         )
-        // A file too large for the tool to diff has its counts alone.
-        .child(when(
-            move || change.with(|change| !change.patch.is_empty()),
-            move || {
-                view().w_full().flex_col().child(each(
-                    move || items.get(),
-                    |item| item.key(),
-                    move |item, _| match item.with_untracked(|item| item.clone()) {
-                        Item::Line {
-                            sign,
-                            text,
-                            changed,
-                            tokens,
-                            ..
-                        } => line_row(sign, text, changed, tokens).into_element(),
-                        Item::Gap { lines, .. } => gap_row(lines).into_element(),
-                    },
-                ))
-            },
-        ))
+        .child(path(change))
+        .child(counts(change))
+}
+
+/// The path Git names the file by, quiet and in the code's own face.
+fn path(change: Memo<Change>) -> Text {
+    text(move || change.with(|change| change.path.clone()))
+        .flex_1()
+        .min_w(px(0.0))
+        .number_of_lines(1)
+        .font_family(code::MONO_FONT)
+        .text_size(px(sizes::CODE_FONT))
+        .text_color(tokens::meta)
+}
+
+/// How far the change moved the file: the lines it added and removed.
+fn counts(change: Memo<Change>) -> Text {
+    text(move || change.with(|change| format!("+{} −{}", change.added, change.removed)))
+        .flex_none()
+        .font_family(code::MONO_FONT)
+        .text_size(px(sizes::CODE_FONT))
+        .text_color(tokens::meta)
+}
+
+/// The card's lines, each a row of its own.
+fn lines(items: Memo<Vec<Item>>) -> impl IntoElement {
+    view().w_full().flex_col().child(each(
+        move || items.get(),
+        |item| item.key(),
+        move |item, _| match item.with_untracked(|item| item.clone()) {
+            Item::Line {
+                sign,
+                text,
+                changed,
+                tokens,
+                ..
+            } => line_row(sign, text, changed, tokens).into_element(),
+            Item::Gap { lines, .. } => gap_row(lines).into_element(),
+        },
+    ))
 }
 
 /// One line of the change: its sign, then its text, the words that changed in
