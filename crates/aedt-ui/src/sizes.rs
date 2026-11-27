@@ -6,8 +6,8 @@ pub const SIDEBAR: f32 = 264.0;
 
 /// The room the conversation keeps beside a panel that shows with it: its
 /// column with the composer's row whole. A window narrower than this, once the
-/// panels are counted, steps them aside — the sidebar first, which counts the
-/// files panel, and the files panel once not even one of them fits.
+/// panels are counted, steps them aside — the files panel first, which counts
+/// the sidebar, and the sidebar once not even one of them fits.
 pub const ROOM: f32 = 490.0;
 
 /// The sidebar's content inset: the line the traffic lights stand on, so a

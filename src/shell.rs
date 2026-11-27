@@ -74,16 +74,16 @@ pub(crate) fn shell() -> View {
         .text_color(move || theme().foreground)
         .on_layout(move |frame: &Bounds<Points>| {
             let width = frame.size.width.0;
-            // What the files panel takes while the reader keeps it open. The
-            // sidebar counts it and leaves first, so no width takes both at once
+            // What the sidebar takes while the reader keeps it open. The files
+            // panel counts it and leaves first, so no width takes both at once
             // and leaves the conversation squeezed between them.
-            let files = if files_open.get_untracked() {
+            let sidebar = if sidebar_open.get_untracked() {
                 sizes::SIDEBAR
             } else {
                 0.0
             };
-            let sidebar_now = width - files - sizes::SIDEBAR < sizes::ROOM;
-            let files_now = width - sizes::SIDEBAR < sizes::ROOM;
+            let files_now = width - sidebar - sizes::SIDEBAR < sizes::ROOM;
+            let sidebar_now = width - sizes::SIDEBAR < sizes::ROOM;
             if sidebar_narrow.get_untracked() != sidebar_now
                 || files_narrow.get_untracked() != files_now
             {
