@@ -16,9 +16,9 @@ pub fn section(
     row(title, Some(mark.into_element()), None, content)
 }
 
-/// A section whose header ends with `trailing`, past the part that opens it: a
-/// switch the section's subject takes at once, which the header's own press
-/// would open the section instead of.
+/// A section whose header carries `trailing` before its chevron: a switch the
+/// section's subject takes at once, which the header's own press would open the
+/// section instead of.
 pub fn section_with_trailing(
     title: impl IntoReactive<SharedString>,
     trailing: impl IntoElement,
@@ -27,8 +27,9 @@ pub fn section_with_trailing(
     row(title, None, Some(trailing.into_element()), content)
 }
 
-/// A section's header row: the part that opens it, then what stands after it.
-/// Neither takes the other's presses.
+/// A section's header row: the part that opens it, then what stands after it,
+/// then the chevron that ends it. What stands after the title keeps its own
+/// presses; the chevron opens the section as the title does.
 fn row(
     title: impl IntoReactive<SharedString>,
     mark: Option<AnyElement>,
@@ -36,6 +37,7 @@ fn row(
     content: impl IntoElement,
 ) -> CollapsibleElement {
     let open = signal(false);
+    let flip = move || open.update(|open| *open = !*open);
     let mut handle = view()
         .flex_1()
         .min_w(px(0.0))
@@ -48,7 +50,7 @@ fn row(
             expanded: Some(open.get()),
             ..AccessibilityState::default()
         })
-        .on_press(move || open.update(|open| *open = !*open))
+        .on_press(flip)
         .focus_visible(state::focus_ring)
         .transition_colors()
         .duration(motion::row_duration())
@@ -62,14 +64,6 @@ fn row(
     if let Some(mark) = mark {
         handle = handle.child(mark);
     }
-    handle = handle.child(
-        // Points down while closed, up while open.
-        view()
-            .flex_none()
-            .text_color(move || theme().muted_foreground)
-            .style_when(move || open.get(), |s| s.rotate(deg(180.0)))
-            .child(icon::chevron_down(14.0)),
-    );
     let mut header = view()
         .w_full()
         .flex_row()
@@ -79,6 +73,18 @@ fn row(
     if let Some(trailing) = trailing {
         header = header.child(trailing);
     }
+    header = header.child(
+        // Points down while closed, up while open. The title says what it does,
+        // so screen readers skip it.
+        view()
+            .flex_none()
+            .text_color(move || theme().muted_foreground)
+            .hit_slop(EdgeInsets::all(px(6.0)))
+            .accessibility_elements_hidden(true)
+            .on_press(flip)
+            .style_when(move || open.get(), |s| s.rotate(deg(180.0)))
+            .child(icon::chevron_down(14.0)),
+    );
 
     collapsible()
         .open(open)
