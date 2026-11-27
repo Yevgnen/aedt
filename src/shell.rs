@@ -3,7 +3,7 @@
 use aedt_store as store;
 use aedt_ui::{motion, sizes};
 use nsh_base::theme;
-use nsh_core::prelude::*;
+use nsh_core::{keymap::When, prelude::*};
 
 use crate::pages::{chat, files, settings, sidebar};
 
@@ -21,13 +21,34 @@ pub(crate) fn shell() -> View {
     };
     // Command+, opens the settings, as the sidebar's menu item does.
     on_key("mod+,", move |_| open_settings());
-    // Command+Backspace deletes the session on show, as its row's menu does.
-    // The dialog keeps the key from reaching the sessions behind it.
-    on_key("mod+backspace", move |_| {
+    // Command+Delete deletes the session on show, as its row's menu does. The
+    // delete key is a text-editing keystroke, and a press on a row leaves the
+    // composer's focus where it is, so a plain binding would never hear it:
+    // this one fires wherever the focus is. The dialog keeps the key from
+    // reaching the sessions behind it.
+    let delete_shown = move |_: &str| {
         if !settings_open.get() {
             store::delete_session(selected.get());
         }
-    });
+    };
+    // Backspace is the key labeled Delete on Apple keyboards; Delete is the
+    // forward delete of a full-size one.
+    on_key_with(
+        "mod+backspace",
+        KeyOptions {
+            when: When::Always,
+            ..KeyOptions::default()
+        },
+        delete_shown,
+    );
+    on_key_with(
+        "mod+delete",
+        KeyOptions {
+            when: When::Always,
+            ..KeyOptions::default()
+        },
+        delete_shown,
+    );
     // Whether the window has room for each panel beside the conversation, as
     // the shell's last layout measured it: the sidebar steps aside first, and
     // the files panel follows it when the width leaves even less.
