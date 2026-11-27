@@ -21,6 +21,13 @@ pub(crate) fn shell() -> View {
     };
     // Command+, opens the settings, as the sidebar's menu item does.
     on_key("mod+,", move |_| open_settings());
+    // Command+Backspace deletes the session on show, as its row's menu does.
+    // The dialog keeps the key from reaching the sessions behind it.
+    on_key("mod+backspace", move |_| {
+        if !settings_open.get() {
+            store::delete_session(selected.get());
+        }
+    });
     // Whether the window has room for each panel beside the conversation, as
     // the shell's last layout measured it: the sidebar steps aside first, and
     // the files panel follows it when the width leaves even less.
