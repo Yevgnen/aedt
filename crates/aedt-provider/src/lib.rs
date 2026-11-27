@@ -26,7 +26,3 @@ pub const DEEPSEEK_BASE_URL: &str = "https://api.deepseek.com";
 
 /// The model DeepSeek's docs name for the Responses API today.
 pub const DEEPSEEK_MODEL: &str = "deepseek-flash";
-
-/// The model a session's title is written by: DeepSeek's own V4.1 Flash, small
-/// enough that naming a conversation costs little.
-pub const DEEPSEEK_TITLE_MODEL: &str = "deepseek-v4.1-flash";
