@@ -194,7 +194,7 @@ fn header(session_id: u32, sidebar: Signal<bool>, files: Signal<bool>) -> impl I
                     .pr_3()
                     .child(
                         button::ghost_icon(icon::panel_left(14.0), "Show the sidebar")
-                            .on_press(move || sidebar.set(true)),
+                            .on_press(move || motion::set_panel(sidebar, true)),
                     )
             },
         ))
@@ -218,7 +218,7 @@ fn header(session_id: u32, sidebar: Signal<bool>, files: Signal<bool>) -> impl I
             move || !files.get(),
             move || {
                 button::ghost_icon(icon::panel_right(14.0), "Show the files")
-                    .on_press(move || files.set(true))
+                    .on_press(move || motion::set_panel(files, true))
             },
         ))
 }

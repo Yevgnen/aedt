@@ -83,7 +83,7 @@ fn brand(open: Signal<bool>) -> impl IntoElement {
         .window_drag(true)
         .child(
             button::ghost_icon(icon::panel_left(14.0), "Hide the sidebar")
-                .on_press(move || open.set(false)),
+                .on_press(move || motion::set_panel(open, false)),
         )
 }
 

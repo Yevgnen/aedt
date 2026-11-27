@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use aedt_ui::{button, empty, icon, sizes};
+use aedt_ui::{button, empty, icon, motion, sizes};
 use nsh_base::theme;
 use nsh_core::prelude::*;
 
@@ -74,7 +74,7 @@ fn top(open: Signal<bool>) -> impl IntoElement {
         .window_drag(true)
         .child(
             button::ghost_icon(icon::panel_right(14.0), "Hide the files")
-                .on_press(move || open.set(false)),
+                .on_press(move || motion::set_panel(open, false)),
         )
 }
 
