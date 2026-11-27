@@ -62,6 +62,9 @@ pub(crate) fn shell() -> View {
         .on_layout(move |frame: &Bounds<Points>| {
             let now = frame.size.width.0 < sizes::NARROW;
             if narrow.get_untracked() != now {
+                // The panel fades where the width takes it away or gives it
+                // back; the conversation's own frame is the drag's to move.
+                motion::fade_panel();
                 narrow.set(now);
             }
         })

@@ -41,3 +41,20 @@ pub fn set_panel(open: Signal<bool>, shown: bool) {
 
     open.set(shown);
 }
+
+/// The fade of a side panel that comes or goes with the window's width: its ink
+/// alone, since the reader's own drag already moves the frames it leaves, and an
+/// eased frame there would trail behind the edge under the pointer.
+pub fn fade_panel() {
+    if untracked(reduce_motion) {
+        return;
+    }
+
+    let transition = LayoutTransition::new(LayoutCurve::EaseOut, BASE);
+
+    animate_layout(LayoutAnimation {
+        create: Some(transition),
+        update: None,
+        delete: Some(transition),
+    });
+}
