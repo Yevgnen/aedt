@@ -139,17 +139,16 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
         .child(icon::folder_open(14.0))
         .child(text(name).flex_1().text_size(px(sizes::TEXT_COMPACT)))
         .child(
-            // The fold's mark: pointing at the name while the conversations
-            // show and away from it while they are folded. The row says what
-            // it does, so screen readers skip the mark.
+            // The fold's mark: shown while the conversations are folded,
+            // pointing away from the name. The slot stays while they show,
+            // so the row's end does not move. The row says what it does, so
+            // screen readers skip the mark.
             view()
+                .w(px(14.0))
                 .flex_none()
                 .text_color(move || theme().muted_foreground)
                 .accessibility_elements_hidden(true)
-                .child(
-                    when(move || open.get(), || icon::chevron_down(14.0))
-                        .otherwise(|| icon::chevron_right(14.0)),
-                ),
+                .child(when(move || !open.get(), || icon::chevron_right(14.0))),
         )
         .child(
             // The only place a conversation starts, shown while the row
