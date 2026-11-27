@@ -84,6 +84,33 @@ pub fn icon(
         )
 }
 
+/// A round icon button for one action beside the composer's send: the same
+/// size and press as [`icon`], in the quiet fill the card already uses, so a
+/// secondary action does not compete with the send.
+pub fn quiet_icon(mark: impl IntoElement, accessibility_label: &'static str) -> ButtonElement {
+    let reduce = reduce_motion();
+    let press = move |s: StyleRefinement| {
+        let s = s.bg(move || theme().accent);
+        if reduce { s } else { s.scale(0.95) }
+    };
+
+    button()
+        .accessibility_label(accessibility_label)
+        .size(px(sizes::SEND))
+        .items_center()
+        .justify_center()
+        .rounded_full()
+        .bg(move || theme().muted)
+        .hover(|s| s.bg(move || theme().accent))
+        .active(press)
+        .focus_visible(state::focus_ring)
+        .hit_slop(EdgeInsets::all(px(6.0)))
+        .transition_all()
+        .duration(motion::row_duration())
+        .ease_out()
+        .child(view().text_color(move || theme().foreground).child(mark))
+}
+
 /// A control whose children draw all of its appearance, for a row whose hover
 /// is its child's own: the shared focus ring and nothing else.
 pub fn bare() -> ButtonElement {

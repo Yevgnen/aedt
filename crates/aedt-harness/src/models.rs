@@ -62,9 +62,11 @@ pub(crate) fn connector(providers: &[Provider]) -> Result<Connector, String> {
         );
 
         for model in &provider.models {
-            connector
-                .catalog_mut()
-                .insert(ModelSpec::new(vendor, model.clone()).with_tools(true));
+            let mut spec = ModelSpec::new(vendor, model.clone()).with_tools(true);
+            // The composer sends the images a message carries, so every model
+            // is taken to read them: rig drops an image whose model does not.
+            spec.input.image = true;
+            connector.catalog_mut().insert(spec);
         }
     }
     Ok(connector)

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+base64 = { version = "0.23.1", default-features = false, features = ["alloc"] }
 bevy_ecs = { version = "=0.20.1", default-features = false }
 crossbeam-channel = "0.5"
 rig-basics = { version = "=0.47.1", default-features = false }
