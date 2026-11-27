@@ -8,9 +8,25 @@ use aedt_provider::Effort;
 use aedt_provider::models::{ListedModel, list_models};
 use aedt_provider::{DEEPSEEK_BASE_URL, DEEPSEEK_MODEL};
 use nsh_core::prelude::*;
+use serde::{Deserialize, Serialize};
 
 mod secrets;
 mod stored;
+
+/// How a reply's thinking shows while it arrives and once it is done.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Thinking {
+    /// Folded away, even while it arrives.
+    Collapsed,
+    /// Always open.
+    Expanded,
+    /// Open while it arrives, folded away once the reply goes on.
+    #[default]
+    Auto,
+    /// Its last few lines, following the end as it arrives.
+    Preview,
+}
 
 /// A provider's API: the shape of its requests and of its model list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -142,6 +158,8 @@ struct Settings {
     selected_provider: Option<u32>,
     /// How hard that model thinks: the picker's other choice.
     effort: Effort,
+    /// How a reply's thinking shows in the conversation.
+    thinking: Thinking,
     /// The keys kept on disk, by provider id. A provider's key in memory may
     /// come from the environment instead, and is not kept then.
     keys: secrets::Keys,
@@ -180,6 +198,7 @@ impl Settings {
             selected: kept.selected.into(),
             selected_provider: kept.selected_provider,
             effort: kept.effort.unwrap_or(Effort::High),
+            thinking: kept.thinking.unwrap_or_default(),
             keys,
         })
     }
@@ -202,6 +221,7 @@ impl Settings {
             selected: DEEPSEEK_MODEL.into(),
             selected_provider: Some(1),
             effort: Effort::High,
+            thinking: Thinking::default(),
             keys: secrets::Keys::new(),
         }
     }
@@ -224,6 +244,7 @@ impl Settings {
             selected: self.selected.to_string(),
             selected_provider: self.selected_provider,
             effort: Some(self.effort),
+            thinking: Some(self.thinking),
         }
     }
 }
@@ -448,6 +469,17 @@ pub fn effort() -> Effort {
 /// Asks for `effort` from the replies from now on.
 pub fn select_effort(effort: Effort) {
     settings().update(|settings| settings.effort = effort);
+    save();
+}
+
+/// How a reply's thinking shows (tracked where it is read).
+pub fn thinking() -> Thinking {
+    settings().with(|settings| settings.thinking)
+}
+
+/// Shows a reply's thinking as `thinking` from now on.
+pub fn select_thinking(thinking: Thinking) {
+    settings().update(|settings| settings.thinking = thinking);
     save();
 }
 

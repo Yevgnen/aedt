@@ -7,7 +7,14 @@ use aedt_ui::{
 use nsh_base::{dialog as base_dialog, theme};
 use nsh_core::prelude::*;
 
-use aedt_settings::{self as settings, ProviderKind};
+use aedt_settings::{self as settings, ProviderKind, Thinking};
+
+/// Which page of the settings shows.
+#[derive(Clone, Copy, PartialEq)]
+enum Category {
+    Models,
+    Conversation,
+}
 
 /// The settings, presented while `open` holds and dismissed when it is let go,
 /// by Escape or a press on the dim behind them.
@@ -36,19 +43,20 @@ pub(crate) fn dialog(open: Signal<bool>) -> impl IntoElement {
 
 /// The dialog's card: the categories, then the chosen one.
 fn card() -> impl IntoElement {
+    let category = signal(Category::Models);
+
     surface::card(surface::Surface::Dialog)
         .m(auto())
         .flex_row()
         .w(px(sizes::DIALOG_W))
         .h(px(sizes::DIALOG_H))
         .text_color(move || theme().foreground)
-        .child(categories())
-        .child(content())
+        .child(categories(category))
+        .child(content(category))
 }
 
-/// The left column: the dialog's title, then its categories. The only one so
-/// far is the providers', which is the chosen one.
-fn categories() -> impl IntoElement {
+/// The left column: the dialog's title, then its categories.
+fn categories(category: Signal<Category>) -> impl IntoElement {
     view()
         .w(px(sizes::CATEGORIES_W))
         .flex_none()
@@ -65,42 +73,56 @@ fn categories() -> impl IntoElement {
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(move || theme().foreground),
         )
-        .child(list_item::nav_with_mark(
-            icon::database(14.0),
-            "Models",
-            || true,
-        ))
+        .child(
+            list_item::nav_with_mark(icon::database(14.0), "Models", move || {
+                category.get() == Category::Models
+            })
+            .on_press(move || category.set(Category::Models)),
+        )
+        .child(
+            list_item::nav_with_mark(icon::bulb(14.0), "Conversation", move || {
+                category.get() == Category::Conversation
+            })
+            .on_press(move || category.set(Category::Conversation)),
+        )
 }
 
 /// The chosen category's content: its heading, then the page it shows.
-fn content() -> impl IntoElement {
+fn content(category: Signal<Category>) -> impl IntoElement {
     view().flex_1().min_w(px(0.0)).min_h(px(0.0)).child(
-        scroll()
-            .flex_1()
-            .min_h(px(0.0))
-            .child(view().w_full().p_6().gap_5().child(heading()).child(page())),
+        scroll().flex_1().min_h(px(0.0)).child(
+            view()
+                .w_full()
+                .p_6()
+                .gap_5()
+                .child(heading(category))
+                .child(
+                    when(move || category.get() == Category::Models, models_page)
+                        .otherwise(conversation_page),
+                ),
+        ),
     )
 }
 
 /// The pane's heading: what it is, and what it asks the reader for.
-fn heading() -> impl IntoElement {
+fn heading(category: Signal<Category>) -> impl IntoElement {
     view()
         .w_full()
         .gap_1()
         .child(
-            text(move || {
-                if settings::draft().is_some() {
+            text(move || match category.get() {
+                Category::Models if settings::draft().is_some() => {
                     SharedString::from("Add model provider")
-                } else {
-                    SharedString::from("Models")
                 }
+                Category::Models => SharedString::from("Models"),
+                Category::Conversation => SharedString::from("Conversation"),
             })
             .text_lg()
             .font_weight(FontWeight::SEMIBOLD)
             .text_color(move || theme().foreground),
         )
         .child(when(
-            move || settings::draft().is_none(),
+            move || category.get() == Category::Models && settings::draft().is_none(),
             || {
                 text("Enter your API keys to use models from the following providers.")
                     .text_sm()
@@ -109,9 +131,47 @@ fn heading() -> impl IntoElement {
         ))
 }
 
-/// The page: the action that adds a provider, the ones the reader kept, or the
-/// provider being added.
-fn page() -> impl IntoElement {
+/// The conversation page: how a reply's thinking shows while it arrives.
+fn conversation_page() -> View {
+    view()
+        .w_full()
+        .gap_1()
+        .child(field::label("Thinking"))
+        .child(menu::menu(
+            menu::select_trigger(move || thinking_label(settings::thinking())),
+            Placement::Bottom,
+            Align::Start,
+            view()
+                .gap_1()
+                .child(thinking_choice(Thinking::Collapsed))
+                .child(thinking_choice(Thinking::Expanded))
+                .child(thinking_choice(Thinking::Auto))
+                .child(thinking_choice(Thinking::Preview)),
+        ))
+}
+
+/// One way a reply's thinking may show, checked while it is the chosen one.
+fn thinking_choice(thinking: Thinking) -> impl IntoElement {
+    menu::choice(thinking_label(thinking), move || {
+        settings::thinking() == thinking
+    })
+    .on_select(move || settings::select_thinking(thinking))
+}
+
+/// What `thinking` is called in the settings.
+fn thinking_label(thinking: Thinking) -> SharedString {
+    match thinking {
+        Thinking::Collapsed => "Collapsed",
+        Thinking::Expanded => "Expanded",
+        Thinking::Auto => "Automatic",
+        Thinking::Preview => "Preview",
+    }
+    .into()
+}
+
+/// The models page: the action that adds a provider, the ones the reader kept,
+/// or the provider being added.
+fn models_page() -> View {
     view()
         .w_full()
         .gap_5()

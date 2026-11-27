@@ -6,7 +6,7 @@
 use nsh_core::storage::Storage;
 use serde::{Deserialize, Serialize};
 
-use crate::Effort;
+use crate::{Effort, Thinking};
 
 /// The storage key the settings are kept under.
 const KEY: &str = "aedt.settings";
@@ -50,6 +50,9 @@ pub(crate) struct Kept {
     /// How hard it thought; none for the app's own default.
     #[serde(default)]
     pub(crate) effort: Option<Effort>,
+    /// How its thinking shows; none for the app's own default.
+    #[serde(default)]
+    pub(crate) thinking: Option<Thinking>,
 }
 
 /// The settings the app kept, while it kept a readable set.

@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use aedt_settings::{self as settings, Thinking};
 use aedt_store::{self as store, Author, Message, Part, ToolRun};
 use aedt_ui::{MESSAGE_LINE, button, empty, icon, markdown, motion, sizes, tokens};
 use nsh_base::theme;
@@ -554,15 +555,22 @@ fn writing(message: Memo<Option<Message>>, at: usize) -> bool {
     })
 }
 
-/// One thought of the reply: its text under the quiet row that folds it away,
-/// shown while it arrives and while the reader keeps it open. A part nothing
-/// reasoned in shows nothing.
+/// One thought of the reply: its text under the quiet bar that folds it away,
+/// shown as the reader's settings ask — folded, open, open while it arrives,
+/// or its last lines. A part nothing reasoned in shows nothing.
 fn thought(message: Memo<Option<Message>>, at: usize, folds: Folds) -> impl IntoElement {
     let key = move || message.with(|message| message.as_ref().map(|message| (message.id, at)));
     let shown = move || {
         let opened = key().is_some_and(|key| folds.thought_open(key));
 
-        opened || writing(message, at)
+        match settings::thinking() {
+            // Folded away, even while it arrives.
+            Thinking::Collapsed => opened,
+            // Always open: the reader's fold is not what decides here.
+            Thinking::Expanded | Thinking::Preview => true,
+            // Open while it arrives, and after while the reader leaves it open.
+            Thinking::Auto => opened || writing(message, at),
+        }
     };
 
     when(
@@ -571,19 +579,18 @@ fn thought(message: Memo<Option<Message>>, at: usize, folds: Folds) -> impl Into
             view()
                 .w_full()
                 .gap_1()
-                .child(thinking_bar(key, folds))
-                .child(when(shown, move || thinking_text(message, at)))
+                .child(thinking_bar(key, folds, shown))
+                .child(when(shown, move || thinking_body(message, at)))
         },
     )
 }
 
-/// One call: the tool, the arguments it was given and how it went, over what
-/// it returned — shown once the reader opens it, and from the start while it
-/// changed files, so an edit's diff reads at once. The output stops at a dozen
-/// lines; the agent read the whole of it.
+/// The quiet row over a thought: its bulb and its name, and the chevron that
+/// folds it away while the mode leaves that to the reader.
 fn thinking_bar(
     key: impl Fn() -> Option<(u32, usize)> + Copy + 'static,
     folds: Folds,
+    shown: impl Fn() -> bool + Copy + 'static,
 ) -> impl IntoElement {
     let toggle = move || {
         let Some(key) = key() else {
@@ -591,7 +598,6 @@ fn thinking_bar(
         };
         folds.toggle_thought(key);
     };
-    let opened = move || key().is_some_and(|key| folds.thought_open(key));
 
     view()
         .w_full()
@@ -611,18 +617,32 @@ fn thinking_bar(
                 .child(icon::bulb(14.0))
                 .child(text("Thinking").text_xs()),
         )
-        .child(
-            button::ghost_icon(
-                when(opened, || icon::chevron_up(14.0)).otherwise(|| icon::chevron_down(14.0)),
-                "Expand or collapse the thinking",
-            )
-            // The chevron shows while the pointer is over the thought's row,
-            // and for the keyboard's focus, as a call's does.
-            .opacity(0.0)
-            .group_hover(|s| s.opacity(1.0))
-            .group_focus_within(|s| s.opacity(1.0))
-            .on_press(toggle),
-        )
+        .child(when(
+            // A mode that always shows the thought leaves nothing to fold.
+            move || !matches!(settings::thinking(), Thinking::Expanded | Thinking::Preview),
+            move || {
+                button::ghost_icon(
+                    when(shown, || icon::chevron_up(14.0)).otherwise(|| icon::chevron_down(14.0)),
+                    "Expand or collapse the thinking",
+                )
+                // The chevron shows while the pointer is over the thought's row,
+                // and for the keyboard's focus, as a call's does.
+                .opacity(0.0)
+                .group_hover(|s| s.opacity(1.0))
+                .group_focus_within(|s| s.opacity(1.0))
+                .on_press(toggle)
+            },
+        ))
+}
+
+/// What a thought shows: its last lines in the preview mode, all of it
+/// otherwise.
+fn thinking_body(message: Memo<Option<Message>>, at: usize) -> impl IntoElement {
+    when(
+        move || settings::thinking() == Thinking::Preview,
+        move || thinking_preview(message, at).into_element(),
+    )
+    .otherwise(move || thinking_text(message, at).into_element())
 }
 
 /// Where a thought's text starts: under the word beside its bulb, past the
@@ -633,6 +653,9 @@ const THINKING_TEXT_INSET: f32 = 26.0;
 /// that text, so the answer opens a line below the thought.
 const THINKING_LINE: f32 = sizes::TEXT_COMPACT * MESSAGE_LINE;
 
+/// The lines of a thought the preview keeps in view.
+const PREVIEW_LINES: f32 = 6.0;
+
 /// The thought's own text, quieter than the answer it led to.
 fn thinking_text(message: Memo<Option<Message>>, at: usize) -> impl IntoElement {
     text(move || thought_text(message, at).unwrap_or_default())
@@ -642,4 +665,32 @@ fn thinking_text(message: Memo<Option<Message>>, at: usize) -> impl IntoElement 
         .text_size(px(sizes::TEXT_COMPACT))
         .line_height(LineHeight::Multiple(MESSAGE_LINE))
         .text_color(move || tokens::meta().opacity(0.7))
+}
+
+/// The thought's last lines, in a box exactly [`PREVIEW_LINES`] lines tall: the
+/// end of what arrived stays at the box's bottom, and what came before is
+/// pushed up out of the box as it grows.
+fn thinking_preview(message: Memo<Option<Message>>, at: usize) -> impl IntoElement {
+    view()
+        .w_full()
+        .pl(px(THINKING_TEXT_INSET))
+        .pb(px(THINKING_LINE))
+        .child(
+            view()
+                .w_full()
+                .h(px(PREVIEW_LINES * THINKING_LINE))
+                .flex_col()
+                // The text keeps its own height past the box's, so its end sits
+                // at the box's bottom and its start is what the box clips.
+                .justify_end()
+                .overflow_hidden()
+                .child(
+                    text(move || thought_text(message, at).unwrap_or_default())
+                        .w_full()
+                        .flex_none()
+                        .text_size(px(sizes::TEXT_COMPACT))
+                        .line_height(LineHeight::Multiple(MESSAGE_LINE))
+                        .text_color(move || tokens::meta().opacity(0.7)),
+                ),
+        )
 }
