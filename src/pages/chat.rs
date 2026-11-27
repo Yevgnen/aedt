@@ -404,17 +404,26 @@ fn assistant_message(message: Memo<Option<Message>>, folds: Folds) -> impl IntoE
         // The reply in the order it happened: what it thought, the call it
         // made, what it answered, and so on, each where it came.
         .child(each(
-            // The reply's parts by their place: a row reads the one it shows
-            // from the message, so the list does not copy every part of every
-            // reply each time it is built.
+            // The reply's parts by their place and what each is: a row reads
+            // the part it shows from the message, so the list does not copy
+            // every part of every reply each time it is built.
             move || {
                 message.with(|message| {
-                    let count = message.as_ref().map_or(0, |message| message.parts.len());
-                    (0..count).collect::<Vec<_>>()
+                    message.as_ref().map_or_else(Vec::new, |message| {
+                        message
+                            .parts
+                            .iter()
+                            .enumerate()
+                            .map(|(at, part)| (at, PartKind::of(part)))
+                            .collect()
+                    })
                 })
             },
-            |at| *at,
-            move |at, _| part_of(message, at, folds),
+            |part| *part,
+            move |part, _| {
+                let (at, kind) = part.with_untracked(|part| *part);
+                part_of(message, at, kind, folds)
+            },
         ))
         .child(
             // The model and the duration show while the pointer is over the row
@@ -440,7 +449,7 @@ fn assistant_message(message: Memo<Option<Message>>, folds: Folds) -> impl IntoE
 }
 
 /// What a part of a reply is, which decides how its row is drawn.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum PartKind {
     Thought,
     Text,
@@ -458,23 +467,16 @@ impl PartKind {
 }
 
 /// One stretch of the reply, drawn by what it is: a thought, a call, or a
-/// stretch of what it answered.
+/// stretch of what it answered. The kind is the row's identity along with its
+/// place, and not read here: the list gives a cell another message as it
+/// scrolls, and a row keyed only by its place would keep the kind of the
+/// message before it.
 fn part_of(
     message: Memo<Option<Message>>,
-    at: ReadSignal<usize>,
+    at: usize,
+    kind: PartKind,
     folds: Folds,
 ) -> impl IntoElement {
-    let at = at.with_untracked(|at| *at);
-    // A part keeps its kind while it exists: a reply adds parts and lengthens
-    // the last, and never turns one kind into another, so reading the kind
-    // once for the row is enough.
-    let kind = message.with_untracked(|message| {
-        message
-            .as_ref()
-            .and_then(|message| message.parts.get(at))
-            .map_or(PartKind::Text, PartKind::of)
-    });
-
     match kind {
         PartKind::Thought => thought(message, at, folds).into_element(),
         PartKind::Text => text_part(message, at).into_element(),
