@@ -49,12 +49,14 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
                     // The tool's name is prose about the call, not code in it:
                     // it reads at the size a reply's own words do, where the
                     // arguments and the file beside it are set in the code's.
+                    // Its ink is a shade under the quietest one: what it names
+                    // comes after it, lighter still.
                     text(move || {
                         tool.with(|tool| SharedString::from(name_of(tool.name.as_str()).to_owned()))
                     })
                     .flex_none()
                     .text_sm()
-                    .text_color(tokens::meta),
+                    .text_color(|| tokens::meta().opacity(0.8)),
                 )
                 .child(
                     view().flex_1().min_w(px(0.0)).child(
@@ -70,7 +72,7 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
                                 .number_of_lines(1)
                                 .font_family(code::MONO_FONT)
                                 .text_size(px(sizes::CODE_FONT))
-                                .text_color(tokens::meta)
+                                .text_color(tokens::caption)
                         }),
                     ),
                 )
@@ -142,7 +144,7 @@ fn edit_summary(tool: Memo<ToolRun>) -> impl IntoElement {
     .number_of_lines(1)
     .font_family(code::MONO_FONT)
     .text_size(px(sizes::CODE_FONT))
-    .text_color(tokens::meta)
+    .text_color(tokens::caption)
 }
 
 /// The files a call changed: each a card of its own, under a blank line that
