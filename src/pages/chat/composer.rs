@@ -69,6 +69,10 @@ const MCP_DOT: f32 = 6.0;
 /// session's, with the dot centered.
 const MCP_INSET: f32 = (sizes::LIST_ROW - MCP_DOT) / 2.0;
 
+/// The room between the dot and the name, and the name's widest line.
+const MCP_GAP: f32 = 8.0;
+const MCP_TEXT_MAX: f32 = sizes::MCP_POPOVER_W - 2.0 * MCP_INSET - MCP_DOT - MCP_GAP;
+
 /// The line under the card: what the session's MCP servers are doing, and a
 /// voice attempt that failed.
 fn status_line(session_id: u32, notice: Signal<Option<SharedString>>) -> impl IntoElement {
@@ -159,7 +163,7 @@ fn server_row(server: ReadSignal<McpStatus>) -> impl IntoElement {
         .px(px(MCP_INSET))
         .flex_row()
         .items_center()
-        .gap_2()
+        .gap(px(MCP_GAP))
         .child(
             view()
                 .w(px(MCP_DOT))
@@ -173,8 +177,7 @@ fn server_row(server: ReadSignal<McpStatus>) -> impl IntoElement {
         )
         .child(
             text(move || SharedString::from(server.get().name.clone()))
-                .flex_1()
-                .min_w(px(0.0))
+                .max_w(px(MCP_TEXT_MAX))
                 .truncate()
                 .text_size(px(sizes::TEXT_COMPACT))
                 .text_color(move || theme().foreground),
