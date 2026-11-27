@@ -550,37 +550,19 @@ fn mcp_form(id: u32) -> impl IntoElement {
     )
 }
 
-/// One server, folded to its name until it is asked for: what starts it, and
-/// whether the agent does.
+/// One server, folded to its name until it is asked for: the switch that
+/// starts it, and what starts it once the section opens.
 fn mcp_card(id: u32) -> impl IntoElement {
-    collapsible::section(
+    collapsible::section_with_trailing(
         move || mcp_title(id),
-        when(move || !settings::mcp_enabled(id), || badge::badge("Off")),
-        mcp_body(id),
+        switch::toggle(
+            move || mcp_title(id),
+            move || settings::mcp_enabled(id),
+            move |on| settings::set_mcp_enabled(id, on),
+        ),
+        mcp_fields(id),
     )
     .w_full()
-}
-
-/// What a server's section holds once it opens: how it starts, and its switch.
-fn mcp_body(id: u32) -> impl IntoElement {
-    view().w_full().gap_4().child(mcp_fields(id)).child(
-        view()
-            .w_full()
-            .flex_row()
-            .items_center()
-            .gap_3()
-            .child(
-                text("Enabled")
-                    .flex_1()
-                    .text_sm()
-                    .text_color(move || theme().foreground),
-            )
-            .child(switch::toggle(
-                || SharedString::from("Enabled"),
-                move || settings::mcp_enabled(id),
-                move |on| settings::set_mcp_enabled(id, on),
-            )),
-    )
 }
 
 /// How a server starts: what it is called, the program, what the program is
