@@ -304,6 +304,9 @@ fn models(id: u32) -> impl IntoElement {
                 )
                 .child(
                     button::ghost_icon(icon::checks(14.0), "Enable or disable every model")
+                        // The button's own state is what screen readers read:
+                        // selected is on, unselected is off.
+                        .selected(move || settings::all_models_enabled(id))
                         .text_color(move || {
                             if settings::all_models_enabled(id) {
                                 theme().foreground

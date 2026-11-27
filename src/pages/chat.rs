@@ -665,6 +665,15 @@ fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
         .gap_1()
         .child(
             button::bare()
+                // A button cannot carry an expanded state of its own: its
+                // label says which of the two it shows.
+                .accessibility_label(move || {
+                    Some(SharedString::from(format!(
+                        "{} result, {}",
+                        tool.with(|tool| tool.name.clone()),
+                        if shown() { "shown" } else { "hidden" }
+                    )))
+                })
                 .w_full()
                 .group()
                 .flex_row()
