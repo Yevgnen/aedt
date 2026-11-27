@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use aedt_provider::Effort;
 use aedt_settings as settings;
-use aedt_ui::{badge, button, input, menu, sizes, surface};
+use aedt_ui::{button, input, menu, sizes, surface};
 use nsh_base::SubmenuEvent;
 use nsh_core::prelude::*;
 
@@ -74,7 +74,6 @@ fn model_picker() -> impl IntoElement {
     menu::controlled(
         open,
         menu::label_trigger(
-            badge::tag(move || settings::selected().provider_name),
             move || settings::selected().label,
             move || SharedString::from(effort_label(settings::effort())),
         )

@@ -74,10 +74,9 @@ pub fn trigger(mark: impl IntoElement, label: impl IntoReactive<SharedString>) -
 }
 
 /// A row at a control's edge that names its value and opens its picker: the
-/// mark that says what it belongs to, then the value, the note, and the
-/// chevron that opens the picker. The menu opens it as it does [`trigger`].
+/// value, the note, and the chevron that opens the picker. The menu opens it as
+/// it does [`trigger`].
 pub fn label_trigger(
-    mark: impl IntoElement,
     value: impl IntoReactive<SharedString>,
     note: impl IntoReactive<SharedString>,
 ) -> ButtonElement {
@@ -96,7 +95,6 @@ pub fn label_trigger(
         .transition_colors()
         .duration(motion::row_duration())
         .ease_out()
-        .child(mark)
         .child(text(value).text_size(px(sizes::TEXT_COMPACT)))
         .child(
             text(note)
