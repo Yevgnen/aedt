@@ -142,10 +142,10 @@ pub fn toggle() {
     }
 }
 
-/// Has the reader's own key start and end a recording: the right Option on a
-/// Mac. Once for the app.
+/// Has the reader's own keys start and end a recording: the right Option on a
+/// Mac toggles it, and Escape ends it. Once for the app.
 pub fn watch() {
-    shortcut::watch(toggle);
+    shortcut::watch();
 }
 
 /// Takes what the composer consumed: the words it wrote down, and the failure
