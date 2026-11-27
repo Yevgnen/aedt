@@ -51,7 +51,7 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
                 .child(icon::wrench(14.0))
                 .child(
                     // The tool's name is prose about the call, not code in it:
-                    // it reads at the size a reply's own words do, where the
+                    // it reads at the size the thought's own name does, where the
                     // arguments and the file beside it are set in the code's.
                     // Its ink is a shade under the quietest one: what it names
                     // comes after it, lighter still.
@@ -59,7 +59,7 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
                         tool.with(|tool| SharedString::from(name_of(tool.name.as_str()).to_owned()))
                     })
                     .flex_none()
-                    .text_sm()
+                    .text_xs()
                     .text_color(|| tokens::meta().opacity(0.8)),
                 )
                 .child(
