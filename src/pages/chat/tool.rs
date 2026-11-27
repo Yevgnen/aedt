@@ -48,19 +48,29 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
                 .py(px(ROW_INSET))
                 .text_color(tokens::meta)
                 .on_press(toggle)
-                .child(icon::wrench(14.0))
                 .child(
-                    // The tool's name is prose about the call, not code in it:
-                    // it reads at the size the thought's own name does, where the
-                    // arguments and the file beside it are set in the code's.
-                    // Its ink is a shade under the quietest one: what it names
-                    // comes after it, lighter still.
-                    text(move || {
-                        tool.with(|tool| SharedString::from(name_of(tool.name.as_str()).to_owned()))
-                    })
-                    .flex_none()
-                    .text_xs()
-                    .text_color(|| tokens::meta().opacity(0.8)),
+                    // The wrench and the name read in one ink, a shade under the
+                    // row's quietest, which the arguments after them take still
+                    // lighter.
+                    view()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .text_color(|| tokens::meta().opacity(0.8))
+                        .child(icon::wrench(14.0))
+                        .child(
+                            // The tool's name is prose about the call, not code
+                            // in it: it reads at the size the thought's own name
+                            // does, where the arguments and the file beside it
+                            // are set in the code's.
+                            text(move || {
+                                tool.with(|tool| {
+                                    SharedString::from(name_of(tool.name.as_str()).to_owned())
+                                })
+                            })
+                            .flex_none()
+                            .text_xs(),
+                        ),
                 )
                 .child(
                     view().flex_1().min_w(px(0.0)).child(

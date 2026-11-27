@@ -707,20 +707,17 @@ fn thinking_bar(
         .gap_2()
         .text_color(tokens::meta)
         .child(
+            // The bulb and the name read in one ink, the one a call's mark and
+            // name take; the chevron after them keeps the row's quietest.
             view()
                 .flex_row()
                 .items_center()
                 .gap_2()
                 .px_1()
                 .py(px(2.0))
+                .text_color(|| tokens::meta().opacity(0.8))
                 .child(icon::bulb(14.0))
-                // The name reads in the ink a call's own name takes; the bulb
-                // beside it keeps the quietest one, as a call's wrench does.
-                .child(
-                    text("Thinking")
-                        .text_xs()
-                        .text_color(|| tokens::meta().opacity(0.8)),
-                ),
+                .child(text("Thinking").text_xs()),
         )
         .child(when(
             // A mode that always shows the thought leaves nothing to fold.
