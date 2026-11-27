@@ -2,7 +2,7 @@
 //! conversations grouped under the workspace each works in.
 
 use aedt_store as store;
-use aedt_ui::{avatar, button, icon, list_item, menu, motion, sizes};
+use aedt_ui::{button, icon, list_item, menu, motion, sizes};
 use nsh_base::theme;
 use nsh_core::{element::desktop::title_bar, file_dialog::OpenDialog, prelude::*};
 
@@ -72,23 +72,15 @@ fn footer(open_settings: impl Fn() + Copy + 'static) -> impl IntoElement {
 
 fn brand(open: Signal<bool>) -> impl IntoElement {
     view()
+        .h(px(sizes::TOPBAR))
         .flex_row()
         .items_center()
-        .gap_3()
-        .px_3()
-        // The traffic lights own the whole title bar band on the left edge, so
-        // the brand starts right below it: no extra padding above.
-        .pt(move || Length::from(title_bar().top))
-        .pb_4()
+        // The traffic lights stand over this row's left end: the toggle that
+        // hides the sidebar starts clear of them, and the header's own toggle
+        // takes the same place while the sidebar is away, so neither moves.
+        .pl(move || Length::from(title_bar().left + px(4.0)))
+        .pr_3()
         .window_drag(true)
-        .child(avatar::avatar("A"))
-        .child(
-            text("Aedt")
-                .flex_1()
-                .text_sm()
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(move || theme().sidebar_foreground),
-        )
         .child(
             button::ghost_icon(icon::panel_left(14.0), "Hide the sidebar")
                 .on_press(move || open.set(false)),

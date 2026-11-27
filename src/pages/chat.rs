@@ -168,21 +168,21 @@ impl Folds {
 
 fn header(session_id: u32, sidebar: Signal<bool>) -> impl IntoElement {
     view()
+        .h(px(sizes::TOPBAR))
         .flex_row()
         .items_center()
         .gap_3()
-        .px_6()
-        // The traffic lights sit over the pane while the sidebar is hidden, and
-        // the toggle that brings it back starts clear of them.
+        // The traffic lights stand over the pane while the sidebar is away: the
+        // toggle that brings it back starts clear of them, where the sidebar's
+        // own toggle was, so it does not move.
         .pl(move || {
             if sidebar.get() {
                 Length::from(px(24.0))
             } else {
-                Length::from(title_bar().left + px(12.0))
+                Length::from(title_bar().left + px(4.0))
             }
         })
         .pr(move || Length::from(title_bar().right + px(24.0)))
-        .py_4()
         .window_drag(true)
         .border_b_1()
         .border_b_color(move || theme().border)

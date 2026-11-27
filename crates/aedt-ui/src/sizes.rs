@@ -4,6 +4,11 @@
 /// subordinate to the conversation.
 pub const SIDEBAR: f32 = 264.0;
 
+/// The app's own top row under the hidden title bar: the sidebar's brand and
+/// the conversation's header are this tall, and the traffic lights are centered
+/// in it, so the three share one line.
+pub const TOPBAR: f32 = 52.0;
+
 /// A control's height.
 pub const CONTROL: f32 = 32.0;
 
