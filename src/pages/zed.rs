@@ -14,7 +14,7 @@ pub(crate) fn button(
     when(
         move || workspace().is_some(),
         move || {
-            button::ghost_icon(icon::zed(14.0), "Open in Zed").on_press(move || {
+            button::ghost_icon(icon::zed(10.5), "Open in Zed").on_press(move || {
                 if let Some(path) = workspace() {
                     open(&path);
                 }
