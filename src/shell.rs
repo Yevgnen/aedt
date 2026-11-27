@@ -19,18 +19,22 @@ pub(crate) fn shell() -> View {
         aedt_settings::load();
         settings_open.set(true);
     };
-    // Whether the window is too narrow to hold both columns, as the shell's last
-    // layout measured it.
+    // Whether the window is too narrow to hold the columns beside the
+    // conversation, as the shell's last layout measured it.
     let narrow = signal(false);
-    // Whether the sidebar shows: the toggle in its own top row hides it, and the
-    // one the conversation's header then carries brings it back.
+    // The reader's own showing of each side panel: the one's toggle in its own
+    // top row hides it, and the conversation's header brings it back; the
+    // other's header opens it and its own top row shuts it.
     let sidebar_open = signal(true);
-    // While the window is too narrow for both columns, the reader's own showing
-    // waits: the sidebar steps aside, and shows only where they ask for it
-    // anyway. The setting stays as they left it, so a wider window shows it
-    // again.
+    let files_open = signal(false);
+    // While the window is too narrow for a panel beside the conversation, the
+    // reader's own showing waits: the panel steps aside, and shows only where
+    // they ask for it anyway. The setting stays as they left it, so a wider
+    // window shows it again.
     let sidebar_peek = signal(false);
+    let files_peek = signal(false);
     let sidebar_shown = move || sidebar_open.get() && (!narrow.get() || sidebar_peek.get());
+    let files_shown = move || files_open.get() && (!narrow.get() || files_peek.get());
     let show_sidebar = move || {
         if narrow.get() {
             sidebar_open.set(true);
@@ -39,17 +43,26 @@ pub(crate) fn shell() -> View {
             motion::set_panel(sidebar_open, true);
         }
     };
-    // Once the window holds both columns again, the sidebar shows by the
-    // reader's setting alone: the showing they asked for while it was narrow has
-    // served.
+    let show_files = move || {
+        if narrow.get() {
+            files_open.set(true);
+            files_peek.set(true);
+        } else {
+            motion::set_panel(files_open, true);
+        }
+    };
+    // Once the window holds the panels again, each shows by the reader's setting
+    // alone: the showing they asked for while it was narrow has served.
     effect(move || {
-        if !narrow.get() && sidebar_peek.get_untracked() {
-            sidebar_peek.set(false);
+        if !narrow.get() {
+            if sidebar_peek.get_untracked() {
+                sidebar_peek.set(false);
+            }
+            if files_peek.get_untracked() {
+                files_peek.set(false);
+            }
         }
     });
-    // Whether the files panel shows: the conversation's header opens it, and the
-    // panel's own top row shuts it.
-    let files_open = signal(false);
     // The folder the panel shows: the selected conversation's workspace, which
     // changes only when the reader moves to a conversation in another one.
     let workspace = computed(move || store::session_path(selected.get()));
@@ -79,16 +92,15 @@ pub(crate) fn shell() -> View {
                 .child(dynamic(move || {
                     let id = selected.get();
                     untracked(|| {
-                        chat::pane(id, sidebar_shown, show_sidebar, files_open)
+                        chat::pane(id, sidebar_shown, show_sidebar, files_shown, show_files)
                             .key(format!("chat-{id}"))
                     })
                 })),
         )
         // The files of the conversation's folder, beside it while they show.
-        .child(when(
-            move || files_open.get(),
-            move || files::panel(workspace, files_open),
-        ))
+        .child(when(files_shown, move || {
+            files::panel(workspace, files_open)
+        }))
         // The settings, over everything while they are open.
         .child(settings::dialog(settings_open))
 }

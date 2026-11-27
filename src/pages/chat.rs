@@ -22,7 +22,8 @@ pub(crate) fn pane(
     session_id: u32,
     sidebar_shown: impl Fn() -> bool + Copy + 'static,
     show_sidebar: impl Fn() + Copy + 'static,
-    files: Signal<bool>,
+    files_shown: impl Fn() -> bool + Copy + 'static,
+    show_files: impl Fn() + Copy + 'static,
 ) -> View {
     let draft = signal(String::new());
     // What the reader folded open or away: a reply read with its thought open
@@ -42,7 +43,13 @@ pub(crate) fn pane(
         .min_w(px(0.0))
         .bg(move || theme().background)
         .bind_motion(&enter)
-        .child(header(session_id, sidebar_shown, show_sidebar, files))
+        .child(header(
+            session_id,
+            sidebar_shown,
+            show_sidebar,
+            files_shown,
+            show_files,
+        ))
         .child(
             view()
                 .flex_1()
@@ -179,7 +186,8 @@ fn header(
     session_id: u32,
     sidebar_shown: impl Fn() -> bool + Copy + 'static,
     show_sidebar: impl Fn() + Copy + 'static,
-    files: Signal<bool>,
+    files_shown: impl Fn() -> bool + Copy + 'static,
+    show_files: impl Fn() + Copy + 'static,
 ) -> impl IntoElement {
     view()
         .h(px(sizes::TOPBAR))
@@ -225,10 +233,9 @@ fn header(
         // The files of the conversation's folder open at the window's right end,
         // where the panel's own toggle takes this place while it shows.
         .child(when(
-            move || !files.get(),
+            move || !files_shown(),
             move || {
-                button::ghost_icon(icon::panel_right(14.0), "Show the files")
-                    .on_press(move || motion::set_panel(files, true))
+                button::ghost_icon(icon::panel_right(14.0), "Show the files").on_press(show_files)
             },
         ))
 }
