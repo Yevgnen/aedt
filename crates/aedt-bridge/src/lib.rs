@@ -25,10 +25,10 @@ static DISPATCH: OnceLock<()> = OnceLock::new();
 type Running = (Vec<Provider>, Vec<McpServer>, Agent);
 
 thread_local! {
-    /// One agent per session, each with its own harness and so its own MCP
-    /// servers: a server's state belongs to the conversation that reached it.
-    /// The settings that build one change while the app runs, and a session's
-    /// agent is started again from them on its next message.
+    /// One agent per session, each with its own harness; the MCP servers behind
+    /// them are shared, one process for every session. The settings that build
+    /// one change while the app runs, and a session's agent is started again
+    /// from them on its next message.
     static AGENTS: RefCell<HashMap<u32, Running>> = RefCell::new(HashMap::new());
 
     /// When each session's reply was asked, and the model it asked, for its
@@ -176,8 +176,8 @@ fn mcps() -> Vec<McpServer> {
 fn start(session: u32, providers: &[Provider], mcp: &[McpServer]) -> Result<Agent, String> {
     let root = std::env::current_dir()
         .map_err(|error| format!("failed to read the working directory: {error}"))?;
-    // The harness's own home, one per session: the servers it starts keep their
-    // state in it, and no two harnesses write one session log.
+    // The harness's own home, one per session: no two harnesses write one
+    // session log.
     let rig = nsh_core::element::data_dir()
         .ok_or_else(|| "the app's data directory is unknown".to_owned())?
         .join("rig");
@@ -186,7 +186,7 @@ fn start(session: u32, providers: &[Provider], mcp: &[McpServer]) -> Result<Agen
         session,
         providers: providers.to_vec(),
         mcp: mcp.to_vec(),
-        // The catalogs are every session's: a server's tools are learnt once.
+        // The catalogs are every session's: a server is listed once for all.
         catalog: rig.join("mcp"),
         root,
         home,

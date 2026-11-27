@@ -1,15 +1,19 @@
-//! Local MCP servers: the tools each listed the last time it ran are offered
-//! as they were, and the process behind them starts only when a call first
-//! needs one. A server the app has never run is asked once while the harness
-//! starts, for the tools to offer at all.
+//! Local MCP servers: a process is started for a server's tool list or a
+//! call, its list is kept in memory for the harnesses after this one, and
+//! it is ended once no list or call has used it for a while. The catalog on
+//! disk is what a server listed the last time it ran, offered when it cannot
+//! be reached now.
 
 use std::{
     collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
     process::Stdio,
-    sync::Arc,
-    time::Duration,
+    sync::{
+        Arc, Mutex as StdMutex, OnceLock,
+        atomic::{AtomicUsize, Ordering},
+    },
+    time::{Duration, Instant},
 };
 
 use rig_harness::{
@@ -23,15 +27,20 @@ use rig_rmcp::{McpConnection, McpTool, client_config, rmcp};
 use rmcp::ServiceExt;
 use serde::{Deserialize, Serialize};
 
-/// How long a server gets to start and answer while something waits on it.
+/// How long a server gets to start and answer its tool list.
 const START_TIMEOUT: Duration = Duration::from_secs(60);
 
-/// How long a call waits for the tool list that refreshes the catalog behind
-/// it: a server slow to list it is left with the catalog it had.
-const LIST_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long a server is kept after the last list or call that used it.
+const IDLE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+
+/// How long a list is offered before a harness asks the server again.
+const LIST_TTL: Duration = Duration::from_secs(10 * 60);
+
+/// How often the hub looks for servers that have been idle long enough.
+const SWEEP_EVERY: Duration = Duration::from_secs(30);
 
 /// What a server listed the last time it ran, with what started it: the tools
-/// the agent is offered before any process exists.
+/// offered when it cannot be reached now.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct Catalog {
     command: String,
@@ -71,34 +80,158 @@ impl Catalog {
     }
 }
 
-/// One server: what starts it, the tools its last run listed, and the
-/// connection its calls share once one needs it.
-pub(crate) struct Server {
+/// One server, shared by every harness: what starts it, the tools its last
+/// list produced, and the connection a list or a call uses while it is open.
+struct Server {
     spec: crate::McpServer,
-    listed: Vec<rmcp::model::Tool>,
-    /// Where its catalog is kept, which a connection it makes refreshes.
+    /// Where its catalog is kept, which a list refreshes.
     catalog: PathBuf,
-    /// Its process and connection, made when a call first needs one.
+    /// Its tools as it listed them in this run, with when, or none before it
+    /// has been listed.
+    listed: StdMutex<Option<Listed>>,
+    /// Its process and connection, made when a list or call needs one.
     open: tokio::sync::Mutex<Option<Arc<McpConnection>>>,
+    /// One tool list at a time: two harnesses asking do not list twice.
+    listing: tokio::sync::Mutex<()>,
+    /// When a list or call last used it, for the idle sweep.
+    used: StdMutex<Instant>,
+    /// How many lists and calls are using it now: an idle sweep leaves it be.
+    busy: AtomicUsize,
 }
 
 impl Server {
+    fn new(spec: crate::McpServer, catalog: PathBuf) -> Self {
+        Self {
+            spec,
+            catalog,
+            listed: StdMutex::new(None),
+            open: tokio::sync::Mutex::new(None),
+            listing: tokio::sync::Mutex::new(()),
+            used: StdMutex::new(Instant::now()),
+            busy: AtomicUsize::new(0),
+        }
+    }
+
+    fn cached(&self) -> Option<Vec<rmcp::model::Tool>> {
+        self.listed.lock().ok().and_then(|listed| {
+            listed
+                .as_ref()
+                .filter(|listed| listed.at.elapsed() < LIST_TTL)
+                .map(|listed| listed.tools.clone())
+        })
+    }
+
+    /// Keeps `tools` as what this server lists, in memory and on disk.
+    fn keep(&self, tools: &[rmcp::model::Tool]) {
+        if let Ok(mut listed) = self.listed.lock() {
+            *listed = Some(Listed {
+                tools: tools.to_vec(),
+                at: Instant::now(),
+            });
+        }
+        Catalog::keep(&self.catalog, &self.spec, tools);
+    }
+
+    fn touch(&self) {
+        if let Ok(mut used) = self.used.lock() {
+            *used = Instant::now();
+        }
+    }
+
+    /// Marks this server in use until the returned guard is dropped, so an
+    /// idle sweep cannot end a process a list or a call is using.
+    fn busy(self: &Arc<Self>) -> Busy {
+        self.busy.fetch_add(1, Ordering::Relaxed);
+        Busy(Arc::clone(self))
+    }
+
     /// The connection to the server, started now if none is open.
-    async fn connected(&self) -> Result<Arc<McpConnection>, ToolExecutionError> {
+    async fn connected(&self) -> Result<Arc<McpConnection>, String> {
         let mut open = self.open.lock().await;
         if let Some(connection) = open.as_ref().filter(|open| !open.is_closed()) {
-            return Ok(connection.clone());
+            let connection = Arc::clone(connection);
+            drop(open);
+            self.touch();
+
+            return Ok(connection);
         }
 
-        let connection = Arc::new(start(&self.spec).await.map_err(ToolExecutionError::other)?);
-        *open = Some(connection.clone());
-        // What it lists now is what the next harness offers, even where this
-        // one still offers the catalog it had.
-        if let Ok(tools) = connection.list_tools(LIST_TIMEOUT).await {
-            Catalog::keep(&self.catalog, &self.spec, &tools);
-        }
+        let connection = Arc::new(start(&self.spec).await?);
+        *open = Some(Arc::clone(&connection));
+        drop(open);
+        self.touch();
 
         Ok(connection)
+    }
+
+    /// The tools the server lists: what it listed in this run already, else a
+    /// list now, which the next harness offers.
+    async fn list(&self) -> Result<Vec<rmcp::model::Tool>, String> {
+        let _listing = self.listing.lock().await;
+        if let Some(tools) = self.cached() {
+            return Ok(tools);
+        }
+
+        let connection = self.connected().await?;
+        let tools = connection
+            .list_tools(START_TIMEOUT)
+            .await
+            .map_err(|error| error.to_string())?;
+        self.keep(&tools);
+
+        Ok(tools)
+    }
+
+    /// The tools this server offers: what it listed in this run, or what it
+    /// listed last time when it cannot be reached now.
+    async fn tools(self: &Arc<Self>) -> Vec<rmcp::model::Tool> {
+        let _busy = self.busy();
+        match self.list().await {
+            Ok(tools) => tools,
+            Err(error) => {
+                eprintln!("mcp: {}: failed to list its tools: {error}", self.spec.name);
+                Catalog::read(&self.catalog, &self.spec)
+                    .map(|kept| kept.tools)
+                    .unwrap_or_default()
+            }
+        }
+    }
+
+    /// Ends the connection when no list or call has used it for `IDLE_TIMEOUT`.
+    async fn release_if_idle(&self) {
+        if self.busy.load(Ordering::Relaxed) > 0 {
+            return;
+        }
+        let idle = self
+            .used
+            .lock()
+            .map(|used| used.elapsed() >= IDLE_TIMEOUT)
+            .unwrap_or(false);
+        if !idle {
+            return;
+        }
+
+        let connection = {
+            let mut open = self.open.lock().await;
+            if self.busy.load(Ordering::Relaxed) > 0 {
+                return;
+            }
+            open.take()
+        };
+        if let Some(connection) = connection {
+            connection.close().await;
+        }
+    }
+
+    /// Ends the connection now: the server was edited or removed.
+    async fn close(&self) {
+        let connection = {
+            let mut open = self.open.lock().await;
+            open.take()
+        };
+        if let Some(connection) = connection {
+            connection.close().await;
+        }
     }
 
     /// The tool `definition` is to the agent: named for its server, and calling
@@ -120,7 +253,11 @@ impl Server {
 
                 Box::pin(async move {
                     let call = async move {
-                        let connection = server.connected().await?;
+                        let _busy = server.busy();
+                        let connection = server
+                            .connected()
+                            .await
+                            .map_err(ToolExecutionError::other)?;
                         let tool = McpTool::new(called, &connection).with_name(offered);
                         let tool = DynamicTool::try_from(tool)
                             .map_err(|error| ToolExecutionError::other(error.to_string()))?;
@@ -139,62 +276,148 @@ impl Server {
     }
 }
 
-/// The servers the app configured, with the tools each lists: one already known
-/// is offered from its catalog without anything running, and one never run is
-/// started once here — the only way to learn what to offer — and kept in `dir`
-/// for the runs after.
-pub(crate) fn prepare(servers: &[crate::McpServer], dir: &Path) -> Vec<Arc<Server>> {
-    let runtime = rig_http::runtime::handle();
-    let Ok(runtime) = runtime else {
-        eprintln!("mcp: no runtime to ask the servers for their tools");
-
-        return Vec::new();
-    };
-
-    servers
-        .iter()
-        .map(|server| {
-            let catalog = dir.join(format!("{}.json", server.name));
-            let listed = match Catalog::read(&catalog, server) {
-                Some(kept) => kept.tools,
-                None => runtime
-                    .block_on(first_run(server, &catalog))
-                    .unwrap_or_default(),
-            };
-
-            Arc::new(Server {
-                spec: server.clone(),
-                listed,
-                catalog,
-                open: tokio::sync::Mutex::new(None),
-            })
-        })
-        .collect()
+/// The tools a server listed, and when it did.
+struct Listed {
+    tools: Vec<rmcp::model::Tool>,
+    at: Instant,
 }
 
-/// Starts `server` for the first time, keeps what it lists, and lets it go: the
-/// connection a call makes later is the one that serves it.
-async fn first_run(server: &crate::McpServer, catalog: &Path) -> Option<Vec<rmcp::model::Tool>> {
-    let connection = match start(server).await {
-        Ok(connection) => connection,
-        Err(why) => {
-            eprintln!("mcp: {}: {why}", server.name);
+/// A guard that keeps a server from being swept while a list or a call uses it.
+struct Busy(Arc<Server>);
 
-            return None;
+impl Drop for Busy {
+    fn drop(&mut self) {
+        self.0.busy.fetch_sub(1, Ordering::Relaxed);
+        self.0.touch();
+    }
+}
+
+/// The servers every harness shares, by name: a process is started for a
+/// list or a call, and ended once idle.
+struct Hub {
+    servers: StdMutex<BTreeMap<String, Arc<Server>>>,
+}
+
+impl Hub {
+    fn new() -> Arc<Self> {
+        let hub = Arc::new(Self {
+            servers: StdMutex::new(BTreeMap::new()),
+        });
+        hub.sweep_in_background();
+
+        hub
+    }
+
+    /// The servers `specs` names, in order: one already known is shared, and
+    /// one whose command or catalog changed is started again.
+    fn sync(&self, specs: &[crate::McpServer], dir: &Path) -> Vec<Arc<Server>> {
+        let Ok(mut servers) = self.servers.lock() else {
+            return Vec::new();
+        };
+        let mut out = Vec::with_capacity(specs.len());
+        for spec in specs {
+            let catalog = dir.join(format!("{}.json", spec.name));
+            let kept = servers
+                .get(&spec.name)
+                .filter(|server| server.spec == *spec && server.catalog == catalog)
+                .cloned();
+            if let Some(server) = kept {
+                out.push(server);
+                continue;
+            }
+
+            let server = Arc::new(Server::new(spec.clone(), catalog));
+            if let Some(old) = servers.insert(spec.name.clone(), Arc::clone(&server))
+                && let Ok(runtime) = rig_http::runtime::handle()
+            {
+                runtime.spawn(async move { old.close().await });
+            }
+            out.push(server);
         }
-    };
-    match connection.list_tools(START_TIMEOUT).await {
-        Ok(tools) => {
-            Catalog::keep(catalog, server, &tools);
 
-            Some(tools)
-        }
-        Err(error) => {
-            eprintln!("mcp: {}: failed to list its tools: {error}", server.name);
+        out
+    }
 
-            None
+    /// Ends every server no list or call has used for `IDLE_TIMEOUT`.
+    async fn sweep(&self) {
+        let servers: Vec<Arc<Server>> = match self.servers.lock() {
+            Ok(servers) => servers.values().cloned().collect(),
+            Err(_) => return,
+        };
+        for server in servers {
+            server.release_if_idle().await;
         }
     }
+
+    /// Sweeps for idle servers for as long as the app runs.
+    fn sweep_in_background(self: &Arc<Self>) {
+        let Ok(runtime) = rig_http::runtime::handle() else {
+            eprintln!("mcp: no runtime to end idle servers");
+
+            return;
+        };
+        let hub = Arc::downgrade(self);
+        runtime.spawn(async move {
+            loop {
+                tokio::time::sleep(SWEEP_EVERY).await;
+                let Some(hub) = hub.upgrade() else {
+                    return;
+                };
+                hub.sweep().await;
+            }
+        });
+    }
+}
+
+/// The servers every harness shares.
+fn hub() -> Arc<Hub> {
+    static HUB: OnceLock<Arc<Hub>> = OnceLock::new();
+
+    HUB.get_or_init(Hub::new).clone()
+}
+
+/// A server and the tools this harness offers from it.
+pub(crate) struct Prepared {
+    server: Arc<Server>,
+    tools: Vec<rmcp::model::Tool>,
+}
+
+/// The servers the app configured, with the tools each offers: what a harness
+/// listed before, or what the server lists now, when a list first needs it.
+pub(crate) fn prepare(servers: &[crate::McpServer], dir: &Path) -> Vec<Prepared> {
+    let runtime = match rig_http::runtime::handle() {
+        Ok(runtime) => runtime,
+        Err(_) => {
+            eprintln!("mcp: no runtime to ask the servers for their tools");
+
+            return Vec::new();
+        }
+    };
+    let servers = hub().sync(servers, dir);
+    let mut tasks = Vec::with_capacity(servers.len());
+    for server in &servers {
+        let server = Arc::clone(server);
+        tasks.push(runtime.spawn(async move { server.tools().await }));
+    }
+    let tools = runtime.block_on(async move {
+        let mut out = Vec::with_capacity(tasks.len());
+        for task in tasks {
+            out.push(match task.await {
+                Ok(tools) => tools,
+                Err(error) => {
+                    eprintln!("mcp: failed to list a server's tools: {error}");
+                    Vec::new()
+                }
+            });
+        }
+        out
+    });
+
+    servers
+        .into_iter()
+        .zip(tools)
+        .map(|(server, tools)| Prepared { server, tools })
+        .collect()
 }
 
 /// Starts `server` and hands it the client's handshake.
@@ -208,10 +431,19 @@ async fn start(server: &crate::McpServer) -> Result<McpConnection, String> {
         .stderr(Stdio::null());
     let transport = rmcp::transport::TokioChildProcess::new(command)
         .map_err(|error| format!("failed to start {:?}: {error}", server.command))?;
-    let service = client_config("aedt", env!("CARGO_PKG_VERSION"))
-        .serve(transport)
-        .await
-        .map_err(|error| format!("{:?} did not answer the handshake: {error}", server.command))?;
+    let service = tokio::time::timeout(
+        START_TIMEOUT,
+        client_config("aedt", env!("CARGO_PKG_VERSION")).serve(transport),
+    )
+    .await
+    .map_err(|_| {
+        format!(
+            "{:?} did not answer the handshake in {}s",
+            server.command,
+            START_TIMEOUT.as_secs()
+        )
+    })?
+    .map_err(|error| format!("{:?} did not answer the handshake: {error}", server.command))?;
 
     Ok(McpConnection::new(service))
 }
@@ -235,22 +467,22 @@ fn namespaced(server: &str, tool: &str) -> String {
     name
 }
 
-/// The tools of the servers the app started, registered for the agent to call.
+/// The tools of the servers the app configured, registered for the agent to call.
 pub(crate) struct McpTools {
-    servers: Vec<Arc<Server>>,
+    servers: Vec<Prepared>,
 }
 
 impl McpTools {
-    pub(crate) fn new(servers: Vec<Arc<Server>>) -> Self {
+    pub(crate) fn new(servers: Vec<Prepared>) -> Self {
         Self { servers }
     }
 }
 
 impl Plugin for McpTools {
     fn build(&self, app: &mut App) {
-        for server in &self.servers {
-            for definition in &server.listed {
-                let Some(tool) = server.tool(definition) else {
+        for prepared in &self.servers {
+            for definition in &prepared.tools {
+                let Some(tool) = prepared.server.tool(definition) else {
                     continue;
                 };
                 let (definition, handler, _) = tool.into_parts();

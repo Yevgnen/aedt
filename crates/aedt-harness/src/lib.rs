@@ -98,8 +98,8 @@ pub struct Config {
     pub session: u32,
     /// The providers the app offers, each with the models the reader left on.
     pub providers: Vec<Provider>,
-    /// The local MCP servers the app switched on, their tools offered before
-    /// any of them runs.
+    /// The local MCP servers the app switched on, their tools listed when the
+    /// harness asks for them.
     pub mcp: Vec<McpServer>,
     /// Where each server's catalog is kept: the tools it listed last time, one
     /// file a server.
@@ -189,8 +189,9 @@ fn run(config: Config, commands: Receiver<Command>, events: Sender<Event>) {
             return;
         }
     };
-    // The MCP servers' tools, offered from what they listed last time: nothing
-    // of theirs runs until a call needs it.
+    // The MCP servers' tools, listed when this harness asks for them and
+    // shared with the harnesses after it: a process starts for a list or a call
+    // and is ended once idle.
     let mcp = mcp::prepare(&config.mcp, &config.catalog);
 
     let mut app = App::new();
