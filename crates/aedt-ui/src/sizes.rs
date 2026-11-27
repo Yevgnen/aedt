@@ -56,7 +56,8 @@ pub const SEND: f32 = 28.0;
 /// failure.
 pub const STATUS: f32 = 20.0;
 
-/// The card the MCP status opens on hover: wide enough for a server's name.
+/// The widest the card the MCP status opens on hover may get: it fits a
+/// server's name until the name outgrows this.
 pub const MCP_POPOVER_W: f32 = 220.0;
 
 /// A user message's widest line, so a bubble does not become a page.

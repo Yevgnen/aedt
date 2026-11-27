@@ -65,6 +65,10 @@ const MCP_POLL: Duration = Duration::from_millis(500);
 /// The dot that says whether an MCP server runs.
 const MCP_DOT: f32 = 6.0;
 
+/// The room the dot keeps on its top, bottom and left: a row as tall as a
+/// session's, with the dot centered.
+const MCP_INSET: f32 = (sizes::LIST_ROW - MCP_DOT) / 2.0;
+
 /// The line under the card: what the session's MCP servers are doing, and a
 /// voice attempt that failed.
 fn status_line(session_id: u32, notice: Signal<Option<SharedString>>) -> impl IntoElement {
@@ -139,9 +143,7 @@ fn mcp_servers(servers: Signal<Vec<McpStatus>>) -> impl IntoElement {
         .absolute()
         .left(px(0.0))
         .bottom(px(sizes::STATUS + 4.0))
-        .w(px(sizes::MCP_POPOVER_W))
-        .p_2()
-        .gap_1()
+        .max_w(px(sizes::MCP_POPOVER_W))
         .pointer_events(PointerEvents::None)
         .child(each(
             move || servers.get(),
@@ -154,6 +156,7 @@ fn mcp_servers(servers: Signal<Vec<McpStatus>>) -> impl IntoElement {
 fn server_row(server: ReadSignal<McpStatus>) -> impl IntoElement {
     view()
         .h(px(sizes::LIST_ROW))
+        .px(px(MCP_INSET))
         .flex_row()
         .items_center()
         .gap_2()
