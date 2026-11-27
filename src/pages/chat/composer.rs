@@ -51,11 +51,16 @@ pub(super) fn composer(session_id: u32, draft: Signal<String>) -> impl IntoEleme
     // the keys once it is on screen.
     let field = element_ref();
     set_timeout(Duration::from_millis(50), move || field.focus());
+    // How many times the field has been made. A field made after the file
+    // panel is gone comes back in its own box, and takes the keys there: the
+    // one the pick left behind can sit out of it, drawn at the top of the
+    // pane's content where a press no longer reaches it.
+    let made = signal(0u32);
 
     view()
         .pb_2()
         .gap_2()
-        .child(composer_card(draft, files, can_send, submit, field))
+        .child(composer_card(draft, files, can_send, submit, field, made))
         .child(status_line(session_id, notice))
 }
 
@@ -190,6 +195,7 @@ fn composer_card(
     can_send: impl Fn() -> bool + Copy + 'static,
     submit: impl Fn() + Copy + 'static,
     field: ElementRef,
+    made: Signal<u32>,
 ) -> impl IntoElement {
     surface::card(surface::Surface::Composer)
         .p(px(sizes::CARD_PADDING))
@@ -213,11 +219,16 @@ fn composer_card(
                             ))
                     },
                 ))
-                .child(
-                    input::composer(draft, submit)
-                        .label("Message")
-                        .element_ref(&field),
-                )
+                .child(dynamic(move || {
+                    let made = made.get();
+                    untracked(|| {
+                        input::composer(draft, submit)
+                            .label("Message")
+                            .auto_focus(true)
+                            .element_ref(&field)
+                            .key(format!("composer-{made}"))
+                    })
+                }))
                 .child(
                     view()
                         .flex_row()
@@ -226,7 +237,7 @@ fn composer_card(
                         .gap_2()
                         // The files a message carries start at the row's left
                         // end: the send stays alone at its right.
-                        .child(attach_button(files, field))
+                        .child(attach_button(files, field, made))
                         .child(
                             view()
                                 .flex_row()
@@ -256,7 +267,11 @@ fn composer_card(
 
 /// The button that opens the file dialog: what it picks joins the next message,
 /// and the field takes the keys back once the dialog closes.
-fn attach_button(files: Signal<Vec<PathBuf>>, field: ElementRef) -> impl IntoElement {
+fn attach_button(
+    files: Signal<Vec<PathBuf>>,
+    field: ElementRef,
+    made: Signal<u32>,
+) -> impl IntoElement {
     button::quiet_icon(icon::plus(16.0), "Attach files").on_press(move || {
         let picked = pick_paths(OpenDialog::files().multiple(true).button_label("Attach"));
         spawn(async move {
@@ -271,14 +286,14 @@ fn attach_button(files: Signal<Vec<PathBuf>>, field: ElementRef) -> impl IntoEle
                 Ok(None) => {}
                 Err(why) => eprintln!("attachment: the file dialog failed: {why}"),
             }
-            // The panel hands the window back as its sheet ends, and that
-            // hand-back can land after a focus asked for here. Take the keys off
-            // the field first, so the asks below are hand-overs the platform
-            // makes instead of ones it believes it already made: the second is
-            // the spare for a hand-back that lands between them.
-            field.blur();
-            set_timeout(Duration::from_millis(150), move || field.focus());
-            set_timeout(Duration::from_millis(400), move || field.focus());
+            // The panel hands the window back as its sheet ends, and the field
+            // it left behind can sit out of its box: drawn at the top of the
+            // pane's content, and deaf to presses where it should be. Making
+            // the field again puts it back in the card, and `auto_focus` gives
+            // it the keys there; the ask below is the spare for a hand-back
+            // that lands after the new one is made.
+            made.update(|made| *made += 1);
+            set_timeout(Duration::from_millis(300), move || field.focus());
         });
     })
 }
