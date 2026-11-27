@@ -40,6 +40,15 @@ impl Surface {
             _ => theme().border,
         }
     }
+
+    /// What lies under it: a popup's own surface for the two that come up over
+    /// the app, the card's for the composer and the dialog.
+    fn fill(self) -> impl Fn() -> AdaptiveColor + Copy {
+        move || match self {
+            Self::Popup | Self::Preview => theme().popover,
+            Self::Composer | Self::Dialog => theme().card,
+        }
+    }
 }
 
 /// `style` with the card's fill, edge, corner and shadow: what a popup's own
@@ -49,7 +58,7 @@ pub fn restyle(surface: Surface, style: StyleRefinement) -> StyleRefinement {
         .rounded(surface.corner())
         .border_1()
         .border_color(surface.edge())
-        .bg(move || theme().card)
+        .bg(surface.fill())
         .shadow(tokens::floating_shadow())
 }
 
@@ -59,6 +68,6 @@ pub fn card(surface: Surface) -> View {
         .rounded(surface.corner())
         .border_1()
         .border_color(surface.edge())
-        .bg(move || theme().card)
+        .bg(surface.fill())
         .shadow(tokens::floating_shadow())
 }
