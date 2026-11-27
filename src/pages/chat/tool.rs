@@ -3,7 +3,6 @@
 
 use aedt_store::{self as store, ToolRun};
 use aedt_ui::{MESSAGE_LINE, button, code, diff, icon, motion, sizes, tokens};
-use nsh_base::theme;
 use nsh_core::{LineHeight, prelude::*};
 
 use super::Folds;
@@ -50,7 +49,7 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
                         .flex_none()
                         .text_sm()
                         .font_weight(FontWeight::MEDIUM)
-                        .text_color(move || theme().foreground),
+                        .text_color(tokens::meta),
                 )
                 .child(
                     view().flex_1().min_w(px(0.0)).child(
