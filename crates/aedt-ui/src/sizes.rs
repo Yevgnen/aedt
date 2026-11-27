@@ -4,6 +4,10 @@
 /// subordinate to the conversation.
 pub const SIDEBAR: f32 = 264.0;
 
+/// The window width under which the sidebar steps aside: the conversation keeps
+/// a column it can be read in, and the sidebar's toggle brings the list back.
+pub const NARROW: f32 = 760.0;
+
 /// The sidebar's content inset: the line the traffic lights stand on, so a
 /// heading, a group's mark and a session's title start on it too.
 pub const SIDEBAR_INSET: f32 = 16.0;

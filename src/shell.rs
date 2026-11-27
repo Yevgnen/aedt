@@ -1,6 +1,7 @@
 //! The app shell: the session sidebar beside the conversation, no page logic.
 
 use aedt_store as store;
+use aedt_ui::sizes;
 use nsh_base::theme;
 use nsh_core::prelude::*;
 
@@ -27,12 +28,29 @@ pub(crate) fn shell() -> View {
     // The folder the panel shows: the selected conversation's workspace, which
     // changes only when the reader moves to a conversation in another one.
     let workspace = computed(move || store::session_path(selected.get()));
+    // Whether the window is too narrow to hold both columns, as the shell's last
+    // layout measured it.
+    let narrow = signal(false);
+    // A window too narrow for both keeps the sidebar out of the way: the
+    // conversation is what a narrow window is for, and the toggle in its header
+    // brings the list back when the reader asks for it.
+    effect(move || {
+        if narrow.get() && sidebar_open.get() {
+            sidebar_open.set(false);
+        }
+    });
 
     view()
         .flex_1()
         .flex_row()
         .bg(move || theme().background)
         .text_color(move || theme().foreground)
+        .on_layout(move |frame: &Bounds<Points>| {
+            let now = frame.size.width.0 < sizes::NARROW;
+            if narrow.get_untracked() != now {
+                narrow.set(now);
+            }
+        })
         .child(when(
             move || sidebar_open.get(),
             move || sidebar::sidebar(open_settings, sidebar_open),

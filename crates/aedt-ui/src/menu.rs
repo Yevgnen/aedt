@@ -95,9 +95,19 @@ pub fn label_trigger(
         .transition_colors()
         .duration(motion::row_duration())
         .ease_out()
-        .child(text(value).text_size(px(sizes::TEXT_COMPACT)))
+        // A narrow column shortens the name rather than let the row overflow
+        // the card it sits in.
+        .min_w(px(0.0))
+        .child(
+            text(value)
+                .flex_1()
+                .min_w(px(0.0))
+                .truncate()
+                .text_size(px(sizes::TEXT_COMPACT)),
+        )
         .child(
             text(note)
+                .flex_none()
                 .text_size(px(sizes::TEXT_COMPACT))
                 .text_color(tokens::caption),
         )
