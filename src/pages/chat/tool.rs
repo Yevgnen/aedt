@@ -54,7 +54,6 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
                     })
                     .flex_none()
                     .text_sm()
-                    .font_weight(FontWeight::MEDIUM)
                     .text_color(tokens::meta),
                 )
                 .child(
