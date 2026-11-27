@@ -4,8 +4,8 @@
 
 use std::env;
 
+use aedt_provider::Effort;
 use aedt_provider::models::{ListedModel, list_models};
-use aedt_provider::responses::Effort;
 use aedt_provider::{DEEPSEEK_BASE_URL, DEEPSEEK_MODEL};
 use nsh_core::prelude::*;
 

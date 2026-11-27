@@ -1,9 +1,23 @@
-//! An OpenAI-compatible provider: the models it lists, the responses it
-//! streams, and the chat completions it streams.
+//! An OpenAI-compatible provider: the models it lists, and the effort a reply
+//! asks its model for.
 
-pub mod chat;
 pub mod models;
-pub mod responses;
+
+use serde::{Deserialize, Serialize};
+
+/// How hard a reply's model thinks before it answers (`reasoning.effort`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Effort {
+    /// The provider's own default: the request asks for no effort.
+    Default,
+    /// A little.
+    Low,
+    /// Some: more than the low effort, less than the high one.
+    Medium,
+    /// As much as the provider offers.
+    High,
+}
 
 /// DeepSeek's base URL: their docs' `base_url (OpenAI)`.
 pub const DEEPSEEK_BASE_URL: &str = "https://api.deepseek.com";
