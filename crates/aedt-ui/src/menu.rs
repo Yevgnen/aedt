@@ -3,8 +3,9 @@
 //! (placement, focus, keyboard navigation, dismissal); the look is here.
 
 use nsh_base::{
-    ButtonElement, Input, MenuElement, MenuEvent, MenuItemElement, SubmenuElement, button, input,
-    menu as base_menu, menu_item as base_item, submenu as base_submenu, theme,
+    ButtonElement, Input, MenuElement, MenuEvent, MenuItemElement, PopoverElement, PopoverEvent,
+    SubmenuElement, button, input, menu as base_menu, menu_item as base_item,
+    popover as base_popover, submenu as base_submenu, theme,
 };
 use nsh_core::prelude::*;
 
@@ -45,6 +46,31 @@ pub fn controlled(
                 open.set(*next);
             }
         })
+}
+
+/// A popover the app opens and closes itself: the anchor is invisible when the
+/// app has no row of its own for it, and its content is the app's floating
+/// card. A press outside and Escape close it, as a menu's do.
+pub fn popover(
+    open: Signal<bool>,
+    trigger: impl IntoElement,
+    placement: Placement,
+    align: Align,
+    content: impl IntoElement,
+) -> PopoverElement {
+    base_popover()
+        .placement(placement)
+        .align(align)
+        .offset(px(4.0))
+        .popup_style(move |s| surface::restyle(Surface::Popup, s.p_1()))
+        .open(move || Some(open.get()))
+        .on_open_change(move |event: &PopoverEvent| {
+            if let PopoverEvent::OpenChange(next, _) = event {
+                open.set(*next);
+            }
+        })
+        .trigger(trigger)
+        .child(content)
 }
 
 /// A row that opens a menu: a mark and its label, in the app's quiet chrome.
@@ -125,6 +151,17 @@ pub fn heading(label: impl IntoReactive<SharedString>) -> impl IntoElement {
         .text_color(move || theme().muted_foreground)
 }
 
+/// A line between a section's heading and its rows, for a section with nothing
+/// in it: the same quiet as the heading, and the room of a row.
+pub fn note(label: impl IntoReactive<SharedString>) -> impl IntoElement {
+    text(label)
+        .w_full()
+        .px(px(sizes::LIST_ROW_INSET))
+        .py_2()
+        .text_xs()
+        .text_color(move || theme().muted_foreground)
+}
+
 /// An item of one of those menus: a mark and its label, in the app's row look.
 /// Choosing it closes the menu.
 pub fn item(mark: impl IntoElement, label: impl IntoReactive<SharedString>) -> MenuItemElement {
@@ -180,6 +217,51 @@ pub fn option(
                 .text_sm(),
         )
         .child(when(chosen, || icon::check(14.0)))
+}
+
+/// A row of a menu the app fills from data, without a chosen value: a mark,
+/// its label, and the quiet note at its end that says where it came from. The
+/// caller adds `.on_press`, and the row keeps the focus where it is until the
+/// press takes it, as [`option`] does.
+pub fn entry(
+    mark: impl IntoElement,
+    label: impl IntoReactive<SharedString>,
+    suffix: impl IntoReactive<SharedString>,
+) -> ButtonElement {
+    crate::button::bare()
+        .role(AccessibilityRole::Menuitem)
+        .w_full()
+        .flex_row()
+        .items_center()
+        .gap_2()
+        .min_h(px(sizes::LIST_ROW))
+        .px(px(sizes::LIST_ROW_INSET))
+        .rounded(move || theme().radius)
+        .text_color(move || theme().foreground)
+        .hover(|s| s.bg(move || theme().muted))
+        .active(|s| s.bg(move || theme().accent))
+        .transition_colors()
+        .duration(motion::row_duration())
+        .ease_out()
+        .child(
+            view()
+                .flex_none()
+                .text_color(move || tokens::meta().opacity(0.8))
+                .child(mark),
+        )
+        .child(
+            text(label)
+                .flex_1()
+                .min_w(px(0.0))
+                .number_of_lines(1)
+                .text_sm(),
+        )
+        .child(
+            text(suffix)
+                .flex_none()
+                .text_xs()
+                .text_color(move || tokens::meta().opacity(0.8)),
+        )
 }
 
 /// A value that opens a menu of values, shaped like a form field: the value,

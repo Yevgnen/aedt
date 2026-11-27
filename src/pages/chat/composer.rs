@@ -7,9 +7,12 @@ use std::time::Duration;
 use aedt_bridge::{McpState, McpStatus};
 use aedt_provider::Effort;
 use aedt_settings as settings;
+use aedt_store as store;
 use aedt_ui::{attachment, button, icon, input, menu, sizes, surface, tokens};
 use nsh_base::{SubmenuEvent, theme};
 use nsh_core::{file_dialog::OpenDialog, prelude::*};
+
+mod skills;
 
 pub(super) fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
     // The files the next message carries, in the order they were picked.
@@ -60,7 +63,9 @@ pub(super) fn composer(session_id: u32, draft: Signal<String>) -> impl IntoEleme
     view()
         .pb_2()
         .gap_2()
-        .child(composer_card(draft, files, can_send, submit, field, made))
+        .child(composer_card(
+            session_id, draft, files, can_send, submit, field, made,
+        ))
         .child(status_line(session_id, notice))
 }
 
@@ -190,6 +195,7 @@ fn speak(draft: &mut String, words: &str) {
 /// the input itself is borderless, and the card's own edge is a whisper with a
 /// shadow under it, not a ring that lights up.
 fn composer_card(
+    session_id: u32,
     draft: Signal<String>,
     files: Signal<Vec<PathBuf>>,
     can_send: impl Fn() -> bool + Copy + 'static,
@@ -197,8 +203,22 @@ fn composer_card(
     field: ElementRef,
     made: Signal<u32>,
 ) -> impl IntoElement {
+    // Where the caret is, in UTF-16 units, as the field reports it: the slash
+    // menu narrows to the token the caret is in, not to the end of the draft.
+    let caret = signal(0u32);
+    let slash = computed(move || Slash::at(&draft.get(), caret.get()));
+    let slash_open = signal(false);
+    effect(move || {
+        let show = slash.with(Option::is_some);
+        if show != slash_open.get_untracked() {
+            slash_open.set(show);
+        }
+    });
+    let skills = skills::load(store::session_path(session_id).as_deref().map(Path::new));
+
     surface::card(surface::Surface::Composer)
         .p(px(sizes::CARD_PADDING))
+        .child(slash_menu(draft, caret, slash, slash_open, skills, field))
         .child(
             view()
                 .relative()
@@ -222,11 +242,13 @@ fn composer_card(
                 .child(dynamic(move || {
                     let made = made.get();
                     untracked(|| {
-                        input::composer(draft, submit)
-                            .label("Message")
-                            .auto_focus(true)
-                            .element_ref(&field)
-                            .key(format!("composer-{made}"))
+                        input::composer(draft, submit, move |selection| {
+                            caret.set(selection.start);
+                        })
+                        .label("Message")
+                        .auto_focus(true)
+                        .element_ref(&field)
+                        .key(format!("composer-{made}"))
                     })
                 }))
                 .child(
@@ -263,6 +285,154 @@ fn composer_card(
                     listening,
                 )),
         )
+}
+
+/// The slash token the caret is in: `/` at the start of a word, and what has
+/// been typed after it up to the caret.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Slash {
+    /// Where the `/` starts, in bytes.
+    start: usize,
+    /// Where the token ends, in bytes: the next whitespace, or the draft's end.
+    end: usize,
+    /// What follows the `/`, up to the caret.
+    query: String,
+}
+
+impl Slash {
+    fn at(text: &str, caret: u32) -> Option<Self> {
+        let caret = byte_offset(text, caret);
+        let mut start = 0;
+        for (index, ch) in text.char_indices() {
+            if index >= caret {
+                break;
+            }
+            if ch.is_whitespace() {
+                start = index + ch.len_utf8();
+            }
+        }
+        if caret <= start || !text[start..].starts_with('/') {
+            return None;
+        }
+        let end = text[caret..]
+            .find(char::is_whitespace)
+            .map_or(text.len(), |offset| caret + offset);
+
+        Some(Self {
+            start,
+            end,
+            query: text[start + 1..caret].to_owned(),
+        })
+    }
+}
+
+/// The byte at `utf16` in `text`, the units an input reports its caret in.
+fn byte_offset(text: &str, utf16: u32) -> usize {
+    let mut units = 0;
+    for (index, ch) in text.char_indices() {
+        if units == utf16 {
+            return index;
+        }
+        units += ch.len_utf16() as u32;
+        if units > utf16 {
+            return index;
+        }
+    }
+    text.len()
+}
+
+fn utf16_len(text: &str) -> u32 {
+    text.encode_utf16().count() as u32
+}
+
+/// The menu above the composer while the caret is in a slash token. Its first
+/// section lists the skills the reader and the conversation's workspace have;
+/// the query narrows them anywhere in the id, and choosing one replaces the
+/// token with `/id ` so the reader can carry on typing its arguments.
+fn slash_menu(
+    draft: Signal<String>,
+    caret: Signal<u32>,
+    slash: Memo<Option<Slash>>,
+    open: Signal<bool>,
+    skills: Vec<skills::Skill>,
+    field: ElementRef,
+) -> impl IntoElement {
+    let choices = computed(move || {
+        let query = slash.with(|slash| {
+            slash
+                .as_ref()
+                .map(|slash| slash.query.to_lowercase())
+                .unwrap_or_default()
+        });
+        skills
+            .iter()
+            .filter(|skill| skills::matches(skill, &query))
+            .cloned()
+            .collect::<Vec<_>>()
+    });
+
+    let content = view()
+        .role(AccessibilityRole::Menu)
+        .min_w(px(sizes::PICKER_MIN_W))
+        .gap_1()
+        .child(menu::heading("Skills"))
+        .child(when(
+            move || choices.with(Vec::is_empty),
+            move || menu::note("No skills found"),
+        ))
+        .child(
+            scroll()
+                .max_h(px(sizes::SKILLS_MAX_H))
+                .scrollbar(false)
+                .child(each(
+                    move || choices.get(),
+                    |skill| skill.id.clone(),
+                    move |skill, _| {
+                        let (id, source) =
+                            skill.with(|skill| (skill.id.clone(), skill.source.label()));
+                        menu::entry(
+                            icon::sparkle(14.0),
+                            SharedString::from(id.clone()),
+                            SharedString::from(source),
+                        )
+                        .on_press(move || choose_skill(draft, caret, slash, &id, field))
+                    },
+                )),
+        );
+
+    menu::popover(
+        open,
+        view().w(px(0.0)).h(px(0.0)),
+        Placement::Top,
+        Align::Start,
+        content,
+    )
+}
+
+fn choose_skill(
+    draft: Signal<String>,
+    caret: Signal<u32>,
+    slash: Memo<Option<Slash>>,
+    id: &str,
+    field: ElementRef,
+) {
+    let Some(token) = slash.get_untracked() else {
+        return;
+    };
+    let text = draft.get_untracked();
+    let command = format!("/{id} ");
+    let inserted = token.start + command.len();
+    let next = format!("{}{}{}", &text[..token.start], command, &text[token.end..]);
+    let next_caret = utf16_len(&next[..inserted]);
+
+    draft.set(next);
+    caret.set(next_caret);
+    field.focus();
+    // The value and the caret arrive in the same commit; setting the selection
+    // after it keeps the caret after the space, ready for the arguments.
+    set_timeout(Duration::from_millis(0), move || {
+        field.set_selection(next_caret, next_caret);
+    });
 }
 
 /// The button that opens the file dialog: what it picks joins the next message,

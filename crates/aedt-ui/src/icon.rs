@@ -24,6 +24,15 @@ const BULB: &str = concat!(
     r#"</svg>"#,
 );
 
+/// A four-point star (Lucide's `sparkle`): a skill the composer can run.
+const SPARKLE: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>"#,
+    r#"</svg>"#,
+);
+
 /// A microphone (Lucide's `mic`): what the reader says.
 const MIC: &str = concat!(
     r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
@@ -45,6 +54,12 @@ pub fn copy(size: f32) -> impl IntoElement {
 /// caller's text color.
 pub fn bulb(size: f32) -> impl IntoElement {
     icon(BULB, size)
+}
+
+/// The four-point star beside a skill in the composer's slash menu, `size`
+/// points square, in the caller's text color.
+pub fn sparkle(size: f32) -> impl IntoElement {
+    icon(SPARKLE, size)
 }
 
 /// The microphone, `size` points square, in the caller's text color.

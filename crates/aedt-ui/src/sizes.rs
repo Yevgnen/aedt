@@ -123,6 +123,9 @@ pub const PREVIEW_W: f32 = 320.0;
 pub const PICKER_MIN_W: f32 = 240.0;
 pub const PICKER_MAX_H: f32 = 360.0;
 
+/// The slash menu's skill list: eight rows, then it scrolls.
+pub const SKILLS_MAX_H: f32 = 8.0 * LIST_ROW;
+
 /// The picker's effort list: one short word a row.
 pub const EFFORT_W: f32 = 160.0;
 
