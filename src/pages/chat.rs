@@ -171,26 +171,27 @@ fn header(session_id: u32, sidebar: Signal<bool>) -> impl IntoElement {
         .h(px(sizes::TOPBAR))
         .flex_row()
         .items_center()
-        .gap_3()
-        // The traffic lights stand over the pane while the sidebar is away: the
-        // toggle that brings it back starts clear of them, where the sidebar's
-        // own toggle was, so it does not move.
-        .pl(move || {
-            if sidebar.get() {
-                Length::from(px(24.0))
-            } else {
-                Length::from(title_bar().left + px(4.0))
-            }
-        })
         .pr(move || Length::from(title_bar().right + px(24.0)))
         .window_drag(true)
         .border_b_1()
         .border_b_color(move || theme().border)
+        // While the sidebar is away, the pane takes its place: the toggle that
+        // brings it back is right-aligned where the sidebar's own stands, so it
+        // does not move as either appears.
         .child(when(
             move || !sidebar.get(),
             move || {
-                button::ghost_icon(icon::panel_left(14.0), "Show the sidebar")
-                    .on_press(move || sidebar.set(true))
+                view()
+                    .w(px(sizes::SIDEBAR))
+                    .flex_none()
+                    .flex_row()
+                    .items_center()
+                    .justify_end()
+                    .pr_3()
+                    .child(
+                        button::ghost_icon(icon::panel_left(14.0), "Show the sidebar")
+                            .on_press(move || sidebar.set(true)),
+                    )
             },
         ))
         .child(
@@ -201,6 +202,7 @@ fn header(session_id: u32, sidebar: Signal<bool>) -> impl IntoElement {
             })
             .flex_1()
             .min_w(px(0.0))
+            .pl(px(24.0))
             .text_sm()
             .number_of_lines(1)
             .font_weight(FontWeight::SEMIBOLD)

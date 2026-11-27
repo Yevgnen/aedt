@@ -4,7 +4,7 @@
 use aedt_store as store;
 use aedt_ui::{button, icon, list_item, menu, motion, sizes};
 use nsh_base::theme;
-use nsh_core::{element::desktop::title_bar, file_dialog::OpenDialog, prelude::*};
+use nsh_core::{file_dialog::OpenDialog, prelude::*};
 
 /// The session list, with the action that opens the settings as its foot, and
 /// the one in its top row that hides it.
@@ -75,10 +75,9 @@ fn brand(open: Signal<bool>) -> impl IntoElement {
         .h(px(sizes::TOPBAR))
         .flex_row()
         .items_center()
-        // The traffic lights stand over this row's left end: the toggle that
-        // hides the sidebar starts clear of them, and the header's own toggle
-        // takes the same place while the sidebar is away, so neither moves.
-        .pl(move || Length::from(title_bar().left + px(4.0)))
+        // The toggle sits at the sidebar's right edge, where the conversation's
+        // own copy of it stands while the sidebar is away, so it does not move.
+        .justify_end()
         .pr_3()
         .window_drag(true)
         .child(
