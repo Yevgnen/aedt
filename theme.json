@@ -2,7 +2,8 @@
   "name": "Aedt Blue",
   "cssVars": {
     "theme": {
-      "font-mono": "Berkeley Mono"
+      "font-mono": "Berkeley Mono",
+      "radius": "6px"
     },
     "light": {
       "foreground": "#242529dd",
