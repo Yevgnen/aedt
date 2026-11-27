@@ -231,7 +231,7 @@ fn workspace_actions(id: u32) -> impl IntoElement {
             .child(icon::more(14.0)),
         Placement::Bottom,
         Align::End,
-        menu::item(icon::x(14.0), "Remove").on_select(move || store::remove_workspace(id)),
+        menu::item(icon::trash(14.0), "Remove").on_select(move || store::remove_workspace(id)),
     )
 }
 
