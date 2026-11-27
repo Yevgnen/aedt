@@ -56,7 +56,10 @@ pub fn App() -> impl IntoElement {
     title_bar.style = TitleBarStyle::Hidden;
     // The traffic lights are centered in the app's own top row, so they share a
     // line with the sidebar's brand and the conversation's header beside them.
+    // They also move a little off the window's edge, and their 12 points keep
+    // that centering exact.
     title_bar.height = Some(px(sizes::TOPBAR));
+    title_bar.controls_offset = Some(point(px(22.0), px((sizes::TOPBAR - 12.0) / 2.0)));
     let mut attributes = WindowAttributes::default();
     attributes.title_bar = Some(title_bar);
     attributes.min_size = Some(Some(size(px(0.0), px(sizes::WINDOW_MIN_H))));
