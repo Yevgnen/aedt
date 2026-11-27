@@ -19,9 +19,11 @@ pub(crate) fn shell() -> View {
         aedt_settings::load();
         settings_open.set(true);
     };
-    // Whether the window is too narrow to hold the columns beside the
-    // conversation, as the shell's last layout measured it.
-    let narrow = signal(false);
+    // Whether the window has room for each panel beside the conversation, as
+    // the shell's last layout measured it: the sidebar steps aside first, and
+    // the files panel follows it when the width leaves even less.
+    let sidebar_narrow = signal(false);
+    let files_narrow = signal(false);
     // The reader's own showing of each side panel: the one's toggle in its own
     // top row hides it, and the conversation's header brings it back; the
     // other's header opens it and its own top row shuts it.
@@ -33,10 +35,10 @@ pub(crate) fn shell() -> View {
     // window shows it again.
     let sidebar_peek = signal(false);
     let files_peek = signal(false);
-    let sidebar_shown = move || sidebar_open.get() && (!narrow.get() || sidebar_peek.get());
-    let files_shown = move || files_open.get() && (!narrow.get() || files_peek.get());
+    let sidebar_shown = move || sidebar_open.get() && (!sidebar_narrow.get() || sidebar_peek.get());
+    let files_shown = move || files_open.get() && (!files_narrow.get() || files_peek.get());
     let show_sidebar = move || {
-        if narrow.get() {
+        if sidebar_narrow.get() {
             sidebar_open.set(true);
             sidebar_peek.set(true);
         } else {
@@ -44,23 +46,21 @@ pub(crate) fn shell() -> View {
         }
     };
     let show_files = move || {
-        if narrow.get() {
+        if files_narrow.get() {
             files_open.set(true);
             files_peek.set(true);
         } else {
             motion::set_panel(files_open, true);
         }
     };
-    // Once the window holds the panels again, each shows by the reader's setting
+    // Once the window holds a panel again, it shows by the reader's setting
     // alone: the showing they asked for while it was narrow has served.
     effect(move || {
-        if !narrow.get() {
-            if sidebar_peek.get_untracked() {
-                sidebar_peek.set(false);
-            }
-            if files_peek.get_untracked() {
-                files_peek.set(false);
-            }
+        if !sidebar_narrow.get() && sidebar_peek.get_untracked() {
+            sidebar_peek.set(false);
+        }
+        if !files_narrow.get() && files_peek.get_untracked() {
+            files_peek.set(false);
         }
     });
     // The folder the panel shows: the selected conversation's workspace, which
@@ -73,12 +73,25 @@ pub(crate) fn shell() -> View {
         .bg(move || theme().background)
         .text_color(move || theme().foreground)
         .on_layout(move |frame: &Bounds<Points>| {
-            let now = frame.size.width.0 < sizes::NARROW;
-            if narrow.get_untracked() != now {
-                // The panel fades where the width takes it away or gives it
+            let width = frame.size.width.0;
+            // What the files panel takes while the reader keeps it open. The
+            // sidebar counts it and leaves first, so no width takes both at once
+            // and leaves the conversation squeezed between them.
+            let files = if files_open.get_untracked() {
+                sizes::SIDEBAR
+            } else {
+                0.0
+            };
+            let sidebar_now = width - files - sizes::SIDEBAR < sizes::ROOM;
+            let files_now = width - sizes::SIDEBAR < sizes::ROOM;
+            if sidebar_narrow.get_untracked() != sidebar_now
+                || files_narrow.get_untracked() != files_now
+            {
+                // Each panel fades where the width takes it away or gives it
                 // back; the conversation's own frame is the drag's to move.
                 motion::fade_panel();
-                narrow.set(now);
+                sidebar_narrow.set(sidebar_now);
+                files_narrow.set(files_now);
             }
         })
         .child(when(sidebar_shown, move || {

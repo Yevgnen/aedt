@@ -4,9 +4,11 @@
 /// subordinate to the conversation.
 pub const SIDEBAR: f32 = 264.0;
 
-/// The window width under which the sidebar steps aside: the conversation keeps
-/// a column it can be read in, and the sidebar's toggle brings the list back.
-pub const NARROW: f32 = 760.0;
+/// The room the conversation keeps beside a panel that shows with it: its
+/// column with the composer's row whole. A window narrower than this, once the
+/// panels are counted, steps them aside — the sidebar first, which counts the
+/// files panel, and the files panel once not even one of them fits.
+pub const ROOM: f32 = 490.0;
 
 /// The sidebar's content inset: the line the traffic lights stand on, so a
 /// heading, a group's mark and a session's title start on it too.
