@@ -25,6 +25,7 @@
       "accent-foreground": "#18181B",
       "ring": "#3B82F6",
       "checked": "#3B82F6",
+      "success": "#2E9E62",
       "link": "#1D4ED8"
     },
     "dark": {
@@ -45,6 +46,7 @@
       "accent-foreground": "#FAFAFA",
       "ring": "#93C5FD",
       "checked": "#93C5FD",
+      "success": "#4ADE80",
       "link": "#93C5FD"
     }
   }

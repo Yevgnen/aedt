@@ -3,9 +3,10 @@
 
 use std::time::Duration;
 
+use aedt_bridge::{McpState, McpStatus};
 use aedt_provider::Effort;
 use aedt_settings as settings;
-use aedt_ui::{button, icon, input, menu, sizes, surface};
+use aedt_ui::{button, icon, input, menu, sizes, surface, tokens};
 use nsh_base::{SubmenuEvent, theme};
 use nsh_core::prelude::*;
 
@@ -48,20 +49,125 @@ pub(super) fn composer(session_id: u32, draft: Signal<String>) -> impl IntoEleme
         .pb_2()
         .gap_2()
         .child(composer_card(draft, can_send, submit, field))
-        // One line under the card: a failed voice attempt, and nothing else.
+        .child(status_line(session_id, notice))
+}
+
+/// How often the status line asks the session's agent what its MCP servers do.
+const MCP_POLL: Duration = Duration::from_millis(500);
+
+/// The dot that says whether an MCP server runs.
+const MCP_DOT: f32 = 6.0;
+
+/// The line under the card: what the session's MCP servers are doing, and a
+/// voice attempt that failed.
+fn status_line(session_id: u32, notice: Signal<Option<SharedString>>) -> impl IntoElement {
+    let servers = signal(Vec::<McpStatus>::new());
+    effect(move || {
+        spawn(async move {
+            loop {
+                let next = aedt_bridge::mcp_status(session_id);
+                if servers.get_untracked() != next {
+                    servers.set(next);
+                }
+                timer(MCP_POLL).await;
+            }
+        });
+    });
+
+    view()
+        .h(px(sizes::STATUS))
+        .px(px(sizes::CARD_PADDING))
+        .flex_row()
+        .items_center()
+        .child(when(
+            move || !servers.get().is_empty(),
+            move || mcp_line(servers),
+        ))
+        .child(when(
+            move || notice.get().is_some(),
+            move || {
+                view().flex_1().min_w(px(0.0)).child(
+                    text(move || notice.get_untracked().unwrap_or_default())
+                        .truncate()
+                        .text_xs()
+                        .text_color(move || theme().destructive),
+                )
+            },
+        ))
+}
+
+/// How many of the session's MCP servers run, and, under the pointer, each
+/// server's name with the dot that says how it stands.
+fn mcp_line(servers: Signal<Vec<McpStatus>>) -> impl IntoElement {
+    let hovered = signal(false);
+    let connected = computed(move || {
+        servers.with(|servers| {
+            servers
+                .iter()
+                .filter(|server| server.state == McpState::Running)
+                .count()
+        })
+    });
+    let total = computed(move || servers.with(Vec::len));
+
+    view()
+        .relative()
+        .h_full()
+        .flex_row()
+        .items_center()
+        .pr_3()
+        .on_mouse_enter(move |_: &MouseEvent| hovered.set(true))
+        .on_mouse_leave(move |_: &MouseEvent| hovered.set(false))
+        .child(
+            text(move || format!("MCP {}/{}", connected.get(), total.get()))
+                .text_xs()
+                .text_color(tokens::caption()),
+        )
+        .child(when(move || hovered.get(), move || mcp_servers(servers)))
+}
+
+/// The card the MCP row opens on hover: one line for each server.
+fn mcp_servers(servers: Signal<Vec<McpStatus>>) -> impl IntoElement {
+    surface::card(surface::Surface::Preview)
+        .absolute()
+        .left(px(0.0))
+        .bottom(px(sizes::STATUS + 4.0))
+        .w(px(sizes::MCP_POPOVER_W))
+        .p_2()
+        .gap_1()
+        .pointer_events(PointerEvents::None)
+        .child(each(
+            move || servers.get(),
+            |server| server.name.clone(),
+            |server, _| server_row(server),
+        ))
+}
+
+/// One server in the MCP card: its state's dot, then its name.
+fn server_row(server: ReadSignal<McpStatus>) -> impl IntoElement {
+    view()
+        .h(px(sizes::LIST_ROW))
+        .flex_row()
+        .items_center()
+        .gap_2()
         .child(
             view()
-                .h_5()
-                .pl(px(sizes::CARD_PADDING))
-                .justify_center()
-                .child(when(
-                    move || notice.get().is_some(),
-                    move || {
-                        text(move || notice.get_untracked().unwrap_or_default())
-                            .text_xs()
-                            .text_color(move || theme().destructive)
-                    },
-                )),
+                .w(px(MCP_DOT))
+                .h(px(MCP_DOT))
+                .rounded_full()
+                .bg(move || match server.get().state {
+                    McpState::Running => tokens::success(),
+                    McpState::Idle => theme().muted_foreground,
+                    McpState::Error => theme().destructive,
+                }),
+        )
+        .child(
+            text(move || SharedString::from(server.get().name.clone()))
+                .flex_1()
+                .min_w(px(0.0))
+                .truncate()
+                .text_size(px(sizes::TEXT_COMPACT))
+                .text_color(move || theme().foreground),
         )
 }
 

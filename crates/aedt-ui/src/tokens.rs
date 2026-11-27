@@ -23,6 +23,12 @@ pub fn checked() -> AdaptiveColor {
     theme().color("checked").unwrap_or_else(|| theme().ring)
 }
 
+/// A connected or healthy state: the theme's `success`, or the checked blue
+/// when the theme leaves that out.
+pub fn success() -> AdaptiveColor {
+    theme().color("success").unwrap_or_else(checked)
+}
+
 /// The quietest ink the app has: the theme's `meta`, or the muted one when the
 /// theme leaves it out. Thinking and the rail's answer read in it.
 pub fn meta() -> AdaptiveColor {

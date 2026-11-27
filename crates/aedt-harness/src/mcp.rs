@@ -11,7 +11,7 @@ use std::{
     process::Stdio,
     sync::{
         Arc, Mutex as StdMutex, OnceLock,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -80,6 +80,54 @@ impl Catalog {
     }
 }
 
+/// What the composer's status line reads of a server: its name, whether its
+/// process runs, and whether the last attempt to start it failed.
+struct ServerStatus {
+    name: String,
+    running: AtomicBool,
+    failed: AtomicBool,
+}
+
+impl ServerStatus {
+    fn new(name: String) -> Self {
+        Self {
+            name,
+            running: AtomicBool::new(false),
+            failed: AtomicBool::new(false),
+        }
+    }
+
+    fn running(&self) {
+        self.running.store(true, Ordering::Relaxed);
+        self.failed.store(false, Ordering::Relaxed);
+    }
+
+    fn idle(&self) {
+        self.running.store(false, Ordering::Relaxed);
+        self.failed.store(false, Ordering::Relaxed);
+    }
+
+    fn failed(&self) {
+        self.running.store(false, Ordering::Relaxed);
+        self.failed.store(true, Ordering::Relaxed);
+    }
+
+    fn snapshot(&self) -> crate::McpStatus {
+        let state = if self.running.load(Ordering::Relaxed) {
+            crate::McpState::Running
+        } else if self.failed.load(Ordering::Relaxed) {
+            crate::McpState::Error
+        } else {
+            crate::McpState::Idle
+        };
+
+        crate::McpStatus {
+            name: self.name.clone(),
+            state,
+        }
+    }
+}
+
 /// One server, shared by every harness: what starts it, the tools its last
 /// list produced, and the connection a list or a call uses while it is open.
 struct Server {
@@ -97,10 +145,13 @@ struct Server {
     used: StdMutex<Instant>,
     /// How many lists and calls are using it now: an idle sweep leaves it be.
     busy: AtomicUsize,
+    /// What the composer's status line says of it.
+    status: Arc<ServerStatus>,
 }
 
 impl Server {
     fn new(spec: crate::McpServer, catalog: PathBuf) -> Self {
+        let status = Arc::new(ServerStatus::new(spec.name.clone()));
         Self {
             spec,
             catalog,
@@ -109,6 +160,7 @@ impl Server {
             listing: tokio::sync::Mutex::new(()),
             used: StdMutex::new(Instant::now()),
             busy: AtomicUsize::new(0),
+            status,
         }
     }
 
@@ -152,14 +204,26 @@ impl Server {
             let connection = Arc::clone(connection);
             drop(open);
             self.touch();
+            self.status.running();
 
             return Ok(connection);
         }
+        // A connection that ended on its own is dropped before another starts.
+        open.take();
 
-        let connection = Arc::new(start(&self.spec).await?);
+        let connection = match start(&self.spec).await {
+            Ok(connection) => connection,
+            Err(why) => {
+                self.status.failed();
+
+                return Err(why);
+            }
+        };
+        let connection = Arc::new(connection);
         *open = Some(Arc::clone(&connection));
         drop(open);
         self.touch();
+        self.status.running();
 
         Ok(connection)
     }
@@ -197,7 +261,8 @@ impl Server {
         }
     }
 
-    /// Ends the connection when no list or call has used it for `IDLE_TIMEOUT`.
+    /// Ends the connection when no list or call has used it for `IDLE_TIMEOUT`,
+    /// or when the server ended it on its own.
     async fn release_if_idle(&self) {
         if self.busy.load(Ordering::Relaxed) > 0 {
             return;
@@ -207,19 +272,20 @@ impl Server {
             .lock()
             .map(|used| used.elapsed() >= IDLE_TIMEOUT)
             .unwrap_or(false);
-        if !idle {
-            return;
-        }
 
         let connection = {
             let mut open = self.open.lock().await;
             if self.busy.load(Ordering::Relaxed) > 0 {
                 return;
             }
-            open.take()
+            let closed = open
+                .as_ref()
+                .is_some_and(|connection| connection.is_closed());
+            if closed || idle { open.take() } else { None }
         };
         if let Some(connection) = connection {
             connection.close().await;
+            self.status.idle();
         }
     }
 
@@ -232,6 +298,7 @@ impl Server {
         if let Some(connection) = connection {
             connection.close().await;
         }
+        self.status.idle();
     }
 
     /// The tool `definition` is to the agent: named for its server, and calling
@@ -382,6 +449,13 @@ pub(crate) struct Prepared {
     tools: Vec<rmcp::model::Tool>,
 }
 
+impl Prepared {
+    /// What this server is doing now, for the composer's status line.
+    pub(crate) fn status(&self) -> crate::McpStatus {
+        self.server.status.snapshot()
+    }
+}
+
 /// The servers the app configured, with the tools each offers: what a harness
 /// listed before, or what the server lists now, when a list first needs it.
 pub(crate) fn prepare(servers: &[crate::McpServer], dir: &Path) -> Vec<Prepared> {
@@ -469,18 +543,18 @@ fn namespaced(server: &str, tool: &str) -> String {
 
 /// The tools of the servers the app configured, registered for the agent to call.
 pub(crate) struct McpTools {
-    servers: Vec<Prepared>,
+    servers: Arc<Vec<Prepared>>,
 }
 
 impl McpTools {
-    pub(crate) fn new(servers: Vec<Prepared>) -> Self {
+    pub(crate) fn new(servers: Arc<Vec<Prepared>>) -> Self {
         Self { servers }
     }
 }
 
 impl Plugin for McpTools {
     fn build(&self, app: &mut App) {
-        for prepared in &self.servers {
+        for prepared in self.servers.iter() {
             for definition in &prepared.tools {
                 let Some(tool) = prepared.server.tool(definition) else {
                     continue;

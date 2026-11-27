@@ -7,7 +7,11 @@ mod mcp;
 mod models;
 mod tools;
 
-use std::{path::PathBuf, thread};
+use std::{
+    path::PathBuf,
+    sync::{Arc, OnceLock},
+    thread,
+};
 
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use rig_harness::prelude::*;
@@ -47,6 +51,26 @@ pub enum Event {
     Ended(u32),
     /// The session's agent could not run at all, before any of its replies.
     Broken(u32, String),
+}
+
+/// What one MCP server of a session is doing, for the composer's status line.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct McpStatus {
+    /// The server's name, as the app calls it.
+    pub name: String,
+    /// Whether its process runs now, and why it does not.
+    pub state: McpState,
+}
+
+/// A session's MCP server's state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum McpState {
+    /// Its process is connected and ready for a call.
+    Running,
+    /// It is configured, and no process runs now.
+    Idle,
+    /// The last attempt to start it failed.
+    Error,
 }
 
 /// One file a tool call changed, as the app shows it: what the call says it
@@ -128,6 +152,9 @@ pub struct McpServer {
 pub struct Agent {
     commands: Sender<Command>,
     events: Receiver<Event>,
+    /// The servers this agent's harness was made from, once it has prepared
+    /// them, for the composer's status line.
+    mcp: Arc<OnceLock<Arc<Vec<mcp::Prepared>>>>,
 }
 
 impl Agent {
@@ -139,12 +166,18 @@ impl Agent {
     pub fn start(config: Config) -> Result<Agent, String> {
         let (commands, inbox) = unbounded();
         let (outbox, events) = unbounded();
+        let mcp = Arc::new(OnceLock::new());
+        let slot = Arc::clone(&mcp);
         let name = format!("aedt-harness-{}", config.session);
         thread::Builder::new()
             .name(name)
-            .spawn(move || run(config, inbox, outbox))
+            .spawn(move || run(config, inbox, outbox, slot))
             .map_err(|error| format!("failed to start the agent thread: {error}"))?;
-        Ok(Agent { commands, events })
+        Ok(Agent {
+            commands,
+            events,
+            mcp,
+        })
     }
 
     /// Says `text` in `session`, asking `model` (`vendor/model`), with the
@@ -174,6 +207,14 @@ impl Agent {
         });
     }
 
+    /// The MCP servers this agent was made from, and what each is doing now.
+    pub fn mcp_status(&self) -> Vec<McpStatus> {
+        self.mcp
+            .get()
+            .map(|prepared| prepared.iter().map(mcp::Prepared::status).collect())
+            .unwrap_or_default()
+    }
+
     /// What the agent reported since the last call, if anything.
     pub fn poll(&self) -> Option<Event> {
         self.events.try_recv().ok()
@@ -181,7 +222,12 @@ impl Agent {
 }
 
 /// Runs the harness until the process ends.
-fn run(config: Config, commands: Receiver<Command>, events: Sender<Event>) {
+fn run(
+    config: Config,
+    commands: Receiver<Command>,
+    events: Sender<Event>,
+    mcp_slot: Arc<OnceLock<Arc<Vec<mcp::Prepared>>>>,
+) {
     let models = match connector(&config.providers) {
         Ok(models) => models,
         Err(why) => {
@@ -192,7 +238,8 @@ fn run(config: Config, commands: Receiver<Command>, events: Sender<Event>) {
     // The MCP servers' tools, listed when this harness asks for them and
     // shared with the harnesses after it: a process starts for a list or a call
     // and is ended once idle.
-    let mcp = mcp::prepare(&config.mcp, &config.catalog);
+    let mcp = Arc::new(mcp::prepare(&config.mcp, &config.catalog));
+    let _ = mcp_slot.set(Arc::clone(&mcp));
 
     let mut app = App::new();
     // A failing system, observer or command from a plugin is logged.

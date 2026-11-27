@@ -11,6 +11,9 @@ use std::{
 };
 
 use aedt_harness::{Agent, Config, Event, Kind, McpServer, Provider, Turn};
+
+/// The MCP status a session's agent reports, for the composer's line.
+pub use aedt_harness::{McpState, McpStatus};
 use aedt_settings as settings;
 use aedt_store::{self as store, Author};
 use nsh_core::prelude::*;
@@ -156,6 +159,28 @@ fn providers() -> Result<Vec<Provider>, String> {
     }
 
     Ok(providers)
+}
+
+/// The MCP servers `session`'s agent has, and what each is doing now: the
+/// servers the settings hold while its agent has not prepared them yet.
+pub fn mcp_status(session: u32) -> Vec<McpStatus> {
+    let prepared = AGENTS.with(|agents| {
+        agents
+            .borrow()
+            .get(&session)
+            .map(|(_, _, agent)| agent.mcp_status())
+    });
+    if let Some(status) = prepared.filter(|status| !status.is_empty()) {
+        return status;
+    }
+
+    settings::enabled_mcps()
+        .into_iter()
+        .map(|server| McpStatus {
+            name: server.name,
+            state: McpState::Idle,
+        })
+        .collect()
 }
 
 /// The MCP servers the settings switched on, as the harness starts them.
