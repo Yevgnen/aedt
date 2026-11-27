@@ -66,17 +66,15 @@ pub(crate) fn panel(root: Memo<Option<SharedString>>, open: Signal<bool>) -> Vie
 /// window's right edge.
 fn top(open: Signal<bool>) -> impl IntoElement {
     view()
-        .h(px(sizes::TOPBAR + sizes::HEADING))
+        .h(px(sizes::TOPBAR))
         .flex_row()
-        .items_start()
+        .items_center()
         .justify_end()
         .pr(px(24.0))
         .window_drag(true)
         .child(
-            view().h(px(sizes::TOPBAR)).items_center().child(
-                button::ghost_icon(icon::panel_right(14.0), "Hide the files")
-                    .on_press(move || open.set(false)),
-            ),
+            button::ghost_icon(icon::panel_right(14.0), "Hide the files")
+                .on_press(move || open.set(false)),
         )
 }
 
