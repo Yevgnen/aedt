@@ -5,7 +5,7 @@
 use nsh_base::theme;
 use nsh_core::{LineHeight, prelude::*};
 
-use crate::{MESSAGE_LINE, code, sizes, tokens};
+use crate::{MESSAGE_LINE, code, highlight, sizes, tokens};
 
 /// One file a call changed, as the card shows it.
 #[derive(Clone, PartialEq)]
@@ -32,6 +32,8 @@ enum Item {
         /// The bytes of `text` that changed, when the line paired with one on
         /// the other side and only part of it did.
         changed: Option<(usize, usize)>,
+        /// The bytes that take a syntax token's ink.
+        tokens: Vec<(usize, usize, highlight::Token)>,
     },
     /// The untouched lines between this hunk and the one before it.
     Gap { at: usize, lines: usize },
@@ -40,7 +42,7 @@ enum Item {
 /// The card of one file a call changed.
 pub fn card(change: impl Fn() -> Change + Copy + 'static) -> View {
     let change = computed(change);
-    let items = computed(move || change.with(|change| items_of(&change.patch)));
+    let items = computed(move || change.with(|change| items_of(&change.path, &change.patch)));
 
     view()
         .w_full()
@@ -90,8 +92,9 @@ pub fn card(change: impl Fn() -> Change + Copy + 'static) -> View {
                             sign,
                             text,
                             changed,
+                            tokens,
                             ..
-                        } => line_row(sign, text, changed).into_element(),
+                        } => line_row(sign, text, changed, tokens).into_element(),
                         Item::Gap { lines, .. } => gap_row(lines).into_element(),
                     },
                 ))
@@ -101,7 +104,12 @@ pub fn card(change: impl Fn() -> Change + Copy + 'static) -> View {
 
 /// One line of the change: its sign, then its text, the words that changed in
 /// it set on the fill their side takes.
-fn line_row(sign: char, body: SharedString, changed: Option<(usize, usize)>) -> impl IntoElement {
+fn line_row(
+    sign: char,
+    body: SharedString,
+    changed: Option<(usize, usize)>,
+    tokens: Vec<(usize, usize, highlight::Token)>,
+) -> impl IntoElement {
     view()
         .w_full()
         .flex_row()
@@ -119,34 +127,72 @@ fn line_row(sign: char, body: SharedString, changed: Option<(usize, usize)>) -> 
                 .line_height(LineHeight::Multiple(MESSAGE_LINE))
                 .text_color(tokens::meta),
         )
-        .child(segments(sign, body, changed))
+        .child(segments(sign, body, changed, tokens))
 }
 
-/// The line's text, the part that changed standing on a deeper fill of its side.
-fn segments(sign: char, value: SharedString, changed: Option<(usize, usize)>) -> Text {
-    let (head, middle, tail) = match changed {
-        Some((start, end)) if start < end && end <= value.len() => (
-            value[..start].to_owned(),
-            value[start..end].to_owned(),
-            value[end..].to_owned(),
-        ),
-        _ => (value.to_string(), String::new(), String::new()),
-    };
+/// The line's text, cut where a token or the changed words begin, each piece in
+/// its token's ink and the words that changed on a deeper fill of its side.
+fn segments(
+    sign: char,
+    value: SharedString,
+    changed: Option<(usize, usize)>,
+    tokens: Vec<(usize, usize, highlight::Token)>,
+) -> Text {
+    let len = value.len();
+    let changed = changed.filter(|(start, end)| start < end && *end <= len);
+    let inks: Vec<(usize, usize, highlight::Token)> = tokens
+        .into_iter()
+        .filter(|(start, end, _)| start < end && *end <= len)
+        .collect();
 
-    let mut line = text(SharedString::from(head))
+    let mut cuts = vec![0, len];
+    if let Some((start, end)) = changed {
+        cuts.extend([start, end]);
+    }
+    for (start, end, _) in &inks {
+        cuts.extend([*start, *end]);
+    }
+    cuts.retain(|at| value.is_char_boundary(*at));
+    cuts.sort_unstable();
+    cuts.dedup();
+
+    let mut line = text("")
         .font_family(code::MONO_FONT)
         .text_size(px(sizes::CODE_FONT))
         .line_height(LineHeight::Multiple(MESSAGE_LINE))
         .text_color(move || theme().foreground);
-    if !middle.is_empty() {
-        line = line.child(text(SharedString::from(middle)).bg(move || match sign {
-            '+' => tokens::diff_added_word(),
-            '-' => tokens::diff_removed_word(),
-            _ => AdaptiveColor::TRANSPARENT,
-        }));
-    }
-    if !tail.is_empty() {
-        line = line.child(text(SharedString::from(tail)));
+
+    for cut in cuts.windows(2) {
+        let (start, end) = (cut[0], cut[1]);
+        if start >= end {
+            continue;
+        }
+        let Some(piece) = value.get(start..end) else {
+            continue;
+        };
+
+        let ink = inks
+            .iter()
+            .find(|(from, to, _)| *from <= start && end <= *to)
+            .map(|(_, _, ink)| *ink);
+
+        let mut part = text(SharedString::from(piece.to_owned()))
+            .text_color(ink.map_or_else(|| theme().foreground, highlight::Token::color));
+        if ink.is_some_and(highlight::Token::italic) {
+            part = part.italic();
+        }
+        if let Some((from, to)) = changed
+            && from <= start
+            && end <= to
+        {
+            part = part.bg(move || match sign {
+                '+' => tokens::diff_added_word(),
+                '-' => tokens::diff_removed_word(),
+                _ => AdaptiveColor::TRANSPARENT,
+            });
+        }
+
+        line = line.child(part);
     }
 
     line
@@ -178,9 +224,9 @@ struct Hunk {
     lines: Vec<(char, String)>,
 }
 
-/// The card's rows for `patch`: its hunks' lines, each gap between them counted
-/// on a row of its own.
-fn items_of(patch: &str) -> Vec<Item> {
+/// The card's rows for `patch`, its hunks' lines in the language `path` names,
+/// each gap between them counted on a row of its own.
+fn items_of(path: &str, patch: &str) -> Vec<Item> {
     let mut items = Vec::new();
     let mut at = 0;
     let mut previous_end: Option<usize> = None;
@@ -195,12 +241,15 @@ fn items_of(patch: &str) -> Vec<Item> {
         previous_end = Some(hunk.old_start + hunk.old_count);
 
         let changed = changed_parts(&hunk.lines);
-        for (index, (sign, text)) in hunk.lines.into_iter().enumerate() {
+        let bodies: Vec<&str> = hunk.lines.iter().map(|(_, text)| text.as_str()).collect();
+        let inks = highlight::spans(path, &bodies);
+        for (index, ((sign, text), tokens)) in hunk.lines.into_iter().zip(inks).enumerate() {
             items.push(Item::Line {
                 at,
                 sign,
                 text: text.into(),
                 changed: changed[index],
+                tokens,
             });
             at += 1;
         }

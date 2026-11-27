@@ -91,6 +91,8 @@ version = "0.1.0"
 dependencies = [
  "nsh-base",
  "nsh-core",
+ "syntect",
+ "two-face",
 ]
 
 [[package]]

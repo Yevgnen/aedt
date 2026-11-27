@@ -9,6 +9,7 @@ pub mod collapsible;
 pub mod diff;
 pub mod empty;
 pub mod field;
+pub mod highlight;
 pub mod icon;
 pub mod input;
 pub mod list_item;
