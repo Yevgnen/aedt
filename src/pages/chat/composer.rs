@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use aedt_provider::Effort;
 use aedt_settings as settings;
-use aedt_ui::{button, icon, input, menu, sizes, surface};
+use aedt_ui::{button, icon, input, menu, motion, sizes, surface};
 use nsh_base::{SubmenuEvent, theme};
 use nsh_core::prelude::*;
 
@@ -106,12 +106,17 @@ fn composer_card(
                         .child(when(move || settings::speech().is_some(), voice_button))
                         .child(button::icon("↑", "Send", can_send).on_press(submit)),
                 )
-                // While the microphone listens, its meter sits in the card's own
-                // middle over a veil thin enough to read through: the words and
-                // the controls under it stay in sight, and still take presses.
+                // While the microphone works, the card is veiled from its own
+                // middle: the meter as it listens, three dots while the provider
+                // writes the recording down. The veil is thin enough to read
+                // through, and takes no presses.
                 .child(when(
-                    move || aedt_bridge::voice::state().get().recording,
-                    waveform,
+                    move || {
+                        let voice = aedt_bridge::voice::state().get();
+
+                        voice.recording || voice.transcribing
+                    },
+                    listening,
                 )),
         )
 }
@@ -131,15 +136,17 @@ const WAVE_GAP: f32 = 2.0;
 const WAVE_MIN: f32 = 5.0;
 const WAVE_MAX: f32 = 36.0;
 
-/// The meter, in the card's middle while the microphone listens. Its veil is
-/// thin enough to read the card through, and takes no presses: what is under
-/// it stays in sight and still works.
-fn waveform() -> impl IntoElement {
-    let meter = aedt_bridge::voice::meter();
-    let mut bars = view().flex_row().items_center().gap(px(WAVE_GAP));
-    for index in 0..WAVE_BARS {
-        bars = bars.child(bar(index, meter));
-    }
+/// The dots that wait for the provider's answer: how many, how round, and how
+/// far apart.
+const DOT_COUNT: u8 = 3;
+const DOT_SIZE: f32 = 6.0;
+const DOT_GAP: f32 = 5.0;
+
+/// The veil over the card while the microphone works, its meter or its dots in
+/// the card's middle. The veil is thin enough to read the card through, and
+/// takes no presses: what is under it stays in sight and still works.
+fn listening() -> impl IntoElement {
+    let voice = aedt_bridge::voice::state();
 
     view()
         .absolute()
@@ -151,7 +158,44 @@ fn waveform() -> impl IntoElement {
         .justify_center()
         .bg(move || theme().card.opacity(0.8))
         .pointer_events(PointerEvents::None)
-        .child(bars)
+        .child(when(move || voice.get().recording, meter))
+        .child(when(move || voice.get().transcribing, dots))
+}
+
+/// The bars of the meter: the one thing the veil shows while the microphone
+/// listens.
+fn meter() -> impl IntoElement {
+    let meter = aedt_bridge::voice::meter();
+    let mut bars = view().flex_row().items_center().gap(px(WAVE_GAP));
+    for index in 0..WAVE_BARS {
+        bars = bars.child(bar(index, meter));
+    }
+
+    bars
+}
+
+/// Three dots, the next one lit in turn, while the provider writes the
+/// recording down.
+fn dots() -> impl IntoElement {
+    let dots = aedt_bridge::voice::dots();
+    let mut row = view().flex_row().items_center().gap(px(DOT_GAP));
+    for index in 0..DOT_COUNT {
+        row = row.child(dot(index, dots));
+    }
+
+    row
+}
+
+/// One dot of the three, lit while it is the turn the veil is on.
+fn dot(index: u8, dots: Signal<aedt_bridge::voice::Dots>) -> impl IntoElement {
+    view()
+        .w(px(DOT_SIZE))
+        .h(px(DOT_SIZE))
+        .rounded_full()
+        .bg(move || theme().muted_foreground)
+        .opacity(move || if dots.get().0 == index { 1.0 } else { 0.3_f32 })
+        .transition_all()
+        .duration(motion::row_duration())
 }
 
 /// One bar, `index` from the start, as tall as the meter and its place in the

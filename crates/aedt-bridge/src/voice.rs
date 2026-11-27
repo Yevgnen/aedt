@@ -61,6 +61,16 @@ pub fn meter() -> Signal<Meter> {
     global::<Meter>()
 }
 
+/// How far the three dots have come, while the provider writes a recording
+/// down.
+#[derive(Clone, Copy, Default)]
+pub struct Dots(pub u8);
+
+/// The three dots the composer turns while it waits, one for the app.
+pub fn dots() -> Signal<Dots> {
+    global::<Dots>()
+}
+
 thread_local! {
     /// The recording in flight, if any. The engine thread keeps the handle; the
     /// capture thread reads the stop flag and fills the samples.
@@ -204,6 +214,7 @@ async fn hear(recorded: mpsc::Receiver<Result<Option<Vec<u8>>, String>>, level: 
     };
 
     state().update(|voice| voice.transcribing = true);
+    turn_dots();
     let heard = speech::transcribe(&provider.base_url, &provider.api_key, wav).await;
     match heard {
         Ok(text) if text.is_empty() => settle(),
@@ -223,6 +234,24 @@ fn settle() {
         voice.transcribing = false;
         voice.heard = None;
         voice.error = None;
+    });
+}
+
+/// Turns the three dots the veil shows while the provider writes the recording
+/// down, until nothing is being written any more.
+fn turn_dots() {
+    let dots = dots();
+
+    Owner::detached().run(|| {
+        spawn(async move {
+            loop {
+                if !state().get_untracked().transcribing {
+                    break;
+                }
+                dots.set(Dots(dots.get_untracked().0.wrapping_add(1) % 3));
+                timer(Duration::from_millis(200)).await;
+            }
+        })
     });
 }
 
