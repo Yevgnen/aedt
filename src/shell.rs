@@ -24,6 +24,9 @@ pub(crate) fn shell() -> View {
     // Whether the files panel shows: the conversation's header opens it, and the
     // panel's own top row shuts it.
     let files_open = signal(false);
+    // The folder the panel shows: the selected conversation's workspace, which
+    // changes only when the reader moves to a conversation in another one.
+    let workspace = computed(move || store::session_path(selected.get()));
 
     view()
         .flex_1()
@@ -47,10 +50,7 @@ pub(crate) fn shell() -> View {
         // The files of the conversation's folder, beside it while they show.
         .child(when(
             move || files_open.get(),
-            move || {
-                let id = selected.get();
-                untracked(|| files::panel(id, files_open).key(format!("files-{id}")))
-            },
+            move || files::panel(workspace, files_open),
         ))
         // The settings, over everything while they are open.
         .child(settings::dialog(settings_open))

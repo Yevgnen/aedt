@@ -3,7 +3,6 @@
 
 use std::collections::HashMap;
 
-use aedt_store as store;
 use aedt_ui::{button, empty, icon, sizes};
 use nsh_base::theme;
 use nsh_core::prelude::*;
@@ -25,21 +24,25 @@ struct Row {
     depth: usize,
 }
 
-/// The files panel: the folder this conversation works in, with the toggle that
-/// hides the panel at the window's right end.
-pub(crate) fn panel(session_id: u32, open: Signal<bool>) -> View {
-    // The folder the conversation works in, read once as the panel opens.
-    let root = untracked(|| store::session_path(session_id));
+/// The files panel: the folder the conversation works in, with the toggle that
+/// hides the panel at the window's right end. The tree follows `root`, the
+/// folder of the conversation on show: it starts over when the reader moves to
+/// another folder, and keeps its opened folders while they stay in one.
+pub(crate) fn panel(root: Memo<Option<SharedString>>, open: Signal<bool>) -> View {
     // What each folder lists, by its path: the ones the reader opened so far.
     let listings = signal(HashMap::<SharedString, Vec<Entry>>::new());
-    if let Some(root) = &root {
-        let entries = read(root);
-        listings.update(|listings| {
-            listings.insert(root.clone(), entries);
-        });
-    }
     // The folders the reader opened.
     let opened = signal(Vec::<SharedString>::new());
+    effect(move || {
+        let root = root.get();
+        listings.update(|listings| {
+            listings.clear();
+            if let Some(root) = &root {
+                listings.insert(root.clone(), read(root));
+            }
+        });
+        opened.set(Vec::new());
+    });
 
     view()
         .w(px(sizes::SIDEBAR))
@@ -49,10 +52,13 @@ pub(crate) fn panel(session_id: u32, open: Signal<bool>) -> View {
         .border_l_1()
         .border_l_color(move || theme().sidebar_border)
         .child(top(open))
-        .child(match root {
-            Some(root) => tree(root, opened, listings).into_element(),
-            None => empty::empty("No folder").into_element(),
-        })
+        .child(
+            when(
+                move || root.with(|root| root.is_some()),
+                move || tree(root, opened, listings).into_element(),
+            )
+            .otherwise(|| empty::empty("No folder").into_element()),
+        )
 }
 
 /// The panel's top row: the drag band every column starts with, and the toggle
@@ -76,13 +82,15 @@ fn top(open: Signal<bool>) -> impl IntoElement {
 
 /// The folder's rows, each opened folder's under it.
 fn tree(
-    root: SharedString,
+    root: Memo<Option<SharedString>>,
     opened: Signal<Vec<SharedString>>,
     listings: Signal<HashMap<SharedString, Vec<Entry>>>,
 ) -> impl IntoElement {
     let rows = computed(move || {
         let mut rows = Vec::new();
-        listings.with(|listings| walk(listings, &opened.get(), &root, 0, &mut rows));
+        if let Some(root) = root.get() {
+            listings.with(|listings| walk(listings, &opened.get(), &root, 0, &mut rows));
+        }
 
         rows
     });
