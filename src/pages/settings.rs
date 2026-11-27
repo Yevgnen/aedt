@@ -551,9 +551,9 @@ fn mcp_form(id: u32) -> impl IntoElement {
 }
 
 /// One server, folded to its name until it is asked for: the switch that
-/// starts it, before the name, and what starts it once the section opens.
+/// starts it, at the row's end, and what starts it once the section opens.
 fn mcp_card(id: u32) -> impl IntoElement {
-    collapsible::section_with_leading(
+    collapsible::section_with_trailing(
         move || mcp_title(id),
         switch::toggle(
             move || mcp_title(id),
