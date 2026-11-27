@@ -16,23 +16,23 @@ pub fn section(
     row(title, Some(mark.into_element()), None, content)
 }
 
-/// A section whose header ends with `trailing`, past the part that opens it: a
-/// switch the section's subject takes at once, which the header's own press
+/// A section whose header starts with `leading`, before the part that opens it:
+/// a switch the section's subject takes at once, which the header's own press
 /// would open the section instead of.
-pub fn section_with_trailing(
+pub fn section_with_leading(
     title: impl IntoReactive<SharedString>,
-    trailing: impl IntoElement,
+    leading: impl IntoElement,
     content: impl IntoElement,
 ) -> CollapsibleElement {
-    row(title, None, Some(trailing.into_element()), content)
+    row(title, None, Some(leading.into_element()), content)
 }
 
-/// A section's header row: the part that opens the section, then what stands
-/// after it, which keeps presses of its own.
+/// A section's header row: what leads it, then the part that opens it.
+/// Neither takes the other's presses.
 fn row(
     title: impl IntoReactive<SharedString>,
     mark: Option<AnyElement>,
-    trailing: Option<AnyElement>,
+    leading: Option<AnyElement>,
     content: impl IntoElement,
 ) -> CollapsibleElement {
     let open = signal(false);
@@ -70,15 +70,11 @@ fn row(
             .style_when(move || open.get(), |s| s.rotate(deg(180.0)))
             .child(icon::chevron_down(14.0)),
     );
-    let mut header = view()
-        .w_full()
-        .flex_row()
-        .items_center()
-        .gap_2()
-        .child(handle);
-    if let Some(trailing) = trailing {
-        header = header.child(trailing);
+    let mut header = view().w_full().flex_row().items_center().gap_2();
+    if let Some(leading) = leading {
+        header = header.child(leading);
     }
+    header = header.child(handle);
 
     collapsible()
         .open(open)
