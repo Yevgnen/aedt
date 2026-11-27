@@ -18,13 +18,19 @@ pub(crate) fn shell() -> View {
         aedt_settings::load();
         settings_open.set(true);
     };
+    // Whether the sidebar shows: the toggle in its own top row hides it, and the
+    // one the conversation's header then carries brings it back.
+    let sidebar_open = signal(true);
 
     view()
         .flex_1()
         .flex_row()
         .bg(move || theme().background)
         .text_color(move || theme().foreground)
-        .child(sidebar::sidebar(open_settings))
+        .child(when(
+            move || sidebar_open.get(),
+            move || sidebar::sidebar(open_settings, sidebar_open),
+        ))
         .child(
             view()
                 .flex_1()
@@ -32,7 +38,7 @@ pub(crate) fn shell() -> View {
                 // A new conversation replaces the pane and its state.
                 .child(dynamic(move || {
                     let id = selected.get();
-                    untracked(|| chat::pane(id).key(format!("chat-{id}")))
+                    untracked(|| chat::pane(id, sidebar_open).key(format!("chat-{id}")))
                 })),
         )
         // The settings, over everything while they are open.

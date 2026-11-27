@@ -18,7 +18,7 @@ use tool::tool_run;
 
 /// One session's conversation. The caller keys it by the session, so
 /// switching conversations resets the draft and the scroll position.
-pub(crate) fn pane(session_id: u32) -> View {
+pub(crate) fn pane(session_id: u32, sidebar: Signal<bool>) -> View {
     let draft = signal(String::new());
     // What the reader folded open or away: a reply read with its thought open
     // starts in it, and a call shows its output where the store left it open.
@@ -37,7 +37,7 @@ pub(crate) fn pane(session_id: u32) -> View {
         .min_w(px(0.0))
         .bg(move || theme().background)
         .bind_motion(&enter)
-        .child(header(session_id))
+        .child(header(session_id, sidebar))
         .child(
             view()
                 .flex_1()
@@ -166,17 +166,33 @@ impl Folds {
     }
 }
 
-fn header(session_id: u32) -> impl IntoElement {
+fn header(session_id: u32, sidebar: Signal<bool>) -> impl IntoElement {
     view()
         .flex_row()
         .items_center()
         .gap_3()
         .px_6()
+        // The traffic lights sit over the pane while the sidebar is hidden, and
+        // the toggle that brings it back starts clear of them.
+        .pl(move || {
+            if sidebar.get() {
+                Length::from(px(24.0))
+            } else {
+                Length::from(title_bar().left + px(12.0))
+            }
+        })
         .pr(move || Length::from(title_bar().right + px(24.0)))
         .py_4()
         .window_drag(true)
         .border_b_1()
         .border_b_color(move || theme().border)
+        .child(when(
+            move || !sidebar.get(),
+            move || {
+                button::ghost_icon(icon::panel_left(14.0), "Show the sidebar")
+                    .on_press(move || sidebar.set(true))
+            },
+        ))
         .child(
             text(move || {
                 store::session_summary(session_id)

@@ -6,15 +6,16 @@ use aedt_ui::{avatar, button, icon, list_item, menu, motion, sizes};
 use nsh_base::theme;
 use nsh_core::{element::desktop::title_bar, file_dialog::OpenDialog, prelude::*};
 
-/// The session list, with the action that opens the settings as its foot.
-pub(crate) fn sidebar(open_settings: impl Fn() + Copy + 'static) -> View {
+/// The session list, with the action that opens the settings as its foot, and
+/// the one in its top row that hides it.
+pub(crate) fn sidebar(open_settings: impl Fn() + Copy + 'static, open: Signal<bool>) -> View {
     view()
         .w(px(sizes::SIDEBAR))
         .h_full()
         .bg(move || theme().sidebar)
         .border_r_1()
         .border_r_color(move || theme().sidebar_border)
-        .child(brand())
+        .child(brand(open))
         .child(header())
         .child(sessions())
         .child(footer(open_settings))
@@ -69,7 +70,7 @@ fn footer(open_settings: impl Fn() + Copy + 'static) -> impl IntoElement {
     ))
 }
 
-fn brand() -> impl IntoElement {
+fn brand(open: Signal<bool>) -> impl IntoElement {
     view()
         .flex_row()
         .items_center()
@@ -83,9 +84,14 @@ fn brand() -> impl IntoElement {
         .child(avatar::avatar("A"))
         .child(
             text("Aedt")
+                .flex_1()
                 .text_sm()
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(move || theme().sidebar_foreground),
+        )
+        .child(
+            button::ghost_icon(icon::panel_left(14.0), "Hide the sidebar")
+                .on_press(move || open.set(false)),
         )
 }
 

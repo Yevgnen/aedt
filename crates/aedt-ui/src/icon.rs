@@ -192,6 +192,17 @@ const FOLDER_OPEN: &str = concat!(
     r#"</svg>"#,
 );
 
+/// A frame with its left column marked (Lucide's `panel-left`): the sidebar a
+/// press shows or hides.
+const PANEL_LEFT: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<rect width="18" height="18" x="3" y="3" rx="2"/>"#,
+    r#"<path d="M9 3v18"/>"#,
+    r#"</svg>"#,
+);
+
 /// A plus (Lucide's `plus`): an action that adds something.
 const PLUS: &str = concat!(
     r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
@@ -279,6 +290,11 @@ pub fn folder_plus(size: f32) -> impl IntoElement {
 /// The open folder, `size` points square, in the caller's text color.
 pub fn folder_open(size: f32) -> impl IntoElement {
     icon(FOLDER_OPEN, size)
+}
+
+/// The sidebar mark, `size` points square, in the caller's text color.
+pub fn panel_left(size: f32) -> impl IntoElement {
+    icon(PANEL_LEFT, size)
 }
 
 /// The plus, `size` points square, in the caller's text color.
