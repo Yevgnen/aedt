@@ -5,7 +5,7 @@
 mod pages;
 mod shell;
 
-use aedt_ui::{code, sizes};
+use aedt_ui::{code, markdown, sizes};
 use nsh_core::{
     desktop::{TitleBarOptions, TitleBarStyle, WindowAttributes},
     element::desktop::window as app_window,
@@ -49,8 +49,9 @@ pub fn App() -> impl IntoElement {
 
     // A code block draws its border in the token's border color, which reads as
     // an outline around its fill: the fill's own color leaves no outline while
-    // the 1pt width stays. Its lines are as tight as a message's prose.
-    provide_context(code::parts());
+    // the 1pt width stays. Its lines, and a table's, are as tight as a message's
+    // prose, and a table's rows as close as the app's own lists.
+    provide_context(markdown::parts());
 
     let mut title_bar = TitleBarOptions::default();
     title_bar.style = TitleBarStyle::Hidden;

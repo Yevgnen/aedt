@@ -1,10 +1,21 @@
 //! A message's prose: the Markdown a reply answers in, read at the size and
 //! density of the conversation around it.
 
-use nsh_base::{MarkdownOptions, TextViewClasses, text_view, theme};
+use nsh_base::{MarkdownOptions, TextViewClasses, TextViewPart, TextViewParts, text_view, theme};
 use nsh_core::{LineHeight, prelude::*};
 
-use crate::MESSAGE_LINE;
+use crate::{MESSAGE_LINE, code};
+
+/// The parts a reply's prose draws with: a code block as [`code`] sets it, and
+/// a table's rows as close as the app's own lists — its cells' air above and
+/// below is a list row's, and its lines are as tight as the prose around them.
+pub fn parts() -> TextViewParts {
+    code::parts()
+        .part(TextViewPart::TableCell, |s| s.py(px(5.0)))
+        .part(TextViewPart::Table, |s| {
+            s.line_height(LineHeight::Multiple(MESSAGE_LINE))
+        })
+}
 
 /// `markdown`, as a reply reads it. `streaming` says whether it is still
 /// arriving: while it is, the text view shows its open syntax as closed and
