@@ -348,23 +348,17 @@ fn assistant_message(message: Memo<Option<Message>>, folds: Folds) -> impl IntoE
         // The reply in the order it happened: what it thought, the call it
         // made, what it answered, and so on, each where it came.
         .child(each(
+            // The reply's parts by their place: a row reads the one it shows
+            // from the message, so the list does not copy every part of every
+            // reply each time it is built.
             move || {
                 message.with(|message| {
-                    message
-                        .as_ref()
-                        .map(|message| {
-                            message
-                                .parts
-                                .iter()
-                                .cloned()
-                                .enumerate()
-                                .collect::<Vec<_>>()
-                        })
-                        .unwrap_or_default()
+                    let count = message.as_ref().map_or(0, |message| message.parts.len());
+                    (0..count).collect::<Vec<_>>()
                 })
             },
-            |(at, _)| *at,
-            move |part, _| part_of(message, part, folds),
+            |at| *at,
+            move |at, _| part_of(message, at, folds),
         ))
         .child(
             // The model and the duration show while the pointer is over the row
@@ -389,19 +383,46 @@ fn assistant_message(message: Memo<Option<Message>>, folds: Folds) -> impl IntoE
         )
 }
 
+/// What a part of a reply is, which decides how its row is drawn.
+#[derive(Clone, Copy, PartialEq)]
+enum PartKind {
+    Thought,
+    Text,
+    Tool,
+}
+
+impl PartKind {
+    fn of(part: &Part) -> Self {
+        match part {
+            Part::Thought(_) => Self::Thought,
+            Part::Text(_) => Self::Text,
+            Part::Tool(_) => Self::Tool,
+        }
+    }
+}
+
 /// One stretch of the reply, drawn by what it is: a thought, a call, or a
 /// stretch of what it answered.
 fn part_of(
     message: Memo<Option<Message>>,
-    part: ReadSignal<(usize, Part)>,
+    at: ReadSignal<usize>,
     folds: Folds,
 ) -> impl IntoElement {
-    let at = part.with_untracked(|(at, _)| *at);
+    let at = at.with_untracked(|at| *at);
+    // A part keeps its kind while it exists: a reply adds parts and lengthens
+    // the last, and never turns one kind into another, so reading the kind
+    // once for the row is enough.
+    let kind = message.with_untracked(|message| {
+        message
+            .as_ref()
+            .and_then(|message| message.parts.get(at))
+            .map_or(PartKind::Text, PartKind::of)
+    });
 
-    match part.with_untracked(|(_, part)| part.clone()) {
-        Part::Thought(_) => thought(message, at, folds).into_element(),
-        Part::Text(_) => text_part(message, at).into_element(),
-        Part::Tool(_) => {
+    match kind {
+        PartKind::Thought => thought(message, at, folds).into_element(),
+        PartKind::Text => text_part(message, at).into_element(),
+        PartKind::Tool => {
             // The call this part holds, which is the one the card reads as it
             // runs and once its result is in.
             let tool = computed(move || {
@@ -421,8 +442,6 @@ fn part_of(
     }
 }
 
-/// A stretch of the reply's answer, read as Markdown, the last one while it
-/// still arrives as one being written.
 /// A stretch of the reply's answer, read as Markdown, the last one while it
 /// still arrives as one being written.
 fn text_part(message: Memo<Option<Message>>, at: usize) -> impl IntoElement {
