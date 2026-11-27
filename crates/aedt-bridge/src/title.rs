@@ -22,28 +22,46 @@ pub fn available() -> bool {
 
 /// Names `session` from its conversation, with DeepSeek's flash model, and types
 /// the title in as it comes: nothing while no DeepSeek provider is set up, or
-/// while a title is already being written.
+/// while a title is already being written. Each step says so on the log line
+/// the app keeps, so a title that never comes can be followed.
 pub fn write(session_id: u32) {
+    eprintln!("title: asked to name session {session_id}");
+
     let Some(deepseek) = settings::deepseek() else {
+        eprintln!("title: session {session_id} has no DeepSeek provider with a key");
+
         return;
     };
     if store::title_writing(session_id) {
+        eprintln!("title: session {session_id} is being named already");
+
         return;
     }
     let read = conversation(session_id);
     if read.trim().is_empty() {
+        eprintln!("title: session {session_id} has nothing to read yet");
+
         return;
     }
+
     store::title_started(session_id);
+    eprintln!(
+        "title: session {session_id} asked {} for a name, {} characters read",
+        deepseek.base_url,
+        read.chars().count()
+    );
 
     // Under no owner of its own: the pane going away must not stop the title
     // from coming into the store.
     Owner::detached().run(move || {
         spawn(async move {
             match title::write(&deepseek.base_url, &deepseek.api_key, &read).await {
-                Ok(title) => type_in(session_id, title.as_str()).await,
+                Ok(title) => {
+                    eprintln!("title: session {session_id} was named {:?}", title.as_str());
+                    type_in(session_id, title.as_str()).await;
+                }
                 Err(why) => {
-                    eprintln!("title: {why}");
+                    eprintln!("title: session {session_id} could not be named: {why}");
                     store::title_failed(session_id);
                 }
             }
@@ -57,7 +75,9 @@ async fn type_in(session_id: u32, title: &str) {
     if reduce_motion() {
         if store::title_typed(session_id, title) {
             store::title_finished(session_id, title);
+            eprintln!("title: session {session_id} showed its name at once");
         } else {
+            eprintln!("title: session {session_id} went away while it was being named");
             store::title_failed(session_id);
         }
 
@@ -68,6 +88,7 @@ async fn type_in(session_id: u32, title: &str) {
     for character in title.chars() {
         typed.push(character);
         if !store::title_typed(session_id, &typed) {
+            eprintln!("title: session {session_id} went away while it was being named");
             store::title_failed(session_id);
 
             return;
@@ -75,6 +96,10 @@ async fn type_in(session_id: u32, title: &str) {
         timer(TYPE).await;
     }
     store::title_finished(session_id, title);
+    eprintln!(
+        "title: session {session_id} showed its name, {} characters typed",
+        title.chars().count()
+    );
 }
 
 /// What the model reads of `session`: its messages' words, up to `READ`.
