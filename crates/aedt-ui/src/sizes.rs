@@ -4,6 +4,10 @@
 /// subordinate to the conversation.
 pub const SIDEBAR: f32 = 264.0;
 
+/// The sidebar's content inset: the line the traffic lights stand on, so a
+/// heading, a group's mark and a session's title start on it too.
+pub const SIDEBAR_INSET: f32 = 22.0;
+
 /// The app's own top row under the hidden title bar: the sidebar's brand and
 /// the conversation's header are this tall, and the traffic lights are centered
 /// in it, so the three share one line.
