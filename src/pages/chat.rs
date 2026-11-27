@@ -660,7 +660,26 @@ fn thought(message: Memo<Option<Message>>, at: usize, folds: Folds) -> impl Into
                 .w_full()
                 .gap_1()
                 .child(thinking_bar(key, folds, shown))
-                .child(when(shown, move || thinking_body(message, at)))
+                .child(when(shown, move || {
+                    // The line that walks beside a thought, as long as the thought
+                    // shows and no longer: it hangs from the bulb that opened it.
+                    // The blank line an answer opens below the thought is a margin
+                    // here, outside the line, so the line ends where the text does.
+                    view()
+                        .relative()
+                        .w_full()
+                        .mb(move || Length::from(px(thought_bottom(message, at))))
+                        .child(
+                            view()
+                                .absolute()
+                                .left(px(THINKING_RULE))
+                                .top(px(0.0))
+                                .bottom(px(0.0))
+                                .w(px(1.0))
+                                .bg(move || theme().border),
+                        )
+                        .child(thinking_body(message, at))
+                }))
         },
     )
 }
@@ -729,6 +748,10 @@ fn thinking_body(message: Memo<Option<Message>>, at: usize) -> impl IntoElement 
 /// row's inset, the mark and the gap between them.
 const THINKING_TEXT_INSET: f32 = 26.0;
 
+/// Where the line beside a thought stands: under the middle of its bulb, which
+/// the bar insets by 4 points and draws 14 wide.
+const THINKING_RULE: f32 = 11.0;
+
 /// The thought's own text size, and the blank line kept under it while the
 /// answer follows: one line of that text, so the answer opens a line below the
 /// thought.
@@ -757,7 +780,6 @@ fn thinking_text(message: Memo<Option<Message>>, at: usize) -> impl IntoElement 
     text(move || thought_text(message, at).unwrap_or_default())
         .w_full()
         .pl(px(THINKING_TEXT_INSET))
-        .pb(move || Length::from(px(thought_bottom(message, at))))
         .text_size(px(sizes::TEXT_COMPACT))
         .line_height(LineHeight::Multiple(MESSAGE_LINE))
         .text_color(move || tokens::meta().opacity(0.7))
@@ -767,26 +789,22 @@ fn thinking_text(message: Memo<Option<Message>>, at: usize) -> impl IntoElement 
 /// with the text until it holds that many, and from then on the end of what
 /// arrived stays at its bottom while what came before is pushed up out of it.
 fn thinking_preview(message: Memo<Option<Message>>, at: usize) -> impl IntoElement {
-    view()
-        .w_full()
-        .pl(px(THINKING_TEXT_INSET))
-        .pb(move || Length::from(px(thought_bottom(message, at))))
-        .child(
-            view()
-                .w_full()
-                .max_h(px(PREVIEW_LINES * THINKING_LINE))
-                .flex_col()
-                // The text keeps its own height past the box's, so its end sits
-                // at the box's bottom and its start is what the box clips.
-                .justify_end()
-                .overflow_hidden()
-                .child(
-                    text(move || thought_text(message, at).unwrap_or_default())
-                        .w_full()
-                        .flex_none()
-                        .text_size(px(sizes::TEXT_COMPACT))
-                        .line_height(LineHeight::Multiple(MESSAGE_LINE))
-                        .text_color(move || tokens::meta().opacity(0.7)),
-                ),
-        )
+    view().w_full().pl(px(THINKING_TEXT_INSET)).child(
+        view()
+            .w_full()
+            .max_h(px(PREVIEW_LINES * THINKING_LINE))
+            .flex_col()
+            // The text keeps its own height past the box's, so its end sits
+            // at the box's bottom and its start is what the box clips.
+            .justify_end()
+            .overflow_hidden()
+            .child(
+                text(move || thought_text(message, at).unwrap_or_default())
+                    .w_full()
+                    .flex_none()
+                    .text_size(px(sizes::TEXT_COMPACT))
+                    .line_height(LineHeight::Multiple(MESSAGE_LINE))
+                    .text_color(move || tokens::meta().opacity(0.7)),
+            ),
+    )
 }
