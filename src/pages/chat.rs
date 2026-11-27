@@ -667,9 +667,9 @@ fn thinking_text(message: Memo<Option<Message>>, at: usize) -> impl IntoElement 
         .text_color(move || tokens::meta().opacity(0.7))
 }
 
-/// The thought's last lines, in a box exactly [`PREVIEW_LINES`] lines tall: the
-/// end of what arrived stays at the box's bottom, and what came before is
-/// pushed up out of the box as it grows.
+/// The thought's last lines, up to [`PREVIEW_LINES`] of them: the box grows
+/// with the text until it holds that many, and from then on the end of what
+/// arrived stays at its bottom while what came before is pushed up out of it.
 fn thinking_preview(message: Memo<Option<Message>>, at: usize) -> impl IntoElement {
     view()
         .w_full()
@@ -678,7 +678,7 @@ fn thinking_preview(message: Memo<Option<Message>>, at: usize) -> impl IntoEleme
         .child(
             view()
                 .w_full()
-                .h(px(PREVIEW_LINES * THINKING_LINE))
+                .max_h(px(PREVIEW_LINES * THINKING_LINE))
                 .flex_col()
                 // The text keeps its own height past the box's, so its end sits
                 // at the box's bottom and its start is what the box clips.
