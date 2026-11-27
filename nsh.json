@@ -4,5 +4,13 @@
   "appearance": "system",
   "theme": "theme.json",
   "rust": ".",
-  "root": "App"
+  "root": "App",
+  "macos": {
+    "infoPlist": {
+      "NSMicrophoneUsageDescription": "Aedt records what you say to write it down into the message."
+    },
+    "entitlements": {
+      "com.apple.security.device.audio-input": true
+    }
+  }
 }

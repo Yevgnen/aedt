@@ -2,6 +2,7 @@
 //! asks its model for.
 
 pub mod models;
+pub mod speech;
 
 use serde::{Deserialize, Serialize};
 

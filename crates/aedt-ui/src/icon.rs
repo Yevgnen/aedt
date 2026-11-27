@@ -24,6 +24,17 @@ const BULB: &str = concat!(
     r#"</svg>"#,
 );
 
+/// A microphone (Lucide's `mic`): what the reader says.
+const MIC: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>"#,
+    r#"<path d="M19 10v2a7 7 0 0 1-14 0v-2"/>"#,
+    r#"<path d="M12 19v3"/>"#,
+    r#"</svg>"#,
+);
+
 /// The copy mark, `size` points square. It is stroked in `currentColor`, so the
 /// color is the caller's `text_color`.
 pub fn copy(size: f32) -> impl IntoElement {
@@ -34,6 +45,11 @@ pub fn copy(size: f32) -> impl IntoElement {
 /// caller's text color.
 pub fn bulb(size: f32) -> impl IntoElement {
     icon(BULB, size)
+}
+
+/// The microphone, `size` points square, in the caller's text color.
+pub fn mic(size: f32) -> impl IntoElement {
+    icon(MIC, size)
 }
 
 /// Three dots in a row (Lucide's `ellipsis`): a menu that holds more than its

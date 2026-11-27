@@ -41,7 +41,7 @@ pub async fn list_models(base_url: &str, api_key: &str) -> Result<Vec<ListedMode
 
 /// What a refused answer says: its status, and the API's own message when the
 /// body carries one.
-fn failure(status: u16, body: &str) -> String {
+pub(crate) fn failure(status: u16, body: &str) -> String {
     let message = serde_json::from_str::<Failed>(body)
         .ok()
         .and_then(|failed| failed.error)

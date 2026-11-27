@@ -229,6 +229,46 @@ fn variables(text: &str) -> Vec<(String, String)> {
         .collect()
 }
 
+/// What writes the reader's speech down: the provider it reaches, with the
+/// base URL and key the request carries.
+pub struct Speech {
+    /// The provider's base URL, as the settings keep it.
+    pub base_url: String,
+    /// The key its requests carry.
+    pub api_key: String,
+}
+
+/// The provider that writes the reader's speech down: DeepSeek, whose
+/// speech-to-text the app calls, while one of its providers has a key (tracked
+/// where it is read). A proxy that fronts DeepSeek under another host does not
+/// count: the request goes to DeepSeek's own speech path.
+pub fn speech() -> Option<Speech> {
+    settings().with(|settings| {
+        settings
+            .providers
+            .iter()
+            .filter(|provider| provider.saved)
+            .find(|provider| {
+                reaches_deepseek(&provider.base_url) && !provider.api_key.trim().is_empty()
+            })
+            .map(|provider| Speech {
+                base_url: provider.base_url.trim().to_owned(),
+                api_key: provider.api_key.trim().to_owned(),
+            })
+    })
+}
+
+/// Whether `base_url` is DeepSeek's own, whatever version path it is kept with.
+fn reaches_deepseek(base_url: &str) -> bool {
+    let base = base_url.trim().trim_end_matches('/');
+    let base = base
+        .strip_suffix("/v1")
+        .or_else(|| base.strip_suffix("/beta"))
+        .unwrap_or(base);
+
+    base == DEEPSEEK_BASE_URL
+}
+
 /// A model a reply can ask: its id for the provider, its label for the reader,
 /// and the provider that serves it, which the reply asks.
 #[derive(Clone, Debug, PartialEq)]

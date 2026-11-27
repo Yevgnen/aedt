@@ -15,6 +15,8 @@ use aedt_settings as settings;
 use aedt_store::{self as store, Author};
 use nsh_core::prelude::*;
 
+pub mod voice;
+
 /// Whether the task that reads what the agents report was started.
 static DISPATCH: OnceLock<()> = OnceLock::new();
 

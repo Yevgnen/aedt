@@ -5,6 +5,8 @@ edition = "2024"
 
 [dependencies]
 aedt-harness = { version = "0.1.0", path = "../aedt-harness" }
+aedt-provider = { version = "0.1.0", path = "../aedt-provider" }
 aedt-settings = { version = "0.1.0", path = "../aedt-settings" }
 aedt-store = { version = "0.1.0", path = "../aedt-store" }
+cpal = "0.18.2"
 nsh-core = "0.7.1"

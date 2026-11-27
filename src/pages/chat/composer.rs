@@ -5,8 +5,8 @@ use std::time::Duration;
 
 use aedt_provider::Effort;
 use aedt_settings as settings;
-use aedt_ui::{button, input, menu, sizes, surface};
-use nsh_base::SubmenuEvent;
+use aedt_ui::{button, icon, input, menu, sizes, surface};
+use nsh_base::{SubmenuEvent, theme};
 use nsh_core::prelude::*;
 
 pub(super) fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
@@ -19,6 +19,26 @@ pub(super) fn composer(session_id: u32, draft: Signal<String>) -> impl IntoEleme
         aedt_bridge::ask(session_id, &text);
         draft.set(String::new());
     };
+    // Why a voice attempt failed; the status bar under the card shows it until
+    // it has been read.
+    let notice = signal(Option::<SharedString>::None);
+    // What the microphone wrote down goes into the draft, on a line of its own
+    // when the draft already has words.
+    effect(move || {
+        let voice = aedt_bridge::voice::state().get();
+
+        if let Some(heard) = voice.heard.clone() {
+            draft.update(|draft| speak(draft, heard.as_str()));
+            aedt_bridge::voice::take();
+        }
+        if voice.error != notice.get_untracked() {
+            let error = voice.error.clone();
+            notice.set(error.clone());
+            if error.is_some() {
+                set_timeout(Duration::from_secs(6), aedt_bridge::voice::take);
+            }
+        }
+    });
     // Opening a conversation puts the reader in the composer: the field takes
     // the keys once it is on screen.
     let field = element_ref();
@@ -28,8 +48,29 @@ pub(super) fn composer(session_id: u32, draft: Signal<String>) -> impl IntoEleme
         .pb_2()
         .gap_2()
         .child(composer_card(draft, can_send, submit, field))
-        // One line reserved for the status bar; it holds no text yet.
-        .child(view().h_5().pl(px(sizes::CARD_PADDING)).justify_center())
+        // One line under the card: a failed voice attempt, and nothing else.
+        .child(
+            view()
+                .h_5()
+                .pl(px(sizes::CARD_PADDING))
+                .justify_center()
+                .child(when(
+                    move || notice.get().is_some(),
+                    move || {
+                        text(move || notice.get_untracked().unwrap_or_default())
+                            .text_xs()
+                            .text_color(move || theme().destructive)
+                    },
+                )),
+        )
+}
+
+/// `words` added to `draft`, after a space while the draft already has some.
+fn speak(draft: &mut String, words: &str) {
+    if !draft.is_empty() && !draft.ends_with(char::is_whitespace) {
+        draft.push(' ');
+    }
+    draft.push_str(words);
 }
 
 /// The floating composer: a rounded card whose input sits on top and whose
@@ -57,8 +98,43 @@ fn composer_card(
                 .justify_end()
                 .gap_2()
                 .child(model_picker())
+                // The microphone: only a provider that writes speech down can
+                // give the button anything to do.
+                .child(when(move || settings::speech().is_some(), voice_button))
                 .child(button::icon("↑", "Send", can_send).on_press(submit)),
         )
+}
+
+/// The microphone beside the model: a press starts recording, and the next one
+/// has the provider write down what was said.
+fn voice_button() -> impl IntoElement {
+    let voice = aedt_bridge::voice::state();
+
+    button::ghost_icon(icon::mic(16.0), "Voice input")
+        .text_color(move || {
+            if voice.get().recording {
+                theme().primary
+            } else {
+                theme().muted_foreground
+            }
+        })
+        .accessibility_label(move || {
+            let label = if voice.get().recording {
+                "Stop recording"
+            } else {
+                "Voice input"
+            };
+
+            Some(SharedString::from(label))
+        })
+        .disabled(move || voice.get().transcribing)
+        .on_press(move || {
+            if voice.get_untracked().recording {
+                aedt_bridge::voice::stop();
+            } else if let Err(why) = aedt_bridge::voice::start() {
+                voice.update(|voice| voice.error = Some(why.into()));
+            }
+        })
 }
 
 /// The model and the effort the next reply asks: each row names what it holds,
