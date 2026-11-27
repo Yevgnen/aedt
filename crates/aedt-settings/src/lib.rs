@@ -22,9 +22,9 @@ pub enum Thinking {
     /// Always open.
     Expanded,
     /// Open while it arrives, folded away once the reply goes on.
-    #[default]
     Auto,
     /// Its last few lines, following the end as it arrives.
+    #[default]
     Preview,
 }
 
