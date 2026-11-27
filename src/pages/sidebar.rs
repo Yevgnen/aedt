@@ -294,6 +294,9 @@ fn session_actions(id: impl Fn() -> u32 + Copy + 'static) -> impl IntoElement {
                             false => SharedString::from("Regenerate title"),
                         }
                     })
+                    // A conversation nothing has been said in has nothing to
+                    // be named after: the row waits for its first message.
+                    .disabled(move || store::user_message_count(id()) == 0)
                     .on_select(move || aedt_bridge::title::write(id()))
                 }))
                 .child(
