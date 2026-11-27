@@ -55,9 +55,12 @@ fn tick(
     hovered: Signal<Option<(usize, usize)>>,
 ) -> impl IntoElement {
     // Lit: the tick under the pointer, and the reader's place in the list.
-    let lit = move || {
+    // A memo of its own, so the pointer moving over another tick leaves every
+    // other tick's style alone: the signal changes, this tick's answer does
+    // not, and nothing under it runs.
+    let lit = computed(move || {
         hovered.get().is_some_and(|(_, index)| index == at.get()) || current.get() == Some(at.get())
-    };
+    });
 
     let jump = move || {
         timeline.scroll_to_index(at.get() as u32, percentage(0.0), Points::ZERO, true);
@@ -89,9 +92,15 @@ fn tick(
                 .w(px(TICK_LEN_LIT))
                 .rounded_full()
                 .origin_right()
-                .scale_x(move || if lit() { 1.0 } else { TICK_LEN / TICK_LEN_LIT })
+                .scale_x(move || {
+                    if lit.get() {
+                        1.0
+                    } else {
+                        TICK_LEN / TICK_LEN_LIT
+                    }
+                })
                 .bg(move || {
-                    if lit() {
+                    if lit.get() {
                         theme().primary_foreground
                     } else {
                         theme().border
