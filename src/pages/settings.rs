@@ -97,7 +97,7 @@ fn categories(category: Signal<Category>) -> impl IntoElement {
 /// The chosen category's content: its heading, then the page it shows.
 fn content(category: Signal<Category>) -> impl IntoElement {
     view().flex_1().min_w(px(0.0)).min_h(px(0.0)).child(
-        scroll().flex_1().min_h(px(0.0)).child(
+        scroll().flex_1().min_h(px(0.0)).scrollbar(false).child(
             view()
                 .w_full()
                 .p_6()

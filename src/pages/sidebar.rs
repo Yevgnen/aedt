@@ -90,7 +90,7 @@ fn brand(open: Signal<bool>) -> impl IntoElement {
 /// Every group of conversations: each workspace's under its name, the ones
 /// held in no workspace last under `Ungrouped`.
 fn sessions() -> impl IntoElement {
-    scroll().flex_1().child(each(
+    scroll().flex_1().scrollbar(false).child(each(
         store::groups,
         |group| group.workspace.as_ref().map_or(0, |workspace| workspace.id),
         |group, _| group_view(group),
