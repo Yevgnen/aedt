@@ -53,6 +53,10 @@ pub(crate) struct Kept {
     /// How its thinking shows; none for the app's own default.
     #[serde(default)]
     pub(crate) thinking: Option<Thinking>,
+    /// The blank each side of the conversation takes, in percent of its width;
+    /// none for the app's own default.
+    #[serde(default)]
+    pub(crate) margin: Option<u32>,
 }
 
 /// The settings the app kept, while it kept a readable set.

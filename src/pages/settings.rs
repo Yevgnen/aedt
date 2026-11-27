@@ -131,23 +131,58 @@ fn heading(category: Signal<Category>) -> impl IntoElement {
         ))
 }
 
-/// The conversation page: how a reply's thinking shows while it arrives.
+/// The conversation page: how a reply's thinking shows while it arrives, and
+/// how wide the conversation's column runs.
 fn conversation_page() -> View {
     view()
         .w_full()
-        .gap_1()
-        .child(field::label("Thinking"))
-        .child(menu::menu(
-            menu::select_trigger(move || thinking_label(settings::thinking())),
-            Placement::Bottom,
-            Align::Start,
+        .gap_5()
+        .child(
             view()
+                .w_full()
                 .gap_1()
-                .child(thinking_choice(Thinking::Collapsed))
-                .child(thinking_choice(Thinking::Expanded))
-                .child(thinking_choice(Thinking::Auto))
-                .child(thinking_choice(Thinking::Preview)),
-        ))
+                .child(field::label("Thinking"))
+                .child(menu::menu(
+                    menu::select_trigger(move || thinking_label(settings::thinking())),
+                    Placement::Bottom,
+                    Align::Start,
+                    view()
+                        .gap_1()
+                        .child(thinking_choice(Thinking::Collapsed))
+                        .child(thinking_choice(Thinking::Expanded))
+                        .child(thinking_choice(Thinking::Auto))
+                        .child(thinking_choice(Thinking::Preview)),
+                )),
+        )
+        .child(
+            view()
+                .w_full()
+                .gap_1()
+                .child(field::label("Side margin"))
+                .child(menu::menu(
+                    menu::select_trigger(move || margin_label(settings::margin())),
+                    Placement::Bottom,
+                    Align::Start,
+                    view()
+                        .gap_1()
+                        .child(margin_choice(10))
+                        .child(margin_choice(15))
+                        .child(margin_choice(20))
+                        .child(margin_choice(25)),
+                )),
+        )
+}
+
+/// One blank the conversation may keep on each side, checked while it is the
+/// chosen one.
+fn margin_choice(percent: u32) -> impl IntoElement {
+    menu::choice(margin_label(percent), move || settings::margin() == percent)
+        .on_select(move || settings::select_margin(percent))
+}
+
+/// A blank, as the settings say it: a share of the conversation's width.
+fn margin_label(percent: u32) -> SharedString {
+    format!("{percent}%").into()
 }
 
 /// One way a reply's thinking may show, checked while it is the chosen one.

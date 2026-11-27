@@ -34,13 +34,6 @@ pub const AVATAR: f32 = 28.0;
 /// The composer's smallest height, before it grows with its text.
 pub const COMPOSER_MIN: f32 = 44.0;
 
-/// The conversation column's widest block: the message list and the composer
-/// card share it, so they stay one column on wide windows.
-pub const COMPOSER_MAX: f32 = 760.0;
-
-/// The conversation column's side inset: the composer card sits inside it.
-pub const COMPOSER_SIDE: f32 = 24.0;
-
 /// The card's inner padding: the message text starts on this same inset from
 /// the column's sides.
 pub const CARD_PADDING: f32 = 12.0;

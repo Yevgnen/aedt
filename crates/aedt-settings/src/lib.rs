@@ -28,6 +28,14 @@ pub enum Thinking {
     Preview,
 }
 
+/// The blank the conversation keeps on each side, in percent of its width,
+/// until the reader picks another.
+pub const DEFAULT_MARGIN: u32 = 15;
+
+/// The widest blank the conversation may keep on each side: past it the column
+/// is too narrow for a message to read in.
+pub const MAX_MARGIN: u32 = 35;
+
 /// A provider's API: the shape of its requests and of its model list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProviderKind {
@@ -160,6 +168,8 @@ struct Settings {
     effort: Effort,
     /// How a reply's thinking shows in the conversation.
     thinking: Thinking,
+    /// The blank each side of the conversation takes, in percent of its width.
+    margin: u32,
     /// The keys kept on disk, by provider id. A provider's key in memory may
     /// come from the environment instead, and is not kept then.
     keys: secrets::Keys,
@@ -199,6 +209,7 @@ impl Settings {
             selected_provider: kept.selected_provider,
             effort: kept.effort.unwrap_or(Effort::High),
             thinking: kept.thinking.unwrap_or_default(),
+            margin: kept.margin.unwrap_or(DEFAULT_MARGIN).min(MAX_MARGIN),
             keys,
         })
     }
@@ -222,6 +233,7 @@ impl Settings {
             selected_provider: Some(1),
             effort: Effort::High,
             thinking: Thinking::default(),
+            margin: DEFAULT_MARGIN,
             keys: secrets::Keys::new(),
         }
     }
@@ -245,6 +257,7 @@ impl Settings {
             selected_provider: self.selected_provider,
             effort: Some(self.effort),
             thinking: Some(self.thinking),
+            margin: Some(self.margin),
         }
     }
 }
@@ -480,6 +493,18 @@ pub fn thinking() -> Thinking {
 /// Shows a reply's thinking as `thinking` from now on.
 pub fn select_thinking(thinking: Thinking) {
     settings().update(|settings| settings.thinking = thinking);
+    save();
+}
+
+/// The blank each side of the conversation takes, in percent of its width: the
+/// column keeps the rest, centered (tracked where it is read).
+pub fn margin() -> u32 {
+    settings().with(|settings| settings.margin)
+}
+
+/// Leaves `percent` of the conversation's width blank on each side.
+pub fn select_margin(percent: u32) {
+    settings().update(|settings| settings.margin = percent.min(MAX_MARGIN));
     save();
 }
 

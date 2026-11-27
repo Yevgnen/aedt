@@ -49,8 +49,8 @@ pub(crate) fn pane(session_id: u32, sidebar: Signal<bool>) -> View {
                 .child(
                     column(
                         // The blank sides of the messages' column, each taking the
-                        // room the column leaves: a wheel over them scrolls the
-                        // timeline, and the column itself keeps its width.
+                        // room the settings leave: a wheel over them scrolls the
+                        // timeline, and the column keeps the rest of the width.
                         view()
                             .w_full()
                             .min_h(px(0.0))
@@ -59,10 +59,8 @@ pub(crate) fn pane(session_id: u32, sidebar: Signal<bool>) -> View {
                             .child(
                                 view()
                                     .flex_none()
-                                    .w_full()
-                                    .max_w(px(sizes::COMPOSER_MAX))
+                                    .w(move || Length::from(percentage(column_share())))
                                     .min_h(px(0.0))
-                                    .px(px(sizes::COMPOSER_SIDE))
                                     .child(timeline_view(
                                         session_id, folds, &timeline, current, scrolled,
                                     )),
@@ -76,15 +74,21 @@ pub(crate) fn pane(session_id: u32, sidebar: Signal<bool>) -> View {
                 .child(
                     column(
                         view()
-                            .w_full()
-                            .max_w(px(sizes::COMPOSER_MAX))
-                            .px(px(sizes::COMPOSER_SIDE))
+                            .w(move || Length::from(percentage(column_share())))
                             .child(composer(session_id, draft)),
                         view().w(px(sizes::RAIL)).flex_none(),
                     )
                     .flex_none(),
                 ),
         )
+}
+
+/// The share of the pane's width the conversation's column takes: what the
+/// settings' blank leaves of it, less the same blank on the other side.
+fn column_share() -> f32 {
+    let blank = settings::margin() as f32 / 100.0;
+
+    (1.0 - 2.0 * blank).max(0.2)
 }
 
 /// One row of the conversation: its `content` centered in the pane, between a
