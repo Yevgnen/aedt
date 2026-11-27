@@ -25,11 +25,15 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
                 // A button cannot carry an expanded state of its own: its
                 // label says which of the two it shows.
                 .accessibility_label(move || {
-                    Some(SharedString::from(format!(
-                        "{} result, {}",
-                        tool.with(|tool| tool.name.clone()),
-                        if shown() { "shown" } else { "hidden" }
-                    )))
+                    let shown = shown();
+
+                    Some(tool.with(|tool| {
+                        SharedString::from(format!(
+                            "{} result, {}",
+                            name_of(tool.name.as_str()),
+                            if shown { "shown" } else { "hidden" }
+                        ))
+                    }))
                 })
                 .w_full()
                 .group()
@@ -45,11 +49,13 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
                     // The tool's name is prose about the call, not code in it:
                     // it reads at the size a reply's own words do, where the
                     // arguments and the file beside it are set in the code's.
-                    text(move || tool.with(|tool| tool.name.clone()))
-                        .flex_none()
-                        .text_sm()
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_color(tokens::meta),
+                    text(move || {
+                        tool.with(|tool| SharedString::from(name_of(tool.name.as_str()).to_owned()))
+                    })
+                    .flex_none()
+                    .text_sm()
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_color(tokens::meta),
                 )
                 .child(
                     view().flex_1().min_w(px(0.0)).child(
@@ -112,6 +118,13 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
                 )
             },
         ))
+}
+
+/// What the row calls a tool: its name without the server that serves it. An
+/// MCP tool is named `<server>__<tool>`, so what stands before the first `__`
+/// goes, and a name without one is its own.
+fn name_of(tool: &str) -> &str {
+    tool.split_once("__").map_or(tool, |(_, name)| name)
 }
 
 /// What an edit did, where the row names the call: the first file it changed.
