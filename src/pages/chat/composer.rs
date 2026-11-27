@@ -134,9 +134,13 @@ fn mcp_line(servers: Signal<Vec<McpStatus>>) -> impl IntoElement {
         .on_mouse_enter(move |_: &MouseEvent| hovered.set(true))
         .on_mouse_leave(move |_: &MouseEvent| hovered.set(false))
         .child(
-            text(move || format!("MCP {}/{}", connected.get(), total.get()))
-                .text_xs()
-                .text_color(tokens::caption()),
+            view()
+                .flex_row()
+                .items_center()
+                .gap_1()
+                .text_color(tokens::caption)
+                .child(icon::plug(12.0))
+                .child(text(move || format!("{}/{}", connected.get(), total.get())).text_xs()),
         )
         .child(when(move || hovered.get(), move || mcp_servers(servers)))
 }

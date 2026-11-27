@@ -190,6 +190,17 @@ const WRENCH: &str = concat!(
     r#"</svg>"#,
 );
 
+/// A plug (Lucide's `plug`): the connection to a local MCP server.
+const PLUG: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M12 22v-5"/>"#,
+    r#"<path d="M9 8V2"/><path d="M15 8V2"/>"#,
+    r#"<path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>"#,
+    r#"</svg>"#,
+);
+
 /// A folder with a plus (Lucide's `folder-plus`): adds a workspace.
 const FOLDER_PLUS: &str = concat!(
     r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
@@ -337,6 +348,11 @@ pub fn chevron_up(size: f32) -> impl IntoElement {
 /// The wrench, `size` points square, in the caller's text color.
 pub fn wrench(size: f32) -> impl IntoElement {
     icon(WRENCH, size)
+}
+
+/// The plug, `size` points square, in the caller's text color.
+pub fn plug(size: f32) -> impl IntoElement {
+    icon(PLUG, size)
 }
 
 /// The folder with a plus, `size` points square, in the caller's text color.
