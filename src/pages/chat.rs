@@ -190,7 +190,7 @@ fn timeline_view(
     .scrollbar(false)
     .content_padding_x(px(sizes::CARD_PADDING))
     .content_padding_y(px(24.0))
-    .estimated_item_size(px(96.0))
+    .estimated_item_size(px(row_height(session_id)))
     .row_gap(px(16.0))
     // The reader's place follows what the list shows as it scrolls.
     .on_viewable_items_change(move |items: &ViewableItems| {
@@ -203,6 +203,62 @@ fn timeline_view(
     })
     .empty(empty::empty("Say something…"))
     .flex_1()
+}
+
+/// How tall a row is guessed at before the list measures it, by what the row
+/// holds: a message the reader wrote, a thought's bar or a call's row, a line
+/// of a reply's prose, and the head and lines of a changed file.
+const ROW_USER: f32 = 76.0;
+const ROW_PART: f32 = 26.0;
+const ROW_PROSE_LINE: f32 = 20.0;
+const ROW_DIFF_HEAD: f32 = 30.0;
+const ROW_DIFF_LINE: f32 = 17.0;
+
+/// The characters a line of a reply's prose holds, on average.
+const PROSE_PER_LINE: usize = 80;
+
+/// A row's height as the list guesses it before measuring it: how tall a
+/// message of this conversation tends to be. The list maps a scroll offset to
+/// rows by these sizes, so a guess far below the rows makes it bind a whole
+/// conversation to show one screen of it, and one far above leaves the screen
+/// empty while it catches up. Read once, as the conversation opens: a message
+/// that arrives later only moves the average a little.
+fn row_height(session_id: u32) -> f32 {
+    let messages: Vec<Message> = untracked(|| {
+        (0..store::message_count(session_id))
+            .filter_map(|at| store::message_at(session_id, at))
+            .collect()
+    });
+    let tall: f32 = messages.iter().map(message_height).sum();
+
+    tall / messages.len().max(1) as f32
+}
+
+/// How tall a message's row is before it is measured, by what it holds.
+fn message_height(message: &Message) -> f32 {
+    if message.author == Author::User {
+        return ROW_USER;
+    }
+
+    message.parts.iter().fold(0.0, |tall, part| match part {
+        Part::Thought(_) => tall + ROW_PART,
+        Part::Text(text) => {
+            tall + ROW_PROSE_LINE * (text.chars().count() / PROSE_PER_LINE + 1) as f32
+        }
+        // The files a call changed show open, so their lines count; a call
+        // that changed none shows its row alone.
+        Part::Tool(tool) => {
+            let lines: usize = tool
+                .changes
+                .iter()
+                .map(|change| change.diff.lines().count())
+                .sum();
+
+            tall + ROW_PART
+                + ROW_DIFF_HEAD * tool.changes.len() as f32
+                + ROW_DIFF_LINE * lines as f32
+        }
+    })
 }
 
 /// The column of question ticks at the pane's right edge: one per user message,
