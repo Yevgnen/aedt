@@ -108,6 +108,10 @@ fn tree(
 /// titles take, so a deep path still fits.
 const FILE_TEXT: f32 = sizes::TEXT_COMPACT - 1.0;
 
+/// A row of the tree: a list row less the air the smaller names leave, so the
+/// rows sit as close as the sidebar's own.
+const FILE_ROW: f32 = sizes::LIST_ROW - 4.0;
+
 /// Adds `folder`'s entries to `rows`, and those of the folders the reader
 /// opened under it.
 fn walk(
@@ -187,7 +191,7 @@ fn entry_row(
 
     view()
         .w_full()
-        .min_h(px(sizes::LIST_ROW))
+        .min_h(px(FILE_ROW))
         .flex_row()
         .items_center()
         .gap_1()
