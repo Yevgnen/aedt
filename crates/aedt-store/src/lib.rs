@@ -206,6 +206,11 @@ impl Default for State {
     }
 }
 
+/// The sessions a model is writing a title for: one title types in at a time,
+/// and another ask waits for it.
+#[derive(Clone, Default)]
+struct Writing(Vec<u32>);
+
 /// The clock time a message shows, in the machine's own time zone: `11/6
 /// 21:12` (month and day without a leading zero).
 fn now_label() -> SharedString {
@@ -214,6 +219,10 @@ fn now_label() -> SharedString {
 
 fn state() -> Signal<State> {
     global::<State>()
+}
+
+fn writing() -> Signal<Writing> {
+    global::<Writing>()
 }
 
 /// The state, kept for the next run.
@@ -805,6 +814,48 @@ fn streaming(state: &mut State, session_id: u32) -> Option<&mut Message> {
         .iter_mut()
         .rev()
         .find(|message| message.streaming)
+}
+
+/// Starts writing session `session_id`'s title: what it shows stays until the
+/// model's first words type in (tracked where it is read).
+pub fn title_started(session_id: u32) {
+    writing().update(|writing| {
+        if !writing.0.contains(&session_id) {
+            writing.0.push(session_id);
+        }
+    });
+}
+
+/// Shows `title` as so much of session `session_id`'s, while its model types it
+/// in; false once the session is gone, so the typing stops.
+pub fn title_typed(session_id: u32, title: &str) -> bool {
+    let mut shown = false;
+    state().update(|state| {
+        if let Some(session) = session_mut(state, session_id) {
+            session.title = title.to_owned().into();
+            shown = true;
+        }
+    });
+
+    shown
+}
+
+/// Keeps `title` as session `session_id`'s, its model done with it.
+pub fn title_finished(session_id: u32, title: &str) {
+    title_typed(session_id, title);
+    title_failed(session_id);
+    keep();
+}
+
+/// Stops writing session `session_id`'s title: it keeps what it shows.
+pub fn title_failed(session_id: u32) {
+    writing().update(|writing| writing.0.retain(|id| *id != session_id));
+}
+
+/// Whether a model is writing session `session_id`'s title (tracked where it is
+/// read).
+pub fn title_writing(session_id: u32) -> bool {
+    writing().with(|writing| writing.0.contains(&session_id))
 }
 
 /// The first `max` characters of `text`, on one line.

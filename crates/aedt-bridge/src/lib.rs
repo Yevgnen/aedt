@@ -18,6 +18,7 @@ use aedt_settings as settings;
 use aedt_store::{self as store, Author};
 use nsh_core::prelude::*;
 
+pub mod title;
 pub mod voice;
 
 /// Whether the task that reads what the agents report was started.
@@ -63,6 +64,18 @@ pub fn ask(session_id: u32, text: &str, files: &[PathBuf]) {
     let Some(sent) = store::send(session_id, &with_paths(text, files), &carried) else {
         return;
     };
+    // The model names a conversation once, from what the reader first asked of
+    // it; another title is the sidebar's to ask for.
+    let first = sent
+        .history
+        .iter()
+        .filter(|message| message.author == Author::User)
+        .count()
+        == 1;
+    if first {
+        title::write(session_id);
+    }
+
     let model = settings::selected();
     if model.base_url.trim().is_empty() || model.api_key.trim().is_empty() {
         store::fail_stream(session_id, "API URL or API key is missing");

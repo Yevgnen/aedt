@@ -282,6 +282,20 @@ fn session_actions(id: impl Fn() -> u32 + Copy + 'static) -> impl IntoElement {
             Placement::Bottom,
             Align::End,
             view()
+                // A title is the model's to write while a DeepSeek provider is
+                // set up to write one: the row says how far it has come until
+                // the title is whole.
+                .child(when(aedt_bridge::title::available, move || {
+                    menu::item(icon::refresh(14.0), move || {
+                        match store::title_writing(id()) {
+                            true => store::session_summary(id())
+                                .map(|session| session.title)
+                                .unwrap_or_default(),
+                            false => SharedString::from("Regenerate title"),
+                        }
+                    })
+                    .on_select(move || aedt_bridge::title::write(id()))
+                }))
                 .child(
                     menu::item(icon::archive(14.0), "Archive")
                         .on_select(move || store::archive_session(id())),
