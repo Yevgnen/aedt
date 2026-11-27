@@ -175,7 +175,7 @@ fn header(session_id: u32, sidebar: Signal<bool>, files: Signal<bool>) -> impl I
         .h(px(sizes::TOPBAR))
         .flex_row()
         .items_center()
-        .pr(move || Length::from(title_bar().right + px(24.0)))
+        .pr(move || Length::from(title_bar().right + px(12.0)))
         .window_drag(true)
         .border_b_1()
         .border_b_color(move || theme().border)

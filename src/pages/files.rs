@@ -70,7 +70,7 @@ fn top(open: Signal<bool>) -> impl IntoElement {
         .flex_row()
         .items_center()
         .justify_end()
-        .pr(px(24.0))
+        .pr_3()
         .window_drag(true)
         .child(
             button::ghost_icon(icon::panel_right(14.0), "Hide the files")
