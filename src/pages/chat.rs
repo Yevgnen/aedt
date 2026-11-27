@@ -296,8 +296,8 @@ const WHEEL_LINE: f32 = sizes::TEXT_COMPACT * MESSAGE_LINE;
 /// or two short, so the mark hides as the last row settles into view.
 const END_SLOP: f32 = 24.0;
 
-/// The mark's clearance from the bottom edge of the messages' column, over the
-/// list's own padding.
+/// The mark's clearance from the right and bottom edges of the messages'
+/// column, over the list's own padding.
 const END_MARK_INSET: f32 = 12.0;
 
 /// A blank side of the messages' column: a wheel over it scrolls the timeline as
@@ -332,14 +332,8 @@ fn back_to_end(at_end: Signal<bool>, timeline: &ElementRef) -> impl IntoElement 
 
     view()
         .absolute()
-        .left(px(0.0))
-        .right(px(0.0))
+        .right(px(END_MARK_INSET))
         .bottom(px(END_MARK_INSET))
-        .flex_row()
-        .justify_center()
-        // The mark alone takes the pointer: the band it floats in keeps the
-        // wheel on the messages under it.
-        .pointer_events(PointerEvents::BoxNone)
         .child(when(
             move || !at_end.get(),
             move || {
