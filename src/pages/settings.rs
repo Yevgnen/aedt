@@ -1,7 +1,9 @@
 //! The settings dialog: its categories on the left, the chosen one's content
 //! on the right. Every provider is configured here, with the models it lists.
 
-use aedt_ui::{button, collapsible, field, icon, list_item, menu, sizes, surface, switch, tokens};
+use aedt_ui::{
+    badge, button, collapsible, field, icon, list_item, menu, sizes, surface, switch, tokens,
+};
 use nsh_base::{dialog as base_dialog, theme};
 use nsh_core::prelude::*;
 
@@ -324,10 +326,19 @@ fn api_field(id: u32) -> impl IntoElement {
         ))
 }
 
-/// One provider, folded to its name until it is asked for: how it is reached,
-/// and the models it lists.
+/// One provider, folded to its name until it is asked for: what it is, how to
+/// reach it, and the models it lists.
 fn provider_card(id: u32) -> impl IntoElement {
-    collapsible::section(move || settings::name(id), provider_body(id)).w_full()
+    collapsible::section(
+        move || settings::name(id),
+        // The kind, unless the name is the kind's own.
+        when(
+            move || settings::name(id) != kind_label(settings::kind(id)),
+            move || badge::badge(move || kind_label(settings::kind(id))),
+        ),
+        provider_body(id),
+    )
+    .w_full()
 }
 
 /// How a provider is reached: its URL and the key its requests carry, with the

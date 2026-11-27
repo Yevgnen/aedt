@@ -6,13 +6,14 @@ use nsh_core::prelude::*;
 
 use crate::{icon, motion, state};
 
-/// A section: `title` always shows; pressing the header opens `content` and
-/// pressing it again closes it. It starts closed.
+/// A section: `title` and a `mark` beside it always show; pressing the header
+/// opens `content` and pressing it again closes it. It starts closed.
 pub fn section(
     title: impl IntoReactive<SharedString>,
+    mark: impl IntoElement,
     content: impl IntoElement,
 ) -> CollapsibleElement {
-    row(title, None, content)
+    row(title, Some(mark.into_element()), None, content)
 }
 
 /// A section whose header carries `trailing` before its chevron: a switch the
@@ -23,7 +24,7 @@ pub fn section_with_trailing(
     trailing: impl IntoElement,
     content: impl IntoElement,
 ) -> CollapsibleElement {
-    row(title, Some(trailing.into_element()), content)
+    row(title, None, Some(trailing.into_element()), content)
 }
 
 /// A section's header row: the part that opens it, then what stands after it,
@@ -31,12 +32,13 @@ pub fn section_with_trailing(
 /// presses; the chevron opens the section as the title does.
 fn row(
     title: impl IntoReactive<SharedString>,
+    mark: Option<AnyElement>,
     trailing: Option<AnyElement>,
     content: impl IntoElement,
 ) -> CollapsibleElement {
     let open = signal(false);
     let flip = move || open.update(|open| *open = !*open);
-    let handle = view()
+    let mut handle = view()
         .flex_1()
         .min_w(px(0.0))
         .flex_row()
@@ -59,6 +61,9 @@ fn row(
                 .font_weight(FontWeight::NORMAL)
                 .text_color(move || theme().foreground),
         );
+    if let Some(mark) = mark {
+        handle = handle.child(mark);
+    }
     let mut header = view()
         .w_full()
         .flex_row()
