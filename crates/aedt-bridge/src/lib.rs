@@ -31,7 +31,7 @@ thread_local! {
 
 /// Sends `text` to the conversation and lets the agent answer it: the store
 /// keeps the conversation, the settings name the model and its provider.
-pub(crate) fn ask(session_id: u32, text: &str) {
+pub fn ask(session_id: u32, text: &str) {
     let text = text.trim();
     if text.is_empty() {
         return;

@@ -5,6 +5,7 @@ edition = "2024"
 
 [workspace]
 members = [
+    "crates/aedt-bridge",
     "crates/aedt-harness",
     "crates/aedt-provider",
     "crates/aedt-settings",
@@ -13,7 +14,7 @@ members = [
 ]
 
 [dependencies]
-aedt-harness = { version = "0.1.0", path = "crates/aedt-harness" }
+aedt-bridge = { version = "0.1.0", path = "crates/aedt-bridge" }
 aedt-provider = { version = "0.1.0", path = "crates/aedt-provider" }
 aedt-settings = { version = "0.1.0", path = "crates/aedt-settings" }
 aedt-store = { version = "0.1.0", path = "crates/aedt-store" }

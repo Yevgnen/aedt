@@ -2,7 +2,6 @@
 //! conversation fills the pane beside it, and replies stream from DeepSeek into
 //! the conversation as they arrive.
 
-mod llm;
 mod pages;
 mod shell;
 

@@ -22,7 +22,7 @@ dependencies = [
 name = "aedt"
 version = "0.1.0"
 dependencies = [
- "aedt-harness",
+ "aedt-bridge",
  "aedt-provider",
  "aedt-settings",
  "aedt-store",
@@ -33,6 +33,16 @@ dependencies = [
  "nsh-platform-linux",
  "nsh-platform-macos",
  "nsh-platform-windows",
+]
+
+[[package]]
+name = "aedt-bridge"
+version = "0.1.0"
+dependencies = [
+ "aedt-harness",
+ "aedt-settings",
+ "aedt-store",
+ "nsh-core",
 ]
 
 [[package]]

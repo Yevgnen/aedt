@@ -1,0 +1,10 @@
+[package]
+name = "aedt-bridge"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+aedt-harness = { version = "0.1.0", path = "../aedt-harness" }
+aedt-settings = { version = "0.1.0", path = "../aedt-settings" }
+aedt-store = { version = "0.1.0", path = "../aedt-store" }
+nsh-core = "0.7.1"

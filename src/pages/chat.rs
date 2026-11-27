@@ -13,8 +13,6 @@ use aedt_ui::{
 use nsh_base::{SubmenuEvent, theme};
 use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
 
-use crate::llm;
-
 /// A tick's bar height, the padding that fills its pitch, and its length at
 /// rest and lit: adjacent ticks' hit areas touch, so sliding along the column
 /// never leaves it between them.
@@ -889,7 +887,7 @@ fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
         if text.trim().is_empty() {
             return;
         }
-        llm::ask(session_id, &text);
+        aedt_bridge::ask(session_id, &text);
         draft.set(String::new());
     };
     // Opening a conversation puts the reader in the composer: the field takes
