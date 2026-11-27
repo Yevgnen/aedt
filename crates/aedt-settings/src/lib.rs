@@ -30,7 +30,7 @@ pub enum Thinking {
 
 /// The blank the conversation keeps on each side, in percent of its width,
 /// until the reader picks another.
-pub const DEFAULT_MARGIN: u32 = 15;
+pub const DEFAULT_MARGIN: u32 = 10;
 
 /// The widest blank the conversation may keep on each side: past it the column
 /// is too narrow for a message to read in.
