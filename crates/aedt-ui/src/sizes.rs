@@ -77,9 +77,15 @@ pub const WINDOW_H: f32 = 880.0;
 
 /// The least height the window may take: the header and the composer card with
 /// its status line keep their room, and a few exchanges still read above the
-/// composer. Its width keeps its own freedom, so the pane can narrow to any
-/// width the layout holds.
+/// composer.
 pub const WINDOW_MIN_H: f32 = 560.0;
+
+/// The least width the window may take: the rail's 32 points on the
+/// conversation's two sides, and the column the settings' default blank leaves
+/// — enough for the composer's row, the model's name beside its effort, its
+/// chevron and the send button, to show whole. The sidebar steps aside well
+/// above it ([`NARROW`]), so the floor is the conversation alone.
+pub const WINDOW_MIN_W: f32 = 520.0;
 
 /// The card a message's question opens in, over the rail's ticks.
 pub const PREVIEW_W: f32 = 320.0;

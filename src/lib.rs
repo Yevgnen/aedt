@@ -66,7 +66,7 @@ pub fn App() -> impl IntoElement {
     ));
     let mut attributes = WindowAttributes::default();
     attributes.title_bar = Some(title_bar);
-    attributes.min_size = Some(Some(size(px(0.0), px(sizes::WINDOW_MIN_H))));
+    attributes.min_size = Some(Some(size(px(sizes::WINDOW_MIN_W), px(sizes::WINDOW_MIN_H))));
 
     app_window()
         .id("main")
