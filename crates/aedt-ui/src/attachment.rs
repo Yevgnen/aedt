@@ -1,5 +1,4 @@
-//! A file the reader attached to their next message: its name, and a press
-//! takes it out of the message again.
+//! What the next message carries: a file as its name, an image as itself.
 
 use nsh_base::{ButtonElement, button, theme};
 use nsh_core::{element::StyleRefinement, prelude::*};
@@ -47,4 +46,61 @@ pub fn chip(name: SharedString) -> ButtonElement {
                 .text_color(move || theme().muted_foreground)
                 .child(icon::x(12.0)),
         )
+}
+
+/// An image the next message carries, shown as itself: a rounded tile of
+/// `path`, with a cross over its corner that takes it out.
+pub fn thumbnail(
+    path: SharedString,
+    name: SharedString,
+    remove: impl Fn() + 'static,
+) -> impl IntoElement {
+    view()
+        .relative()
+        .size(px(sizes::THUMB))
+        .flex_none()
+        .rounded(move || theme().radius)
+        .overflow_hidden()
+        .bg(move || theme().muted)
+        .child(
+            image(path)
+                .size(px(sizes::THUMB))
+                .object_fit(ResizeMode::Cover),
+        )
+        .child(
+            view()
+                .absolute()
+                .top(px(3.0))
+                .right(px(3.0))
+                .child(remove_button(name, remove)),
+        )
+}
+
+/// The cross over an attached image's corner: a small round target on the
+/// card's fill, so it reads over whatever the picture beneath it is.
+fn remove_button(name: SharedString, remove: impl Fn() + 'static) -> ButtonElement {
+    let label = format!("Remove {name}");
+    let reduce = reduce_motion();
+    let press = move |s: StyleRefinement| {
+        let s = s.opacity(0.85);
+        if reduce { s } else { s.scale(0.94) }
+    };
+
+    button()
+        .accessibility_label(label)
+        .size(px(sizes::META_ACTION))
+        .items_center()
+        .justify_center()
+        .rounded_full()
+        .bg(move || theme().card.opacity(0.9))
+        .hover(|s| s.bg(move || theme().card))
+        .active(press)
+        .focus_visible(state::focus_ring)
+        .hit_slop(EdgeInsets::all(px(4.0)))
+        .transition_all()
+        .duration(motion::row_duration())
+        .ease_out()
+        .text_color(move || theme().foreground)
+        .on_press(remove)
+        .child(icon::x(12.0))
 }

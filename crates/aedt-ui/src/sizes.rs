@@ -73,6 +73,10 @@ pub const CHIP: f32 = 24.0;
 /// composer's row.
 pub const CHIP_MAX_W: f32 = 220.0;
 
+/// An attached image's tile in the composer: big enough to tell one picture
+/// from another before the message goes.
+pub const THUMB: f32 = 64.0;
+
 /// The message rail at the conversation's right edge.
 pub const RAIL: f32 = 32.0;
 

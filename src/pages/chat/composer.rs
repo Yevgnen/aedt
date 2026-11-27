@@ -207,11 +207,16 @@ fn composer_card(
                 .child(when(
                     move || files.with(|files| !files.is_empty()),
                     move || {
-                        view().flex_row().flex_wrap().gap_1().child(each(
-                            move || files.get(),
-                            |path| path.clone(),
-                            move |path, _| attachment_chip(path, files),
-                        ))
+                        view()
+                            .flex_row()
+                            .flex_wrap()
+                            .items_center()
+                            .gap_2()
+                            .child(each(
+                                move || files.get(),
+                                |path| path.clone(),
+                                move |path, _| attachment_chip(path, files),
+                            ))
                     },
                 ))
                 .child(
@@ -272,18 +277,43 @@ fn attach_button(files: Signal<Vec<PathBuf>>, field: ElementRef) -> impl IntoEle
                 Ok(None) => {}
                 Err(why) => eprintln!("attachment: the file dialog failed: {why}"),
             }
+            // The panel hands the window back as its sheet ends: a focus asked
+            // for now may be the one that hand-back clears, so the field asks
+            // for the keys again once the window has them.
             field.focus();
+            set_timeout(Duration::from_millis(250), move || field.focus());
         });
     })
 }
 
-/// One file the next message carries: its name, and a press takes it out.
+/// One file the next message carries: an image as its own picture, any other
+/// file as its name; a press takes it out.
 fn attachment_chip(path: ReadSignal<PathBuf>, files: Signal<Vec<PathBuf>>) -> impl IntoElement {
-    let name = path.with_untracked(|path| file_name(path));
     let picked = path.with_untracked(|path| path.clone());
+    let name = file_name(&picked);
+    let picture = is_image(&picked);
+    let source = SharedString::from(picked.to_string_lossy().into_owned());
+    let remove = move || files.update(|files| files.retain(|file| *file != picked));
 
-    attachment::chip(name)
-        .on_press(move || files.update(|files| files.retain(|file| *file != picked)))
+    if picture {
+        attachment::thumbnail(source, name, remove).into_element()
+    } else {
+        attachment::chip(name).on_press(remove).into_element()
+    }
+}
+
+/// Whether `path` names one of the formats a message carries as an image: the
+/// extensions of the four the agent reads from the file's first bytes.
+fn is_image(path: &Path) -> bool {
+    const IMAGES: [&str; 5] = ["png", "jpg", "jpeg", "gif", "webp"];
+
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            IMAGES
+                .iter()
+                .any(|known| extension.eq_ignore_ascii_case(known))
+        })
 }
 
 /// What a chip calls `path`: its file name, or the path whole when it has none.
