@@ -283,11 +283,14 @@ fn attach_button(files: Signal<Vec<PathBuf>>, field: ElementRef) -> impl IntoEle
                 Ok(None) => {}
                 Err(why) => eprintln!("attachment: the file dialog failed: {why}"),
             }
-            // The panel hands the window back as its sheet ends: a focus asked
-            // for now may be the one that hand-back clears, so the field asks
-            // for the keys again once the window has them.
-            field.focus();
-            set_timeout(Duration::from_millis(250), move || field.focus());
+            // The panel hands the window back as its sheet ends, and that
+            // hand-back can land after a focus asked for here. Take the keys off
+            // the field first, so the asks below are hand-overs the platform
+            // makes instead of ones it believes it already made: the second is
+            // the spare for a hand-back that lands between them.
+            field.blur();
+            set_timeout(Duration::from_millis(150), move || field.focus());
+            set_timeout(Duration::from_millis(400), move || field.focus());
         });
     })
 }
