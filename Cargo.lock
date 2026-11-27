@@ -99,6 +99,7 @@ version = "0.1.0"
 dependencies = [
  "nsh-base",
  "nsh-core",
+ "serde_json",
  "syntect",
  "two-face",
 ]

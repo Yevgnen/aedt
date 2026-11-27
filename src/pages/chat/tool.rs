@@ -1,9 +1,9 @@
-//! A call a reply made: its row, the file summary an edit shows, and the cards
-//! of the files it changed.
+//! A call a reply made: its row, what it was given and answered while the row
+//! is open, and the cards of the files it changed.
 
 use aedt_store::{self as store, ToolRun};
-use aedt_ui::{MESSAGE_LINE, button, code, diff, icon, motion, sizes, tokens};
-use nsh_core::{LineHeight, prelude::*};
+use aedt_ui::{MESSAGE_LINE, button, code, diff, icon, markdown, motion, sizes, tokens};
+use nsh_core::prelude::*;
 
 use super::Folds;
 
@@ -72,24 +72,7 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
                             .text_xs(),
                         ),
                 )
-                .child(
-                    view().flex_1().min_w(px(0.0)).child(
-                        // An edit names the file it changed and how far, where a
-                        // call that only runs something previews its arguments.
-                        when(
-                            move || tool.with(|tool| !tool.changes.is_empty()),
-                            move || edit_summary(tool),
-                        )
-                        .otherwise(move || {
-                            text(move || tool.with(|tool| tool.arguments.clone()))
-                                .w_full()
-                                .number_of_lines(1)
-                                .font_family(code::MONO_FONT)
-                                .text_size(px(sizes::CODE_FONT))
-                                .text_color(tokens::caption)
-                        }),
-                    ),
-                )
+                .child(view().flex_1().min_w(px(0.0)).child(summary(tool, shown)))
                 .child(when(
                     move || tool.with(|tool| tool.running),
                     || text("running…").text_xs().text_color(tokens::meta),
@@ -115,23 +98,12 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
                         ),
                 ),
         )
+        // What the call was given and what it answered, while its row is open,
+        // then the files an edit changed under them.
+        .child(when(shown, move || data(tool)))
         .child(when(
             move || shown() && tool.with(|tool| !tool.changes.is_empty()),
             move || changes(tool),
-        ))
-        .child(when(
-            move || shown() && tool.with(|tool| tool.changes.is_empty() && !tool.output.is_empty()),
-            move || {
-                code::block().child(
-                    text(move || tool.with(|tool| tool.output.clone()))
-                        .w_full()
-                        .font_family(code::MONO_FONT)
-                        .text_size(px(sizes::CODE_FONT))
-                        .line_height(LineHeight::Multiple(MESSAGE_LINE))
-                        .text_color(tokens::meta)
-                        .number_of_lines(12),
-                )
-            },
         ))
 }
 
@@ -142,15 +114,16 @@ fn name_of(tool: &str) -> &str {
     tool.split_once("__").map_or(tool, |(_, name)| name)
 }
 
-/// What an edit did, where the row names the call: the first file it changed.
-/// How far it changed each file is in the card under it, line by line.
-fn edit_summary(tool: Memo<ToolRun>) -> impl IntoElement {
+/// What the row says between the name and the status: the file an edit changed,
+/// or the arguments of a call that only runs something, while the row is shut.
+/// An open row says nothing here: what the call was given is in the block under
+/// it.
+fn summary(tool: Memo<ToolRun>, shown: impl Fn() -> bool + Copy + 'static) -> Text {
     text(move || {
-        tool.with(|tool| {
-            tool.changes
-                .first()
-                .map(|change| change.path.clone())
-                .unwrap_or_default()
+        tool.with(|tool| match tool.changes.first() {
+            Some(change) => change.path.to_string(),
+            None if shown() => String::new(),
+            None => tool.arguments.to_string(),
         })
     })
     .w_full()
@@ -159,6 +132,50 @@ fn edit_summary(tool: Memo<ToolRun>) -> impl IntoElement {
     .font_family(code::MONO_FONT)
     .text_size(px(sizes::CODE_FONT))
     .text_color(tokens::caption)
+}
+
+/// Where a call's blocks start: under the word beside its wrench, past the
+/// row's inset, the mark and the gap between them — as a thought's text starts
+/// past its bulb.
+const TOOL_TEXT_INSET: f32 = 26.0;
+
+/// The lines of a block that stay in view before the rest scrolls.
+const BLOCK_LINES: f32 = 16.0;
+
+/// What a call was given and what it answered, while its row is open: the first
+/// under `Input:`, the second under `Output:`.
+fn data(tool: Memo<ToolRun>) -> impl IntoElement {
+    view()
+        .w_full()
+        .pt_1()
+        .gap_2()
+        .child(block("Input:", move || {
+            tool.with(|tool| tool.arguments.clone())
+        }))
+        .child(when(
+            move || tool.with(|tool| !tool.output.is_empty()),
+            move || block("Output:", move || tool.with(|tool| tool.output.clone())),
+        ))
+}
+
+/// `title` over `value` as code, indented past the call's mark to its name: the
+/// JSON laid out and highlighted where it is JSON.
+fn block(
+    title: &'static str,
+    value: impl Fn() -> SharedString + Copy + 'static,
+) -> impl IntoElement {
+    view()
+        .w_full()
+        .pl(px(TOOL_TEXT_INSET))
+        .gap_1()
+        .child(text(title).text_xs().text_color(tokens::meta))
+        .child(
+            scroll()
+                .w_full()
+                .max_h(px(BLOCK_LINES * sizes::CODE_FONT * MESSAGE_LINE))
+                .scrollbar(false)
+                .child(markdown::data(value)),
+        )
 }
 
 /// The files a call changed: each a card of its own, under a blank line that
