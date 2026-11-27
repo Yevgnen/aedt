@@ -64,7 +64,7 @@ pub fn meter() -> Signal<Meter> {
 /// How far the three dots have come, while the provider writes a recording
 /// down.
 #[derive(Clone, Copy, Default)]
-pub struct Dots(pub u8);
+pub struct Dots(pub u32);
 
 /// The three dots the composer turns while it waits, one for the app.
 pub fn dots() -> Signal<Dots> {
@@ -248,8 +248,8 @@ fn turn_dots() {
                 if !state().get_untracked().transcribing {
                     break;
                 }
-                dots.set(Dots(dots.get_untracked().0.wrapping_add(1) % 3));
-                timer(Duration::from_millis(200)).await;
+                dots.set(Dots(dots.get_untracked().0.wrapping_add(1)));
+                timer(Duration::from_millis(32)).await;
             }
         })
     });

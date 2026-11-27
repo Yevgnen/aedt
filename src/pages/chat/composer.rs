@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use aedt_provider::Effort;
 use aedt_settings as settings;
-use aedt_ui::{button, icon, input, menu, motion, sizes, surface};
+use aedt_ui::{button, icon, input, menu, sizes, surface};
 use nsh_base::{SubmenuEvent, theme};
 use nsh_core::prelude::*;
 
@@ -136,11 +136,14 @@ const WAVE_GAP: f32 = 2.0;
 const WAVE_MIN: f32 = 5.0;
 const WAVE_MAX: f32 = 36.0;
 
-/// The dots that wait for the provider's answer: how many, how round, and how
-/// far apart.
+/// The dots that wait for the provider's answer: how many, how round, how far
+/// apart, and how fast the wave runs along them (a fifth of a radian a frame,
+/// so a turn takes about a second).
 const DOT_COUNT: u8 = 3;
 const DOT_SIZE: f32 = 6.0;
 const DOT_GAP: f32 = 5.0;
+const DOT_STEP: f32 = 0.2;
+const DOT_TURN_3: f32 = std::f32::consts::TAU / 3.0;
 
 /// The veil over the card while the microphone works, its meter or its dots in
 /// the card's middle. The veil is thin enough to read the card through, and
@@ -186,16 +189,24 @@ fn dots() -> impl IntoElement {
     row
 }
 
-/// One dot of the three, lit while it is the turn the veil is on.
+/// One dot of the three: its light comes and goes as the wave passes it, so
+/// they brighten and dim rather than switch.
 fn dot(index: u8, dots: Signal<aedt_bridge::voice::Dots>) -> impl IntoElement {
     view()
         .w(px(DOT_SIZE))
         .h(px(DOT_SIZE))
         .rounded_full()
         .bg(move || theme().muted_foreground)
-        .opacity(move || if dots.get().0 == index { 1.0 } else { 0.3_f32 })
-        .transition_all()
-        .duration(motion::row_duration())
+        .opacity(move || lit(index, dots.get().0))
+}
+
+/// How lit the dot at `index` is at `frame`: a wave that runs along the three,
+/// each a third of a turn behind the one before it.
+fn lit(index: u8, frame: u32) -> f32 {
+    let phase = frame as f32 * DOT_STEP + index as f32 * DOT_TURN_3;
+    let wave = (phase.sin() * 0.5 + 0.5).powi(2);
+
+    0.25 + 0.75 * wave
 }
 
 /// One bar, `index` from the start, as tall as the meter and its place in the
