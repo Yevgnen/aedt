@@ -146,20 +146,13 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
         .transition_colors()
         .duration(motion::row_duration())
         .ease_out()
-        .child(icon::folder_open(14.0))
-        .child(text(name).flex_1().text_size(px(sizes::TEXT_COMPACT)))
         .child(
-            // The fold's mark: shown while the conversations are folded,
-            // pointing away from the name. The slot stays while they show,
-            // so the row's end does not move. The row says what it does, so
-            // screen readers skip the mark.
-            view()
-                .w(px(14.0))
-                .flex_none()
-                .text_color(move || theme().muted_foreground)
-                .accessibility_elements_hidden(true)
-                .child(when(move || !open.get(), || icon::chevron_right(14.0))),
+            // The folder says whether the conversations show: open while
+            // they do, and with its minus while they are folded away.
+            when(move || open.get(), || icon::folder_open(14.0))
+                .otherwise(|| icon::folder_minus(14.0)),
         )
+        .child(text(name).flex_1().text_size(px(sizes::TEXT_COMPACT)))
         .child(
             // The only place a conversation starts, shown while the row
             // is under the pointer and washed when the pointer is on it.
@@ -175,7 +168,12 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
                 .transition_all()
                 .duration(motion::row_duration())
                 .ease_out()
-                .on_press(move || store::create_session_in(workspace()))
+                // A conversation added here opens the group it joins, so
+                // it shows at once rather than behind a folded row.
+                .on_press(move || {
+                    open.set(true);
+                    store::create_session_in(workspace());
+                })
                 .child(icon::plus(14.0)),
         );
 
