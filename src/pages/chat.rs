@@ -25,6 +25,9 @@ pub(crate) fn pane(session_id: u32) -> View {
     let folds = Folds::of(session_id);
     // The timeline's handle: the rail's ticks scroll it to their message.
     let timeline = element_ref();
+    // Where the timeline stands, as it reports it: a wheel over the pane's blank
+    // sides moves the list from there.
+    let scrolled = signal(None::<f32>);
     // The reader's place: the last user message the list shows.
     let current = signal(store::last_user_index(session_id, 0, usize::MAX));
     let enter = motion().entering(motion::fade());
@@ -45,12 +48,26 @@ pub(crate) fn pane(session_id: u32) -> View {
                 // this row, not on the composer under it.
                 .child(
                     column(
+                        // The blank sides of the messages' column, each taking the
+                        // room the column leaves: a wheel over them scrolls the
+                        // timeline, and the column itself keeps its width.
                         view()
                             .w_full()
-                            .max_w(px(sizes::COMPOSER_MAX))
                             .min_h(px(0.0))
-                            .px(px(sizes::COMPOSER_SIDE))
-                            .child(timeline_view(session_id, folds, &timeline, current)),
+                            .flex_row()
+                            .child(blank_side(scrolled, &timeline))
+                            .child(
+                                view()
+                                    .flex_none()
+                                    .w_full()
+                                    .max_w(px(sizes::COMPOSER_MAX))
+                                    .min_h(px(0.0))
+                                    .px(px(sizes::COMPOSER_SIDE))
+                                    .child(timeline_view(
+                                        session_id, folds, &timeline, current, scrolled,
+                                    )),
+                            )
+                            .child(blank_side(scrolled, &timeline)),
                         rail(session_id, timeline, current),
                     )
                     .flex_1()
@@ -180,6 +197,7 @@ fn timeline_view(
     folds: Folds,
     handle: &ElementRef,
     current: Signal<Option<usize>>,
+    scrolled: Signal<Option<f32>>,
 ) -> impl IntoElement {
     virtual_list(
         move || store::message_count(session_id),
@@ -193,6 +211,8 @@ fn timeline_view(
     .content_padding_y(px(24.0))
     .estimated_item_size(px(row_height(session_id)))
     .row_gap(px(16.0))
+    // Where it stands, for the wheel that scrolls it from the pane's sides.
+    .on_scroll(move |event: &ScrollEvent| scrolled.set(Some(event.offset.y.0)))
     // The reader's place follows what the list shows as it scrolls.
     .on_viewable_items_change(move |items: &ViewableItems| {
         let place = items
@@ -204,6 +224,35 @@ fn timeline_view(
     })
     .empty(empty::empty("Say something…"))
     .flex_1()
+}
+
+/// The points one line of a mouse wheel scrolls the timeline, when the wheel is
+/// over the pane's blank sides: about one line of a message's prose.
+const WHEEL_LINE: f32 = sizes::TEXT_COMPACT * MESSAGE_LINE;
+
+/// A blank side of the messages' column: a wheel over it scrolls the timeline as
+/// one over the timeline itself does, from where the list last said it stands.
+fn blank_side(scrolled: Signal<Option<f32>>, timeline: &ElementRef) -> impl IntoElement {
+    let timeline = *timeline;
+
+    view()
+        .flex_1()
+        .min_w(px(0.0))
+        .on_wheel(move |event: &WheelEvent| {
+            // Nothing to move from until the list has reported where it is: it
+            // does so as it lays out, at the end it opens on.
+            let Some(at) = scrolled.get_untracked() else {
+                return;
+            };
+            let delta = event.delta.points(px(WHEEL_LINE)).y.0;
+            // Recorded before the list reports it, so wheels that come before
+            // the report move on from where they left it rather than from
+            // where the list still is.
+            let next = (at + delta).max(0.0);
+            scrolled.set(Some(next));
+
+            timeline.scroll_to_offset(px(next), false);
+        })
 }
 
 /// How tall a row is guessed at before the list measures it, by what the row
