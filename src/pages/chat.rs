@@ -14,7 +14,7 @@ mod tool;
 
 use composer::composer;
 use rail::rail;
-use tool::tool_run;
+use tool::{ROW_INSET, tool_run};
 
 /// One session's conversation. The caller keys it by the session, so
 /// switching conversations resets the draft and the scroll position.
@@ -729,19 +729,35 @@ fn thinking_body(message: Memo<Option<Message>>, at: usize) -> impl IntoElement 
 /// row's inset, the mark and the gap between them.
 const THINKING_TEXT_INSET: f32 = 26.0;
 
-/// The thought's own text size, and the blank line kept under it: one line of
-/// that text, so the answer opens a line below the thought.
+/// The thought's own text size, and the blank line kept under it while the
+/// answer follows: one line of that text, so the answer opens a line below the
+/// thought.
 const THINKING_LINE: f32 = sizes::TEXT_COMPACT * MESSAGE_LINE;
 
 /// The lines of a thought the preview keeps in view.
 const PREVIEW_LINES: f32 = 6.0;
+
+/// What a thought ends with: the blank line, one line of its own text, while
+/// the answer follows it, so the answer opens a line below — and a call's own
+/// inset while a call does, so a call after a thought sits where two calls sit
+/// with one another. A thought that nothing follows yet keeps the blank line,
+/// which is the room the answer will take.
+fn thought_bottom(message: Memo<Option<Message>>, at: usize) -> f32 {
+    let answered = message.with(|message| {
+        message
+            .as_ref()
+            .is_none_or(|message| matches!(message.parts.get(at + 1), None | Some(Part::Text(_))))
+    });
+
+    if answered { THINKING_LINE } else { ROW_INSET }
+}
 
 /// The thought's own text, quieter than the answer it led to.
 fn thinking_text(message: Memo<Option<Message>>, at: usize) -> impl IntoElement {
     text(move || thought_text(message, at).unwrap_or_default())
         .w_full()
         .pl(px(THINKING_TEXT_INSET))
-        .pb(px(THINKING_LINE))
+        .pb(move || Length::from(px(thought_bottom(message, at))))
         .text_size(px(sizes::TEXT_COMPACT))
         .line_height(LineHeight::Multiple(MESSAGE_LINE))
         .text_color(move || tokens::meta().opacity(0.7))
@@ -754,7 +770,7 @@ fn thinking_preview(message: Memo<Option<Message>>, at: usize) -> impl IntoEleme
     view()
         .w_full()
         .pl(px(THINKING_TEXT_INSET))
-        .pb(px(THINKING_LINE))
+        .pb(move || Length::from(px(thought_bottom(message, at))))
         .child(
             view()
                 .w_full()

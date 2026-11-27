@@ -7,6 +7,10 @@ use nsh_core::{LineHeight, prelude::*};
 
 use super::Folds;
 
+/// The air a call's row keeps above and below it, which a thought that a call
+/// follows ends with, so the two sit as close as two calls do.
+pub(super) const ROW_INSET: f32 = 2.0;
+
 pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
     let id = move || tool.with(|tool| tool.id.clone());
     let shown = move || tool.with(|tool| folds.call_open(tool));
@@ -41,7 +45,7 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
                 .items_center()
                 .gap_2()
                 .px_1()
-                .py(px(2.0))
+                .py(px(ROW_INSET))
                 .text_color(tokens::meta)
                 .on_press(toggle)
                 .child(icon::wrench(14.0))
