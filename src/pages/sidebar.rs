@@ -2,8 +2,8 @@
 //! conversations grouped under the workspace each works in.
 
 use aedt_store as store;
-use aedt_ui::{button, icon, list_item, menu, motion, sizes};
-use nsh_base::theme;
+use aedt_ui::{button, icon, list_item, menu, motion, sizes, state};
+use nsh_base::{collapsible, theme};
 use nsh_core::{file_dialog::OpenDialog, prelude::*};
 
 /// The session list, with the action that opens the settings as its foot, and
@@ -98,7 +98,8 @@ fn sessions() -> impl IntoElement {
 }
 
 /// One group: its name over the conversations held in it, with the action
-/// that starts another there once the pointer is over the row.
+/// that starts another there once the pointer is over the row. Pressing the
+/// row folds the conversations away, and pressing it again brings them back.
 fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
     let workspace =
         move || group.with(|group| group.workspace.as_ref().map(|workspace| workspace.id));
@@ -108,45 +109,75 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
             None => SharedString::from("Ungrouped"),
         })
     };
+    // The conversations show until the reader folds them: the list is what
+    // the sidebar is for.
+    let open = signal(true);
+    let fold = move || open.update(|open| *open = !*open);
 
-    view()
+    let header = view()
         .w_full()
-        .pb_1()
+        .group()
+        .flex_row()
+        .items_center()
+        .gap_2()
+        .min_h(px(sizes::LIST_ROW))
+        .pl(px(sizes::SIDEBAR_INSET))
+        .pr(px(sizes::LIST_ROW_INSET))
+        .rounded(move || theme().radius)
+        .text_color(move || theme().sidebar_foreground)
+        .role(AccessibilityRole::Button)
+        .accessibility_state(move || AccessibilityState {
+            expanded: Some(open.get()),
+            ..AccessibilityState::default()
+        })
+        .on_press(fold)
+        .hover(|s| s.bg(move || theme().muted))
+        .focus_visible(state::focus_ring)
+        .transition_colors()
+        .duration(motion::row_duration())
+        .ease_out()
+        .child(icon::folder_open(14.0))
+        .child(text(name).flex_1().text_size(px(sizes::TEXT_COMPACT)))
         .child(
+            // The fold's mark: pointing at the name while the conversations
+            // show and away from it while they are folded. The row says what
+            // it does, so screen readers skip the mark.
             view()
-                .w_full()
-                .group()
-                .flex_row()
-                .items_center()
-                .gap_2()
-                .min_h(px(sizes::LIST_ROW))
-                .pl(px(sizes::SIDEBAR_INSET))
-                .pr(px(sizes::LIST_ROW_INSET))
-                .text_color(move || theme().sidebar_foreground)
-                .child(icon::folder_open(14.0))
-                .child(text(name).flex_1().text_size(px(sizes::TEXT_COMPACT)))
+                .flex_none()
+                .text_color(move || theme().muted_foreground)
+                .accessibility_elements_hidden(true)
                 .child(
-                    // The only place a conversation starts, shown while the row
-                    // is under the pointer and washed when the pointer is on it.
-                    button::bare()
-                        .accessibility_label("Start a conversation")
-                        .size(px(sizes::META_ACTION))
-                        .items_center()
-                        .justify_center()
-                        .rounded_md()
-                        .opacity(0.0)
-                        .group_hover(|s| s.opacity(1.0))
-                        .hover(|s| s.bg(move || theme().muted))
-                        .transition_all()
-                        .duration(motion::row_duration())
-                        .ease_out()
-                        .on_press(move || store::create_session_in(workspace()))
-                        .child(icon::plus(14.0)),
+                    when(move || open.get(), || icon::chevron_down(14.0))
+                        .otherwise(|| icon::chevron_right(14.0)),
                 ),
         )
+        .child(
+            // The only place a conversation starts, shown while the row
+            // is under the pointer and washed when the pointer is on it.
+            button::bare()
+                .accessibility_label("Start a conversation")
+                .size(px(sizes::META_ACTION))
+                .items_center()
+                .justify_center()
+                .rounded_md()
+                .opacity(0.0)
+                .group_hover(|s| s.opacity(1.0))
+                .hover(|s| s.bg(move || theme().muted))
+                .transition_all()
+                .duration(motion::row_duration())
+                .ease_out()
+                .on_press(move || store::create_session_in(workspace()))
+                .child(icon::plus(14.0)),
+        );
+
+    collapsible()
+        .open(open)
+        .w_full()
+        .pb_1()
+        .child(header)
         // The rows sit against one another: their hover fills touch, as a
         // column of them reads, where a gap would cut each into a block.
-        .child(view().w_full().pl(px(24.0)).child(each(
+        .content(view().w_full().pl(px(24.0)).child(each(
             move || group.with(|group| group.sessions.clone()),
             |session| session.id,
             |session, _| session_row(session),
