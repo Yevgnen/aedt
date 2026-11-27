@@ -5,7 +5,7 @@ use std::path::Path;
 
 use aedt_settings::{self as settings, Thinking};
 use aedt_store::{self as store, Author, Message, Part, ToolRun};
-use aedt_ui::{MESSAGE_LINE, attachment, button, empty, icon, markdown, motion, sizes, tokens};
+use aedt_ui::{MESSAGE_LINE, attachment, button, icon, markdown, motion, sizes, tokens};
 use nsh_base::theme;
 use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
 
@@ -296,7 +296,6 @@ fn timeline_view(
             current.set(place);
         }
     })
-    .empty(empty::empty("Say something…"))
     .flex_1()
 }
 
