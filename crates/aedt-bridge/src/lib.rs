@@ -15,17 +15,19 @@ use aedt_settings as settings;
 use aedt_store::{self as store, Author};
 use nsh_core::prelude::*;
 
-/// Whether the task that reads what the agent reports was started.
+/// Whether the task that reads what the agents report was started.
 static DISPATCH: OnceLock<()> = OnceLock::new();
 
-/// The agent, with the providers and the MCP servers it was started from.
+/// The agent of one session, with the providers and the MCP servers it was
+/// started from.
 type Running = (Vec<Provider>, Vec<McpServer>, Agent);
 
 thread_local! {
-    /// The agent, with the providers it was started from: the settings that
-    /// build it change while the app runs, and the agent is started again from
-    /// them when they do.
-    static AGENT: RefCell<Option<Running>> = const { RefCell::new(None) };
+    /// One agent per session, each with its own harness and so its own MCP
+    /// servers: a server's state belongs to the conversation that reached it.
+    /// The settings that build one change while the app runs, and a session's
+    /// agent is started again from them on its next message.
+    static AGENTS: RefCell<HashMap<u32, Running>> = RefCell::new(HashMap::new());
 
     /// When each session's reply was asked, and the model it asked, for its
     /// duration and its meta line.
@@ -43,7 +45,7 @@ pub fn ask(session_id: u32, text: &str) {
     // The agent answers on the providers the settings hold now, started again
     // before this message is in the store: only a reply the agent being
     // replaced was still writing is what fails then.
-    let ready = ensure_agent();
+    let ready = ensure_agent(session_id);
 
     let Some(sent) = store::send(session_id, text) else {
         return;
@@ -81,38 +83,46 @@ pub fn ask(session_id: u32, text: &str) {
     say(session_id, &reference, text, before, root);
 }
 
-/// Makes the agent the one the settings hold: started while there is none, and
-/// started again while the providers or the MCP servers it was made from
-/// changed. `Err` says why none could start.
-fn ensure_agent() -> Result<(), String> {
+/// Makes `session`'s agent the one the settings hold: started while it has
+/// none, and started again while the providers or the MCP servers it was made
+/// from changed. `Err` says why none could start.
+fn ensure_agent(session: u32) -> Result<(), String> {
     let providers = providers()?;
     let mcp = mcps();
-    let changed = AGENT.with(|agent| {
-        let agent = agent.borrow();
+    let changed = AGENTS.with(|agents| {
+        let agents = agents.borrow();
 
-        !agent
-            .as_ref()
+        !agents
+            .get(&session)
             .is_some_and(|(made, made_mcp, _)| *made == providers && *made_mcp == mcp)
     });
     if !changed {
         return Ok(());
     }
 
-    if AGENT.with(|agent| agent.borrow().is_some()) {
-        // A reply the agent being replaced is still writing cannot finish.
-        store::fail_streaming("the settings the agent runs from changed");
-        STARTED.with(|started| started.borrow_mut().clear());
+    // A reply the agent being replaced is still writing cannot finish. The
+    // harness goes with it, and the servers it started.
+    if AGENTS
+        .with(|agents| agents.borrow_mut().remove(&session))
+        .is_some()
+    {
+        store::fail_stream(session, "the settings the agent runs from changed");
+        STARTED.with(|started| started.borrow_mut().remove(&session));
     }
 
-    let started = start(&providers, &mcp)?;
-    AGENT.with(|agent| *agent.borrow_mut() = Some((providers, mcp, started)));
+    let started = start(session, &providers, &mcp)?;
+    AGENTS.with(|agents| {
+        agents
+            .borrow_mut()
+            .insert(session, (providers, mcp, started))
+    });
     Ok(())
 }
 
-/// Sends the prompt to the agent as it is.
+/// Sends the prompt to the session's agent as it is.
 fn say(session_id: u32, model: &str, text: &str, before: Vec<Turn>, root: Option<PathBuf>) {
-    AGENT.with(|agent| {
-        if let Some((_, _, agent)) = agent.borrow().as_ref() {
+    AGENTS.with(|agents| {
+        if let Some((_, _, agent)) = agents.borrow().get(&session_id) {
             agent.say(session_id, model, text, before, root);
         }
     });
@@ -159,15 +169,19 @@ fn mcps() -> Vec<McpServer> {
         .collect()
 }
 
-/// Starts the harness with `providers` and the MCP servers `mcp`, and once the
-/// task that reports what it does.
-fn start(providers: &[Provider], mcp: &[McpServer]) -> Result<Agent, String> {
+/// Starts `session`'s harness with `providers` and the MCP servers `mcp`, and
+/// once the task that reports what it does.
+fn start(session: u32, providers: &[Provider], mcp: &[McpServer]) -> Result<Agent, String> {
     let root = std::env::current_dir()
         .map_err(|error| format!("failed to read the working directory: {error}"))?;
+    // The harness's own home, one per session: the servers it starts keep their
+    // state in it, and no two harnesses write one session log.
     let home = nsh_core::element::data_dir()
         .ok_or_else(|| "the app's data directory is unknown".to_owned())?
-        .join("rig");
+        .join("rig")
+        .join(format!("session-{session}"));
     let agent = Agent::start(Config {
+        session,
         providers: providers.to_vec(),
         mcp: mcp.to_vec(),
         root,
@@ -180,17 +194,17 @@ fn start(providers: &[Provider], mcp: &[McpServer]) -> Result<Agent, String> {
     Ok(agent)
 }
 
-/// Reports what the agent does, for as long as the app runs: it runs under no
+/// Reports what the agents do, for as long as the app runs: it runs under no
 /// owner, so no pane going away stops it.
 async fn dispatch() {
     loop {
-        let events: Vec<Event> = AGENT.with(|agent| {
-            let agent = agent.borrow();
-            let Some((_, _, agent)) = agent.as_ref() else {
-                return Vec::new();
-            };
+        let events: Vec<Event> = AGENTS.with(|agents| {
+            let agents = agents.borrow();
 
-            std::iter::from_fn(|| agent.poll()).collect()
+            agents
+                .values()
+                .flat_map(|(_, _, agent)| std::iter::from_fn(|| agent.poll()))
+                .collect()
         });
         for event in events {
             apply(event);
@@ -243,10 +257,11 @@ fn apply(event: Event) {
             STARTED.with(|started| started.borrow_mut().remove(&session));
             store::fail_stream(session, &why);
         }
-        // Nothing can be reached at all: no session has an answer coming.
-        Event::Broken(why) => {
+        // This session's agent cannot run at all: no answer is coming for it.
+        Event::Broken(session, why) => {
             eprintln!("agent: {why}");
-            store::fail_streaming(&why);
+            STARTED.with(|started| started.borrow_mut().remove(&session));
+            store::fail_stream(session, &why);
         }
     }
 }

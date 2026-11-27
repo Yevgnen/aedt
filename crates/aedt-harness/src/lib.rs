@@ -45,8 +45,8 @@ pub enum Event {
     Failed(u32, String),
     /// The turn ended: its answer is in.
     Ended(u32),
-    /// The agent could not run at all, before any session asked.
-    Broken(String),
+    /// The session's agent could not run at all, before any of its replies.
+    Broken(u32, String),
 }
 
 /// One file a tool call changed, as the app shows it: what the call says it
@@ -93,6 +93,9 @@ pub struct Turn {
 /// What the agent needs to run.
 #[derive(Clone, Debug)]
 pub struct Config {
+    /// The session this harness answers for: its agent, its tools and its MCP
+    /// servers are its own.
+    pub session: u32,
     /// The providers the app offers, each with the models the reader left on.
     pub providers: Vec<Provider>,
     /// The local MCP servers the app switched on, started with the agent.
@@ -132,8 +135,9 @@ impl Agent {
     pub fn start(config: Config) -> Result<Agent, String> {
         let (commands, inbox) = unbounded();
         let (outbox, events) = unbounded();
+        let name = format!("aedt-harness-{}", config.session);
         thread::Builder::new()
-            .name("aedt-harness".to_owned())
+            .name(name)
             .spawn(move || run(config, inbox, outbox))
             .map_err(|error| format!("failed to start the agent thread: {error}"))?;
         Ok(Agent { commands, events })
@@ -177,7 +181,7 @@ fn run(config: Config, commands: Receiver<Command>, events: Sender<Event>) {
     let models = match connector(&config.providers) {
         Ok(models) => models,
         Err(why) => {
-            let _ = events.send(Event::Broken(why));
+            let _ = events.send(Event::Broken(config.session, why));
             return;
         }
     };
