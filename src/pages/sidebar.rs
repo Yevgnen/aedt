@@ -87,14 +87,21 @@ fn brand(open: Signal<bool>) -> impl IntoElement {
         )
 }
 
+/// The air the list keeps from the sidebar's edges: a row's wash stops short
+/// of them, so the pane reads as a column standing inside it.
+const LIST_EDGE: f32 = 8.0;
+
 /// Every group of conversations: each workspace's under its name, the ones
 /// held in no workspace last under `Ungrouped`.
 fn sessions() -> impl IntoElement {
-    scroll().flex_1().scrollbar(false).child(each(
-        store::groups,
-        |group| group.workspace.as_ref().map_or(0, |workspace| workspace.id),
-        |group, _| group_view(group),
-    ))
+    scroll()
+        .flex_1()
+        .scrollbar(false)
+        .child(view().w_full().px(px(LIST_EDGE)).child(each(
+            store::groups,
+            |group| group.workspace.as_ref().map_or(0, |workspace| workspace.id),
+            |group, _| group_view(group),
+        )))
 }
 
 /// One group: its name over the conversations held in it, with the action
@@ -121,8 +128,11 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
         .items_center()
         .gap_2()
         .min_h(px(sizes::LIST_ROW))
-        .pl(px(sizes::SIDEBAR_INSET))
-        .pr(px(sizes::LIST_ROW_INSET))
+        // The list already keeps `LIST_EDGE` from the edges; the rest of the
+        // row's inset comes from here, so the name and the action keep their
+        // places on the sidebar's lines.
+        .pl(px(sizes::SIDEBAR_INSET - LIST_EDGE))
+        .pr(px(sizes::LIST_ROW_INSET - LIST_EDGE))
         .rounded(move || theme().radius)
         .text_color(move || theme().sidebar_foreground)
         .role(AccessibilityRole::Button)
@@ -179,7 +189,7 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
         .child(header)
         // The rows sit against one another: their hover fills touch, as a
         // column of them reads, where a gap would cut each into a block.
-        .content(view().w_full().pl(px(24.0)).child(each(
+        .content(view().w_full().pl(px(24.0 - LIST_EDGE)).child(each(
             move || group.with(|group| group.sessions.clone()),
             |session| session.id,
             |session, _| session_row(session),
