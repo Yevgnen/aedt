@@ -171,6 +171,9 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
 
     collapsible()
         .open(open)
+        // The conversations unfold and fold again: the region springs from
+        // zero to their height and back, and what follows moves with it.
+        .reveal(true)
         .w_full()
         .pb_1()
         .child(header)
