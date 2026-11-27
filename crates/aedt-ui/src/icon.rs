@@ -263,6 +263,18 @@ const ZED: &str = concat!(
     r#"</svg>"#,
 );
 
+/// A plus over a minus (Lucide's `diff`): the changes a folder holds against
+/// Git.
+const DIFF: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M12 3v14"/>"#,
+    r#"<path d="M5 10h14"/>"#,
+    r#"<path d="M5 21h14"/>"#,
+    r#"</svg>"#,
+);
+
 /// A folder (Lucide's `folder`): a directory the files panel lists closed.
 const FOLDER: &str = concat!(
     r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
@@ -383,6 +395,11 @@ pub fn folder_plus(size: f32) -> impl IntoElement {
 /// The files mark, `size` points square, in the caller's text color.
 pub fn panel_right(size: f32) -> impl IntoElement {
     icon(PANEL_RIGHT, size)
+}
+
+/// The changes mark, `size` points square, in the caller's text color.
+pub fn diff(size: f32) -> impl IntoElement {
+    icon(DIFF, size)
 }
 
 /// The closed folder, `size` points square, in the caller's text color.

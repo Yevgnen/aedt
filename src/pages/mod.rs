@@ -1,5 +1,6 @@
 //! The app's pages: one file per screen region.
 
+pub(crate) mod changes;
 pub(crate) mod chat;
 pub(crate) mod files;
 pub(crate) mod settings;

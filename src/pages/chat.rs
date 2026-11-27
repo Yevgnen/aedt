@@ -13,7 +13,7 @@ mod composer;
 mod rail;
 mod tool;
 
-use crate::pages::zed;
+use crate::pages::{changes, zed};
 
 use composer::composer;
 use rail::rail;
@@ -27,6 +27,7 @@ pub(crate) fn pane(
     show_sidebar: impl Fn() + Copy + 'static,
     files_shown: impl Fn() -> bool + Copy + 'static,
     show_files: impl Fn() + Copy + 'static,
+    changes_open: Signal<bool>,
 ) -> View {
     let draft = signal(String::new());
     // What the reader folded open or away: a reply read with its thought open
@@ -55,51 +56,66 @@ pub(crate) fn pane(
             show_sidebar,
             files_shown,
             show_files,
+            changes_open,
         ))
         .child(
             view()
                 .flex_1()
                 .min_h(px(0.0))
                 .w_full()
-                .flex_col()
-                // The messages and the rail beside them: the rail is centered on
-                // this row, not on the composer under it.
+                .flex_row()
+                // The conversation, and the changes panel in the half beside it
+                // while the reader asks for it.
                 .child(
-                    column(
-                        // The blank sides of the messages' column, each taking the
-                        // room the settings leave: a wheel over them scrolls the
-                        // timeline, and the column keeps the rest of the width.
-                        view()
-                            .w_full()
-                            .min_h(px(0.0))
-                            .flex_row()
-                            .child(blank_side(scrolled, &timeline))
-                            .child(
+                    view()
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .min_h(px(0.0))
+                        .flex_col()
+                        // The messages and the rail beside them: the rail is centered on
+                        // this row, not on the composer under it.
+                        .child(
+                            column(
+                                // The blank sides of the messages' column, each taking the
+                                // room the settings leave: a wheel over them scrolls the
+                                // timeline, and the column keeps the rest of the width.
                                 view()
-                                    .relative()
-                                    .flex_none()
-                                    .w(move || Length::from(percentage(column_share())))
+                                    .w_full()
                                     .min_h(px(0.0))
-                                    .child(timeline_view(
-                                        session_id, folds, &timeline, current, scrolled, at_end,
-                                    ))
-                                    .child(back_to_end(at_end, &timeline)),
+                                    .flex_row()
+                                    .child(blank_side(scrolled, &timeline))
+                                    .child(
+                                        view()
+                                            .relative()
+                                            .flex_none()
+                                            .w(move || Length::from(percentage(column_share())))
+                                            .min_h(px(0.0))
+                                            .child(timeline_view(
+                                                session_id, folds, &timeline, current, scrolled,
+                                                at_end,
+                                            ))
+                                            .child(back_to_end(at_end, &timeline)),
+                                    )
+                                    .child(blank_side(scrolled, &timeline)),
+                                rail(session_id, timeline, current),
                             )
-                            .child(blank_side(scrolled, &timeline)),
-                        rail(session_id, timeline, current),
-                    )
-                    .flex_1()
-                    .min_h(px(0.0)),
+                            .flex_1()
+                            .min_h(px(0.0)),
+                        )
+                        .child(
+                            column(
+                                view()
+                                    .w(move || Length::from(percentage(column_share())))
+                                    .child(composer(session_id, draft)),
+                                view().w(px(sizes::RAIL)).flex_none(),
+                            )
+                            .flex_none(),
+                        ),
                 )
-                .child(
-                    column(
-                        view()
-                            .w(move || Length::from(percentage(column_share())))
-                            .child(composer(session_id, draft)),
-                        view().w(px(sizes::RAIL)).flex_none(),
-                    )
-                    .flex_none(),
-                ),
+                .child(when(
+                    move || changes_open.get() && store::session_path(session_id).is_some(),
+                    move || changes::panel(session_id),
+                )),
         )
 }
 
@@ -196,6 +212,7 @@ fn header(
     show_sidebar: impl Fn() + Copy + 'static,
     files_shown: impl Fn() -> bool + Copy + 'static,
     show_files: impl Fn() + Copy + 'static,
+    changes_open: Signal<bool>,
 ) -> impl IntoElement {
     view()
         .h(px(sizes::TOPBAR))
@@ -238,6 +255,12 @@ fn header(
             .font_weight(FontWeight::SEMIBOLD)
             .text_color(move || theme().foreground),
         )
+        // The changes panel's toggle stands at the window's right end, just
+        // before the mark that opens the workspace in Zed.
+        .child(changes::toggle(
+            move || store::session_path(session_id),
+            changes_open,
+        ))
         // The workspace opens in Zed at the window's right end, beside the
         // toggle that shows the files; while the files show, the panel's own
         // top row carries both marks.
