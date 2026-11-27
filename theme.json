@@ -6,6 +6,9 @@
     },
     "light": {
       "foreground": "#242529dd",
+      "sidebar": "#ffffff",
+      "border": "#F4F4F4",
+      "sidebar-border": "#F4F4F4",
       "primary": "#DBEAFE",
       "primary-foreground": "#242529dd",
       "bubble": "#EFF6FF",
