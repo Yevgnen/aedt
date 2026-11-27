@@ -19,6 +19,8 @@ pub(crate) fn shell() -> View {
         aedt_settings::load();
         settings_open.set(true);
     };
+    // Command+, opens the settings, as the sidebar's menu item does.
+    on_key("mod+,", move |_| open_settings());
     // Whether the window has room for each panel beside the conversation, as
     // the shell's last layout measured it: the sidebar steps aside first, and
     // the files panel follows it when the width leaves even less.
