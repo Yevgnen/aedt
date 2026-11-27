@@ -4,13 +4,14 @@
 
 mod front;
 mod models;
+mod tools;
 
 use std::{path::PathBuf, thread};
 
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use rig_harness::prelude::*;
 
-use crate::{front::Front, models::connector};
+use crate::{front::AgentBridge, models::connector};
 
 pub use crate::models::{Kind, Provider};
 
@@ -174,12 +175,8 @@ fn run(config: Config, commands: Receiver<Command>, events: Sender<Event>) {
             HeadlessPlugins,
             RigHarnessPlugins,
             rig_basics::prompt::DefaultPromptPlugin,
-            // The tools a reply may call: the ones that read and edit what
-            // the agent works on, and one that runs commands there.
-            rig_basics::coding_tools::ReadTool,
-            rig_basics::coding_tools::EditTool,
-            rig_basics::coding_tools::ShellTool,
-            Front::new(commands, events),
+            tools::CodingTools,
+            AgentBridge::new(commands, events),
         ));
     rig_harness::run(app);
 }

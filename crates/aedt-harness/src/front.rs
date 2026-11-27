@@ -15,12 +15,12 @@ use rig_harness::rig_core::tool::FilesChanged;
 use crate::{ChangedFile, Command, Event, Turn};
 
 /// The front, made once: the channels it reads and writes.
-pub(crate) struct Front {
+pub(crate) struct AgentBridge {
     commands: Mutex<Option<Receiver<Command>>>,
     events: Sender<Event>,
 }
 
-impl Front {
+impl AgentBridge {
     pub(crate) fn new(commands: Receiver<Command>, events: Sender<Event>) -> Self {
         Self {
             commands: Mutex::new(Some(commands)),
@@ -29,7 +29,7 @@ impl Front {
     }
 }
 
-impl Plugin for Front {
+impl Plugin for AgentBridge {
     fn build(&self, app: &mut App) {
         let commands = self
             .commands
