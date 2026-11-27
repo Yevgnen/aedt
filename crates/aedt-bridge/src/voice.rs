@@ -84,7 +84,7 @@ pub fn start() -> Result<(), String> {
     let stop = Arc::new(AtomicBool::new(false));
     let samples = Arc::new(Mutex::new(Vec::new()));
     let level = Arc::new(AtomicU32::new(0));
-    let (sender, recorded) = mpsc::channel::<Result<Vec<u8>, String>>();
+    let (sender, recorded) = mpsc::channel::<Result<Option<Vec<u8>>, String>>();
     let thread = {
         let stop = Arc::clone(&stop);
         let samples = Arc::clone(&samples);
@@ -158,8 +158,9 @@ pub fn take() {
 }
 
 /// Waits for the recording to end, then has the provider write it down. The
-/// capture thread reports the file it made, or why it made none.
-async fn hear(recorded: mpsc::Receiver<Result<Vec<u8>, String>>, level: Arc<AtomicU32>) {
+/// capture thread reports the file it made, why it made none, or that it heard
+/// nothing at all.
+async fn hear(recorded: mpsc::Receiver<Result<Option<Vec<u8>>, String>>, level: Arc<AtomicU32>) {
     let meter = meter();
     let mut frame = 0u32;
     let mut tick = 0u8;
@@ -192,7 +193,10 @@ async fn hear(recorded: mpsc::Receiver<Result<Vec<u8>, String>>, level: Arc<Atom
     state().update(|voice| voice.recording = false);
 
     let wav = match outcome {
-        Ok(wav) => wav,
+        Ok(Some(wav)) => wav,
+        // The microphone heard nothing worth sending: no request, and nothing
+        // to tell the reader.
+        Ok(None) => return settle(),
         Err(why) => return fail(why),
     };
     let Some(provider) = settings::speech() else {
@@ -202,13 +206,24 @@ async fn hear(recorded: mpsc::Receiver<Result<Vec<u8>, String>>, level: Arc<Atom
     state().update(|voice| voice.transcribing = true);
     let heard = speech::transcribe(&provider.base_url, &provider.api_key, wav).await;
     match heard {
-        Ok(text) if text.is_empty() => fail("nothing was heard".to_owned()),
+        Ok(text) if text.is_empty() => settle(),
         Ok(text) => state().update(|voice| {
             voice.transcribing = false;
             voice.heard = Some(text.into());
         }),
         Err(why) => fail(why),
     }
+}
+
+/// Ends the attempt with nothing to say: the reader said nothing, and a prompt
+/// for silence is noise.
+fn settle() {
+    state().update(|voice| {
+        voice.recording = false;
+        voice.transcribing = false;
+        voice.heard = None;
+        voice.error = None;
+    });
 }
 
 /// Ends the attempt with `why`, for the composer to show.
@@ -221,25 +236,26 @@ fn fail(why: impl Into<SharedString>) {
 }
 
 /// Records until `stop` is set or the longest recording is reached, then sends
-/// the file it made, or why it made none.
+/// the file it made, nothing when the microphone heard nothing, or why it made
+/// none.
 fn capture(
     stop: &AtomicBool,
     samples: &Arc<Mutex<Vec<f32>>>,
     level: &Arc<AtomicU32>,
-    done: &mpsc::Sender<Result<Vec<u8>, String>>,
+    done: &mpsc::Sender<Result<Option<Vec<u8>>, String>>,
 ) {
-    let result = listen(stop, samples, level).and_then(|rate| {
+    let result = listen(stop, samples, level).map(|rate| {
         let mono = samples
             .lock()
             .map(|samples| samples.clone())
             .unwrap_or_default();
         if mono.is_empty() {
-            return Err("nothing was heard".to_owned());
+            return None;
         }
 
         let pcm = resample(&mono, rate, RATE);
 
-        Ok(wav(&pcm, rate.min(RATE)))
+        Some(wav(&pcm, rate.min(RATE)))
     });
 
     let _ = done.send(result);
