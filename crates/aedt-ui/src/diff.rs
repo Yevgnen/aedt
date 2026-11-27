@@ -2,6 +2,9 @@
 //! changed it, over the lines it changed. The untouched lines between two hunks
 //! are left out of the card and counted on a line of their own.
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 use nsh_base::theme;
 use nsh_core::{LineHeight, prelude::*};
 
@@ -37,6 +40,33 @@ enum Item {
     },
     /// The untouched lines between this hunk and the one before it.
     Gap { at: usize, lines: usize },
+}
+
+impl Item {
+    /// The row's identity: its place, and what it shows. A patch that changes a
+    /// row makes a key of its own, so the row is made again with the line the
+    /// patch holds rather than kept with the line it had.
+    fn key(&self) -> (usize, u64) {
+        let mut hasher = DefaultHasher::new();
+        let at = match self {
+            Self::Line {
+                at,
+                sign,
+                text,
+                changed,
+                tokens,
+            } => {
+                (sign, text, changed, tokens).hash(&mut hasher);
+                at
+            }
+            Self::Gap { at, lines } => {
+                lines.hash(&mut hasher);
+                at
+            }
+        };
+
+        (*at, hasher.finish())
+    }
 }
 
 /// The card of one file a call changed.
@@ -84,9 +114,7 @@ pub fn card(change: impl Fn() -> Change + Copy + 'static) -> View {
             move || {
                 view().w_full().flex_col().child(each(
                     move || items.get(),
-                    |item| match item {
-                        Item::Line { at, .. } | Item::Gap { at, .. } => *at,
-                    },
+                    |item| item.key(),
                     move |item, _| match item.with_untracked(|item| item.clone()) {
                         Item::Line {
                             sign,

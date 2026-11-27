@@ -7,7 +7,7 @@ use nsh_core::prelude::*;
 use syntect::parsing::{ParseState, ScopeStack, SyntaxReference, SyntaxSet};
 
 /// A kind of token, by what it means rather than by the grammar that made it.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Token {
     Comment,
     Keyword,
