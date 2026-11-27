@@ -24,37 +24,26 @@ pub fn fade() -> MotionSpec {
         .values(MotionChannel::Opacity, [0.0, 1.0])
 }
 
-/// Hides or shows the side panel `open` governs: the panel fades out of the
-/// room it took while the pane beside it eases into that room, and fades back
-/// in as the pane gives the room up. Nothing when the user asked for less
-/// motion.
-pub fn set_panel(open: Signal<bool>, shown: bool) {
-    if untracked(|| open.get()) == shown {
-        return;
-    }
-
-    if !untracked(reduce_motion) {
-        let transition = LayoutTransition::new(LayoutCurve::EaseOut, BASE);
-
-        animate_layout(LayoutAnimation::all(transition));
-    }
-
-    open.set(shown);
-}
-
-/// The fade of a side panel that comes or goes with the window's width: its ink
-/// alone, since the reader's own drag already moves the frames it leaves, and an
-/// eased frame there would trail behind the edge under the pointer.
-pub fn fade_panel() {
+/// The motion a side panel comes or goes with: the panel fades out of the room
+/// it took while the pane beside it eases into that room, and fades back in as
+/// the pane gives the room up. Nothing when the user asked for less motion.
+pub fn animate_panel() {
     if untracked(reduce_motion) {
         return;
     }
 
     let transition = LayoutTransition::new(LayoutCurve::EaseOut, BASE);
 
-    animate_layout(LayoutAnimation {
-        create: Some(transition),
-        update: None,
-        delete: Some(transition),
-    });
+    animate_layout(LayoutAnimation::all(transition));
+}
+
+/// Hides or shows the side panel `open` governs, with the motion every panel
+/// comes and goes with ([`animate_panel`]).
+pub fn set_panel(open: Signal<bool>, shown: bool) {
+    if untracked(|| open.get()) == shown {
+        return;
+    }
+
+    animate_panel();
+    open.set(shown);
 }

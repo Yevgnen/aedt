@@ -87,9 +87,9 @@ pub(crate) fn shell() -> View {
             if sidebar_narrow.get_untracked() != sidebar_now
                 || files_narrow.get_untracked() != files_now
             {
-                // Each panel fades where the width takes it away or gives it
-                // back; the conversation's own frame is the drag's to move.
-                motion::fade_panel();
+                // Each panel comes or goes with the motion the reader's own
+                // toggle uses.
+                motion::animate_panel();
                 sidebar_narrow.set(sidebar_now);
                 files_narrow.set(files_now);
             }
