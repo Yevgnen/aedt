@@ -1,8 +1,11 @@
 //! A message's prose: the Markdown a reply answers in, read at the size and
 //! density of the conversation around it.
 
-use nsh_base::{MarkdownOptions, TextViewClasses, TextViewPart, TextViewParts, text_view, theme};
-use nsh_core::{LineHeight, prelude::*};
+use nsh_base::text_view::PartStyle;
+use nsh_base::{
+    MarkdownOptions, TextViewClasses, TextViewPart, TextViewParts, TextViewStyles, text_view, theme,
+};
+use nsh_core::{LineHeight, element::StyleRefinement, prelude::*};
 
 use crate::{MESSAGE_LINE, code};
 
@@ -17,6 +20,11 @@ pub fn parts() -> TextViewParts {
         })
 }
 
+/// The room a call's block leaves beside its code: half the 16 points a reply's
+/// code block keeps, since the block already stands past the call's own inset —
+/// as a file's lines keep 8 in a diff card.
+const DATA_SIDE: f32 = 8.0;
+
 /// `value` as the block a reply's code takes, in the look and the highlighter
 /// the reply's own code blocks read with: its JSON laid out when it parses as
 /// JSON, exactly as it came otherwise.
@@ -27,6 +35,15 @@ pub fn data(value: impl Fn() -> SharedString + Copy + 'static) -> impl IntoEleme
         .classes(TextViewClasses {
             link: Some("text-link".into()),
             ..TextViewClasses::default()
+        })
+        // The code starts nearer the block's edge than a reply's does: the block
+        // is inset under the word that names it, and the two insets otherwise add
+        // up to twice the air a message's code keeps.
+        .styles(TextViewStyles {
+            code_block_code: Some(PartStyle(
+                StyleRefinement::default().px(px(DATA_SIDE)).into(),
+            )),
+            ..TextViewStyles::default()
         })
         .selectable(true)
         .code_block_scrollbar(false)
