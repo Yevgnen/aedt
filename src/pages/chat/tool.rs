@@ -43,9 +43,12 @@ pub(super) fn tool_run(tool: Memo<ToolRun>, folds: Folds) -> impl IntoElement {
                 .on_press(toggle)
                 .child(icon::wrench(14.0))
                 .child(
+                    // The tool's name is prose about the call, not code in it:
+                    // it reads at the size a reply's own words do, where the
+                    // arguments and the file beside it are set in the code's.
                     text(move || tool.with(|tool| tool.name.clone()))
                         .flex_none()
-                        .text_xs()
+                        .text_sm()
                         .font_weight(FontWeight::MEDIUM)
                         .text_color(move || theme().foreground),
                 )
