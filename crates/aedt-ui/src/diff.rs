@@ -1,12 +1,11 @@
 //! A file a call changed, drawn as a card: the file's name and how far the call
-//! changed it, over the rows of its diff with the words changed within them.
+//! changed it, over the lines it changed. The untouched lines between two hunks
+//! are left out of the card and counted on a line of their own.
 
-use nsh_base::{
-    DiffIndicators, DiffInline, DiffLayout, DiffViewStyles, diff_view, text_view::PartStyle, theme,
-};
-use nsh_core::{PropertyValue, StyleKey, element::Style, prelude::*};
+use nsh_base::theme;
+use nsh_core::{LineHeight, prelude::*};
 
-use crate::{code, sizes, tokens};
+use crate::{MESSAGE_LINE, code, sizes, tokens};
 
 /// One file a call changed, as the card shows it.
 #[derive(Clone, PartialEq)]
@@ -21,21 +20,32 @@ pub struct Change {
     pub patch: SharedString,
 }
 
-/// How tall one row of a diff is, in points.
-const ROW: f32 = 14.0;
-
-/// How many rows a diff shows before it scrolls its own: a change longer than
-/// this is read through the view rather than pushing the reply down.
-const ROWS: f32 = 24.0;
+/// One row of the card: a line of the change, or the lines left out before it.
+#[derive(Clone, PartialEq)]
+enum Item {
+    Line {
+        /// Its place in the card, which keys its row.
+        at: usize,
+        /// What it does: `+` added, `-` removed, anything else kept.
+        sign: char,
+        text: SharedString,
+        /// The bytes of `text` that changed, when the line paired with one on
+        /// the other side and only part of it did.
+        changed: Option<(usize, usize)>,
+    },
+    /// The untouched lines between this hunk and the one before it.
+    Gap { at: usize, lines: usize },
+}
 
 /// The card of one file a call changed.
 pub fn card(change: impl Fn() -> Change + Copy + 'static) -> View {
     let change = computed(change);
+    let items = computed(move || change.with(|change| items_of(&change.patch)));
 
     view()
         .w_full()
         .rounded(move || theme().radius)
-        // The rows' fills are square: the card's corners keep them.
+        // A line's fill is square: the card's corners keep it.
         .overflow_hidden()
         .bg(tokens::code)
         .child(
@@ -44,8 +54,6 @@ pub fn card(change: impl Fn() -> Change + Copy + 'static) -> View {
                 .flex_row()
                 .items_center()
                 .gap_2()
-                // The bar a diff view puts over a change's first row; the file's
-                // name takes its place.
                 .bg(move || theme().muted)
                 .px_2()
                 .py_1()
@@ -71,153 +79,237 @@ pub fn card(change: impl Fn() -> Change + Copy + 'static) -> View {
         // A file too large for the tool to diff has its counts alone.
         .child(when(
             move || change.with(|change| !change.patch.is_empty()),
-            move || rows(change),
+            move || {
+                view().w_full().flex_col().child(each(
+                    move || items.get(),
+                    |item| match item {
+                        Item::Line { at, .. } | Item::Gap { at, .. } => *at,
+                    },
+                    move |item, _| match item.with_untracked(|item| item.clone()) {
+                        Item::Line {
+                            sign,
+                            text,
+                            changed,
+                            ..
+                        } => line_row(sign, text, changed).into_element(),
+                        Item::Gap { lines, .. } => gap_row(lines).into_element(),
+                    },
+                ))
+            },
         ))
 }
 
-/// The rows of one file's change, drawn by the diff view: the rows it changed
-/// and the words changed within them, in the theme's own fills.
-///
-/// The view is given the two texts rather than the patch: a patch carries a
-/// header for each of its hunks, and the view draws one as a row of its own — a
-/// band over the first change, which a card that names no lines has no use for.
-/// The two texts hold the hunks' lines alone, so every row is a line of them.
-///
-/// The view lays its rows out absolutely and fills the box it is given, so the
-/// card gives it the height they take — counted from the patch, its header
-/// lines aside — up to [`ROWS`], past which the view scrolls them.
-fn rows(change: Memo<Change>) -> impl IntoElement {
-    let parsed = computed(move || {
-        change.with(|change| Parsed {
-            sides: sides_of(&change.patch),
-            rows: rows_of(&change.patch),
-        })
-    });
-
+/// One line of the change: its sign, then its text, the words that changed in
+/// it set on the fill their side takes.
+fn line_row(sign: char, body: SharedString, changed: Option<(usize, usize)>) -> impl IntoElement {
     view()
         .w_full()
-        .h(move || px(parsed.with(|parsed| parsed.rows).min(ROWS) * ROW))
+        .flex_row()
+        .px_2()
+        .bg(move || match sign {
+            '+' => tokens::diff_added(),
+            '-' => tokens::diff_removed(),
+            _ => AdaptiveColor::TRANSPARENT,
+        })
         .child(
-            diff_view()
-                .old_value(move || parsed.with(|parsed| Some(parsed.sides.before.clone())))
-                .new_value(move || parsed.with(|parsed| Some(parsed.sides.after.clone())))
-                // The hunks' own lines are the whole of what reads: a line
-                // kept around a change is in them already.
-                .context_lines(0)
-                .layout(DiffLayout::Unified)
-                .inline(DiffInline::Word)
-                // The view's own fills are its green and red; the card's
-                // are the theme's, and no second one under them.
-                .background(false)
-                // The card names no lines: a change in a reply is read for what
-                // it did, not for where in the file it sits.
-                .line_numbers(false)
-                // Its fills say what changed; a bar beside them says it again.
-                .indicators(DiffIndicators::None)
-                // Every row shows, so the height counted above is the
-                // height the rows take.
-                .expand_all(true)
-                .font_size(px(sizes::CODE_FONT))
-                .line_height(px(ROW))
-                .styles(diff_styles)
-                // The view fills the box the card measured for it.
-                .size_full(),
+            text(SharedString::from(sign.to_string()))
+                .flex_none()
+                .font_family(code::MONO_FONT)
+                .text_size(px(sizes::CODE_FONT))
+                .line_height(LineHeight::Multiple(MESSAGE_LINE))
+                .text_color(tokens::meta),
+        )
+        .child(segments(sign, body, changed))
+}
+
+/// The line's text, the part that changed standing on a deeper fill of its side.
+fn segments(sign: char, value: SharedString, changed: Option<(usize, usize)>) -> Text {
+    let (head, middle, tail) = match changed {
+        Some((start, end)) if start < end && end <= value.len() => (
+            value[..start].to_owned(),
+            value[start..end].to_owned(),
+            value[end..].to_owned(),
+        ),
+        _ => (value.to_string(), String::new(), String::new()),
+    };
+
+    let mut line = text(SharedString::from(head))
+        .font_family(code::MONO_FONT)
+        .text_size(px(sizes::CODE_FONT))
+        .line_height(LineHeight::Multiple(MESSAGE_LINE))
+        .text_color(move || theme().foreground);
+    if !middle.is_empty() {
+        line = line.child(text(SharedString::from(middle)).bg(move || match sign {
+            '+' => tokens::diff_added_word(),
+            '-' => tokens::diff_removed_word(),
+            _ => AdaptiveColor::TRANSPARENT,
+        }));
+    }
+    if !tail.is_empty() {
+        line = line.child(text(SharedString::from(tail)));
+    }
+
+    line
+}
+
+/// The lines a hunk leaves out: how many, and nothing of what they said.
+fn gap_row(lines: usize) -> impl IntoElement {
+    view()
+        .w_full()
+        .justify_center()
+        .px_2()
+        .py_1()
+        .border_t_1()
+        .border_b_1()
+        .border_color(move || theme().border)
+        .child(
+            text(SharedString::from(format!("⋯ {lines} lines")))
+                .font_family(code::MONO_FONT)
+                .text_size(px(sizes::CODE_FONT))
+                .text_color(tokens::meta),
         )
 }
 
-/// A patch read once: the two texts the view compares, and the rows they take,
-/// so a layout that asks for the height does not walk the patch again.
-#[derive(PartialEq)]
-struct Parsed {
-    sides: Sides,
-    rows: f32,
+/// A hunk of a patch: where it sits in the file before the change, and the
+/// lines it holds.
+struct Hunk {
+    old_start: usize,
+    old_count: usize,
+    lines: Vec<(char, String)>,
 }
 
-/// How many rows `patch` draws: its lines, less the file's two headers and its
-/// hunks' own.
-fn rows_of(patch: &str) -> f32 {
-    patch
-        .lines()
-        .filter(|line| {
-            !line.starts_with("--- ")
-                && !line.starts_with("+++ ")
-                && matches!(line.as_bytes().first(), Some(b' ' | b'-' | b'+'))
-        })
-        .count()
-        .max(1) as f32
+/// The card's rows for `patch`: its hunks' lines, each gap between them counted
+/// on a row of its own.
+fn items_of(patch: &str) -> Vec<Item> {
+    let mut items = Vec::new();
+    let mut at = 0;
+    let mut previous_end: Option<usize> = None;
+    for hunk in hunks_of(patch) {
+        if let Some(end) = previous_end {
+            let lines = hunk.old_start.saturating_sub(end);
+            if lines > 0 {
+                items.push(Item::Gap { at, lines });
+                at += 1;
+            }
+        }
+        previous_end = Some(hunk.old_start + hunk.old_count);
+
+        let changed = changed_parts(&hunk.lines);
+        for (index, (sign, text)) in hunk.lines.into_iter().enumerate() {
+            items.push(Item::Line {
+                at,
+                sign,
+                text: text.into(),
+                changed: changed[index],
+            });
+            at += 1;
+        }
+    }
+
+    items
 }
 
-/// The two texts `patch` compares: what the file held and what it holds, each
-/// of the hunks' lines in order, the untouched lines between hunks left out
-/// with the headers that name them.
-#[derive(PartialEq)]
-struct Sides {
-    before: SharedString,
-    after: SharedString,
-}
-
-fn sides_of(patch: &str) -> Sides {
-    let mut before = String::new();
-    let mut after = String::new();
+/// The hunks of `patch`, in order, without its file headers.
+fn hunks_of(patch: &str) -> Vec<Hunk> {
+    let mut hunks: Vec<Hunk> = Vec::new();
     for line in patch.lines() {
         if line.starts_with("--- ") || line.starts_with("+++ ") {
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("@@ -") {
+            if let Some(hunk) = hunk_header(rest) {
+                hunks.push(hunk);
+            }
             continue;
         }
         let Some((sign, text)) = line.split_at_checked(1) else {
             continue;
         };
-        match sign {
-            " " => {
-                before.push_str(text);
-                before.push('\n');
-                after.push_str(text);
-                after.push('\n');
-            }
-            "-" => {
-                before.push_str(text);
-                before.push('\n');
-            }
-            "+" => {
-                after.push_str(text);
-                after.push('\n');
-            }
-            // A hunk's header, and the note a last line without its own ending
-            // leaves: neither is a line of either text.
-            _ => {}
+        let Some(sign) = sign.chars().next() else {
+            continue;
+        };
+        if !matches!(sign, ' ' | '-' | '+') {
+            continue;
+        }
+        if let Some(hunk) = hunks.last_mut() {
+            hunk.lines.push((sign, text.to_owned()));
         }
     }
 
-    Sides {
-        before: before.into(),
-        after: after.into(),
+    hunks
+}
+
+/// The hunk a header's rest names (`12,3 +12,4 @@`, or `12 +12 @@` for one
+/// line), with no lines yet.
+fn hunk_header(rest: &str) -> Option<Hunk> {
+    let (old, _) = rest.split_once(' ')?;
+    let (start, count) = old.split_once(',').unwrap_or((old, "1"));
+
+    Some(Hunk {
+        old_start: start.parse().ok()?,
+        old_count: count.parse().ok()?,
+        lines: Vec::new(),
+    })
+}
+
+/// Where each line's text changes, for the lines a removal and an addition pair
+/// up: the lines they share at either end are what did not change.
+fn changed_parts(lines: &[(char, String)]) -> Vec<Option<(usize, usize)>> {
+    let mut parts = vec![None; lines.len()];
+    let mut index = 0;
+    while index < lines.len() {
+        if lines[index].0 != '-' {
+            index += 1;
+            continue;
+        }
+
+        let removed_start = index;
+        while index < lines.len() && lines[index].0 == '-' {
+            index += 1;
+        }
+        let removed_end = index;
+        let added_start = index;
+        while index < lines.len() && lines[index].0 == '+' {
+            index += 1;
+        }
+        let added_end = index;
+
+        let paired = (removed_end - removed_start).min(added_end - added_start);
+        for pair in 0..paired {
+            let removed = &lines[removed_start + pair].1;
+            let added = &lines[added_start + pair].1;
+            let head = common_prefix(removed, added);
+            let tail = common_suffix(removed, added, head);
+            parts[removed_start + pair] = range(head, removed.len() - tail);
+            parts[added_start + pair] = range(head, added.len() - tail);
+        }
     }
+
+    parts
 }
 
-/// The diff's fills: the theme's own, over the view's green and red.
-fn diff_styles() -> DiffViewStyles {
-    let mut styles = DiffViewStyles::default();
-    styles.line_added = Some(fill(tokens::diff_added()));
-    styles.line_deleted = Some(fill(tokens::diff_removed()));
-    styles.word_added = Some(fill(tokens::diff_added_word()));
-    styles.word_deleted = Some(fill(tokens::diff_removed_word()));
-    // A stretch of lines the view leaves out is not a row of this card: the
-    // rows it shows are the whole of the change.
-    styles.separator = Some(faded());
-
-    styles
+/// The bytes `a` and `b` share at their start.
+fn common_prefix(a: &str, b: &str) -> usize {
+    a.char_indices()
+        .zip(b.char_indices())
+        .find(|((_, left), (_, right))| left != right)
+        .map_or_else(|| a.len().min(b.len()), |(at, _)| at.0)
 }
 
-/// A part that takes its row but shows nothing of it.
-fn faded() -> PartStyle {
-    PartStyle(Style::default().with(StyleKey::Opacity, PropertyValue::Number(0.0.into())))
+/// The bytes `a` and `b` share at their end, past the `head` they share.
+fn common_suffix(a: &str, b: &str, head: usize) -> usize {
+    let mut shared = 0;
+    for (left, right) in a[head..].chars().rev().zip(b[head..].chars().rev()) {
+        if left != right {
+            break;
+        }
+        shared += left.len_utf8();
+    }
+
+    shared
 }
 
-/// `color` as a part's fill, in the appearance now: the view's own fills are
-/// styles on its elements, which carry both appearances, while a part's style
-/// is a patch of declarations, which carries one color.
-fn fill(color: AdaptiveColor) -> PartStyle {
-    PartStyle(Style::default().with(
-        StyleKey::BackgroundColor,
-        PropertyValue::Color(Some(nsh_core::element::color(color).into())),
-    ))
+/// `start..end`, or nothing when the line did not change there.
+fn range(start: usize, end: usize) -> Option<(usize, usize)> {
+    (start < end).then_some((start, end))
 }
