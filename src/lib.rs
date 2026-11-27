@@ -46,6 +46,9 @@ pub fn App() -> impl IntoElement {
     // once, after the first pass, so the first reply does not wait for the
     // settings to be opened.
     effect(|| untracked(aedt_settings::load));
+    // The reader's own key starts and ends a recording, as the microphone's
+    // press does.
+    effect(|| untracked(aedt_bridge::voice::watch));
 
     // A code block draws its border in the token's border color, which reads as
     // an outline around its fill: the fill's own color leaves no outline while

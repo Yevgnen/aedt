@@ -128,13 +128,7 @@ fn voice_button() -> impl IntoElement {
             Some(SharedString::from(label))
         })
         .disabled(move || voice.get().transcribing)
-        .on_press(move || {
-            if voice.get_untracked().recording {
-                aedt_bridge::voice::stop();
-            } else if let Err(why) = aedt_bridge::voice::start() {
-                voice.update(|voice| voice.error = Some(why.into()));
-            }
-        })
+        .on_press(aedt_bridge::voice::toggle)
 }
 
 /// The model and the effort the next reply asks: each row names what it holds,

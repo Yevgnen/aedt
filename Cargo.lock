@@ -43,8 +43,10 @@ dependencies = [
  "aedt-provider",
  "aedt-settings",
  "aedt-store",
+ "block2",
  "cpal",
  "nsh-core",
+ "objc2-app-kit",
 ]
 
 [[package]]

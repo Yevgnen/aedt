@@ -10,3 +10,7 @@ aedt-settings = { version = "0.1.0", path = "../aedt-settings" }
 aedt-store = { version = "0.1.0", path = "../aedt-store" }
 cpal = "0.18.2"
 nsh-core = "0.7.1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = { version = "0.6.2", default-features = false, features = ["std"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSEvent"] }

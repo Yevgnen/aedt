@@ -18,6 +18,8 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, SampleFormat, SizedSample, StreamConfig};
 use nsh_core::prelude::*;
 
+mod shortcut;
+
 /// The rate a recording is written at: what a provider reads best, and small
 /// enough that the longest one stays well under a request's limit.
 const RATE: u32 = 16_000;
@@ -101,6 +103,31 @@ pub fn stop() {
         voice.recording = false;
         voice.transcribing = true;
     });
+}
+
+/// Starts a recording, or ends the one in flight: what the composer's
+/// microphone and the reader's own key both do.
+pub fn toggle() {
+    let voice = state().get_untracked();
+
+    if voice.recording {
+        stop();
+
+        return;
+    }
+    if voice.transcribing || settings::speech().is_none() {
+        return;
+    }
+
+    if let Err(why) = start() {
+        state().update(|voice| voice.error = Some(why.into()));
+    }
+}
+
+/// Has the reader's own key start and end a recording: the right Option on a
+/// Mac. Once for the app.
+pub fn watch() {
+    shortcut::watch(toggle);
 }
 
 /// Takes what the composer consumed: the words it wrote down, and the failure
