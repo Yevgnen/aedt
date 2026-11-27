@@ -192,14 +192,21 @@ fn group_view(group: ReadSignal<store::Group>) -> impl IntoElement {
         .w_full()
         .pb_1()
         .child(header)
-        // The rows keep a hair of air between them: one row's wash ends
-        // before the next one's begins, so a selected row beside a hovered
-        // one still reads as two rows.
-        .content(view().w_full().pl(px(24.0 - LIST_EDGE)).gap_1().child(each(
-            move || group.with(|group| group.sessions.clone()),
-            |session| session.id,
-            |session, _| session_row(session),
-        )))
+        // The rows keep a hair of air between them, and from the group's own
+        // row above: one row's wash ends before the next one's begins, so a
+        // selected row beside a hovered one still reads as two rows.
+        .content(
+            view()
+                .w_full()
+                .pl(px(24.0 - LIST_EDGE))
+                .pt_1()
+                .gap_1()
+                .child(each(
+                    move || group.with(|group| group.sessions.clone()),
+                    |session| session.id,
+                    |session, _| session_row(session),
+                )),
+        )
 }
 
 /// The actions of the workspace `id`, at the end of its row while the pointer
