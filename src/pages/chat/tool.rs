@@ -148,6 +148,9 @@ fn data(tool: Memo<ToolRun>) -> impl IntoElement {
     view()
         .w_full()
         .pt_1()
+        // A blank line of the code's own under the last block, as the block
+        // itself used to keep: the call leaves the air it took.
+        .pb(px(sizes::CODE_FONT))
         .gap_2()
         .child(block("Input:", move || {
             tool.with(|tool| tool.arguments.clone())
