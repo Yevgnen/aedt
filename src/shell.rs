@@ -1,7 +1,7 @@
 //! The app shell: the session sidebar beside the conversation, no page logic.
 
 use aedt_store as store;
-use aedt_ui::sizes;
+use aedt_ui::{motion, sizes};
 use nsh_base::theme;
 use nsh_core::prelude::*;
 
@@ -19,26 +19,40 @@ pub(crate) fn shell() -> View {
         aedt_settings::load();
         settings_open.set(true);
     };
+    // Whether the window is too narrow to hold both columns, as the shell's last
+    // layout measured it.
+    let narrow = signal(false);
     // Whether the sidebar shows: the toggle in its own top row hides it, and the
     // one the conversation's header then carries brings it back.
     let sidebar_open = signal(true);
+    // While the window is too narrow for both columns, the reader's own showing
+    // waits: the sidebar steps aside, and shows only where they ask for it
+    // anyway. The setting stays as they left it, so a wider window shows it
+    // again.
+    let sidebar_peek = signal(false);
+    let sidebar_shown = move || sidebar_open.get() && (!narrow.get() || sidebar_peek.get());
+    let show_sidebar = move || {
+        if narrow.get() {
+            sidebar_open.set(true);
+            sidebar_peek.set(true);
+        } else {
+            motion::set_panel(sidebar_open, true);
+        }
+    };
+    // Once the window holds both columns again, the sidebar shows by the
+    // reader's setting alone: the showing they asked for while it was narrow has
+    // served.
+    effect(move || {
+        if !narrow.get() && sidebar_peek.get_untracked() {
+            sidebar_peek.set(false);
+        }
+    });
     // Whether the files panel shows: the conversation's header opens it, and the
     // panel's own top row shuts it.
     let files_open = signal(false);
     // The folder the panel shows: the selected conversation's workspace, which
     // changes only when the reader moves to a conversation in another one.
     let workspace = computed(move || store::session_path(selected.get()));
-    // Whether the window is too narrow to hold both columns, as the shell's last
-    // layout measured it.
-    let narrow = signal(false);
-    // A window too narrow for both keeps the sidebar out of the way: the
-    // conversation is what a narrow window is for, and the toggle in its header
-    // brings the list back when the reader asks for it.
-    effect(move || {
-        if narrow.get() && sidebar_open.get() {
-            sidebar_open.set(false);
-        }
-    });
 
     view()
         .flex_1()
@@ -51,10 +65,9 @@ pub(crate) fn shell() -> View {
                 narrow.set(now);
             }
         })
-        .child(when(
-            move || sidebar_open.get(),
-            move || sidebar::sidebar(open_settings, sidebar_open),
-        ))
+        .child(when(sidebar_shown, move || {
+            sidebar::sidebar(open_settings, sidebar_open)
+        }))
         .child(
             view()
                 .flex_1()
@@ -62,7 +75,10 @@ pub(crate) fn shell() -> View {
                 // A new conversation replaces the pane and its state.
                 .child(dynamic(move || {
                     let id = selected.get();
-                    untracked(|| chat::pane(id, sidebar_open, files_open).key(format!("chat-{id}")))
+                    untracked(|| {
+                        chat::pane(id, sidebar_shown, show_sidebar, files_open)
+                            .key(format!("chat-{id}"))
+                    })
                 })),
         )
         // The files of the conversation's folder, beside it while they show.

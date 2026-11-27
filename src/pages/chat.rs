@@ -18,7 +18,12 @@ use tool::{ROW_INSET, tool_run};
 
 /// One session's conversation. The caller keys it by the session, so
 /// switching conversations resets the draft and the scroll position.
-pub(crate) fn pane(session_id: u32, sidebar: Signal<bool>, files: Signal<bool>) -> View {
+pub(crate) fn pane(
+    session_id: u32,
+    sidebar_shown: impl Fn() -> bool + Copy + 'static,
+    show_sidebar: impl Fn() + Copy + 'static,
+    files: Signal<bool>,
+) -> View {
     let draft = signal(String::new());
     // What the reader folded open or away: a reply read with its thought open
     // starts in it, and a call shows its output where the store left it open.
@@ -37,7 +42,7 @@ pub(crate) fn pane(session_id: u32, sidebar: Signal<bool>, files: Signal<bool>) 
         .min_w(px(0.0))
         .bg(move || theme().background)
         .bind_motion(&enter)
-        .child(header(session_id, sidebar, files))
+        .child(header(session_id, sidebar_shown, show_sidebar, files))
         .child(
             view()
                 .flex_1()
@@ -170,7 +175,12 @@ impl Folds {
     }
 }
 
-fn header(session_id: u32, sidebar: Signal<bool>, files: Signal<bool>) -> impl IntoElement {
+fn header(
+    session_id: u32,
+    sidebar_shown: impl Fn() -> bool + Copy + 'static,
+    show_sidebar: impl Fn() + Copy + 'static,
+    files: Signal<bool>,
+) -> impl IntoElement {
     view()
         .h(px(sizes::TOPBAR))
         .flex_row()
@@ -183,7 +193,7 @@ fn header(session_id: u32, sidebar: Signal<bool>, files: Signal<bool>) -> impl I
         // brings it back is right-aligned where the sidebar's own stands, so it
         // does not move as either appears.
         .child(when(
-            move || !sidebar.get(),
+            move || !sidebar_shown(),
             move || {
                 view()
                     .w(px(sizes::SIDEBAR))
@@ -194,7 +204,7 @@ fn header(session_id: u32, sidebar: Signal<bool>, files: Signal<bool>) -> impl I
                     .pr_3()
                     .child(
                         button::ghost_icon(icon::panel_left(14.0), "Show the sidebar")
-                            .on_press(move || motion::set_panel(sidebar, true)),
+                            .on_press(show_sidebar),
                     )
             },
         ))
