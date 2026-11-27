@@ -126,7 +126,7 @@ const WAVE_PROFILE: [f32; WAVE_BARS] = [
 ];
 
 /// One bar's width, the gap beside it, and the shortest and tallest it gets.
-const WAVE_BAR: f32 = 4.0;
+const WAVE_BAR: f32 = 3.0;
 const WAVE_GAP: f32 = 2.0;
 const WAVE_MIN: f32 = 5.0;
 const WAVE_MAX: f32 = 36.0;
