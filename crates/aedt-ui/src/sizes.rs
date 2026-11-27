@@ -13,6 +13,11 @@ pub const SIDEBAR_INSET: f32 = 22.0;
 /// in it, so the three share one line.
 pub const TOPBAR: f32 = 52.0;
 
+/// The sidebar's heading row under the top row: its title and the action that
+/// adds a workspace. The conversation's header takes the same height under its
+/// own top row, so the title there reads on the line between the two.
+pub const HEADING: f32 = 28.0;
+
 /// A control's height.
 pub const CONTROL: f32 = 32.0;
 

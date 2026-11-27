@@ -25,12 +25,12 @@ pub(crate) fn sidebar(open_settings: impl Fn() + Copy + 'static, open: Signal<bo
 /// conversations then work in.
 fn header() -> impl IntoElement {
     view()
+        .h(px(sizes::HEADING))
         .flex_row()
         .items_center()
         .gap_2()
         .pl(px(sizes::SIDEBAR_INSET))
         .pr_3()
-        .pb_2()
         .child(
             text("Workspaces")
                 .flex_1()
