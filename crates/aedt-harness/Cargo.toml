@@ -8,6 +8,7 @@ bevy_ecs = { version = "=0.20.1", default-features = false }
 crossbeam-channel = "0.5"
 rig-basics = { version = "=0.47.1", default-features = false }
 rig-harness = "=0.47.1"
+rig-http = { version = "=0.47.1", default-features = false, features = ["tokio"] }
 rig-rmcp = "=0.47.1"
 rmcp = { version = "=3.12.0", features = ["transport-child-process"] }
 serde = { version = "1.0.229", features = ["derive"] }

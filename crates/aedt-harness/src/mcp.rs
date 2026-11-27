@@ -119,12 +119,20 @@ impl Server {
                 let offered = offered.clone();
 
                 Box::pin(async move {
-                    let connection = server.connected().await?;
-                    let tool = McpTool::new(called, &connection).with_name(offered);
-                    let tool = DynamicTool::try_from(tool)
-                        .map_err(|error| ToolExecutionError::other(error.to_string()))?;
+                    let call = async move {
+                        let connection = server.connected().await?;
+                        let tool = McpTool::new(called, &connection).with_name(offered);
+                        let tool = DynamicTool::try_from(tool)
+                            .map_err(|error| ToolExecutionError::other(error.to_string()))?;
 
-                    tool.run(args).await
+                        tool.run(args).await
+                    };
+
+                    // The connection speaks tokio's I/O, whose context the
+                    // agent's executor does not hold: each poll enters it.
+                    rig_http::runtime::bind(call)
+                        .map_err(|error| ToolExecutionError::other(error.to_string()))?
+                        .await
                 })
             },
         ))
@@ -136,9 +144,7 @@ impl Server {
 /// started once here — the only way to learn what to offer — and kept in `dir`
 /// for the runs after.
 pub(crate) fn prepare(servers: &[crate::McpServer], dir: &Path) -> Vec<Arc<Server>> {
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build();
+    let runtime = rig_http::runtime::handle();
     let Ok(runtime) = runtime else {
         eprintln!("mcp: no runtime to ask the servers for their tools");
 

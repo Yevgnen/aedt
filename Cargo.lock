@@ -57,6 +57,7 @@ dependencies = [
  "crossbeam-channel",
  "rig-basics",
  "rig-harness",
+ "rig-http",
  "rig-rmcp",
  "rmcp",
  "serde",
