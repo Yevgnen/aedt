@@ -1,6 +1,6 @@
 ---
 name: worktree-fix
-description: 仅当用户显式点名本 skill（如「用 worktree-fix」或 $worktree-fix）时调用。在新建的 Git 分支与关联 worktree 中完成用户指定的改动并提交，再合并回任务开始时的原分支：原工作区 dirty 也直接合并、绝不 stash 他人改动；因未提交改动被 git 拒绝时每 30 秒重试、最长 10 分钟；合并成功后删除临时分支与 worktree。
+description: 仅当用户显式点名本 skill（如「用 worktree-fix」或 $worktree-fix）时调用。在新建的 Git 分支与关联 worktree 中完成用户指定的改动并提交，再合并回任务开始时的原分支：原工作区 dirty 也直接合并、绝不 stash 他人改动；因未提交改动被 git 拒绝时每 30 秒重试、最长 10 分钟；内容冲突能在任务 worktree 里明确解决时先把原分支合进来再重试，解决不明了才停下；合并成功后删除临时分支与 worktree。
 ---
 
 # 在分支与 worktree 里干活，再合并回原分支
@@ -63,19 +63,49 @@ git -C "$original_worktree" merge --no-edit "$task_branch"
 | 情况 | 识别特征 | 处理 |
 | --- | --- | --- |
 | 成功 | exit 0 | 进入第 5 步 |
-| 他人的未提交或未跟踪文件会被覆盖 | `would be overwritten by merge` 、`Please commit your changes or stash them` | 进入 4.4 重试 |
-| 自动合并产生内容冲突 | `CONFLICT` 、`Automatic merge failed` | 立即停止 |
+| 他人的未提交或未跟踪文件会被覆盖 | `would be overwritten by merge` 、`Please commit your changes or stash them` | 进入 4.5 重试 |
+| 自动合并产生内容冲突 | `CONFLICT` 、`Automatic merge failed` | 进入 4.4 |
 | 其他错误 | 其余情况 | 报告原文并停止 |
 
-命中内容冲突时，只中止本流程发起的这次合并：
+命中内容冲突时不要在 `original_worktree` 里就地解决，按 4.4 处理。
 
-```bash
-git -C "$original_worktree" merge --abort
-```
+### 4.4 冲突能明确解决时，先把原分支合进任务分支
 
-若 abort 因为他人改动而失败，就保留现状。无论哪种，都保留 `task_branch` 与 `task_worktree` ，向用户报告冲突路径与原文，等用户处理。
+冲突一律在 `task_worktree` 里解决，`original_worktree` 里的他人改动一概不碰。
 
-### 4.4 重试等待
+1. 只中止本流程发起的这次合并：
+
+   ```bash
+   git -C "$original_worktree" merge --abort
+   ```
+
+   abort 因为他人改动而失败时，保留现状并报告，不要改用更激进的手段清场。
+
+2. 在任务 worktree 里把原分支合进来：
+
+   ```bash
+   git -C "$task_worktree" merge --no-ff "$original_branch"
+   ```
+
+3. 逐个看冲突文件，只有不需要业务判断的才算「明确可解」：
+   - 两边只是同一文件里不同位置的新增，互不相干；
+   - 同一函数内的相邻改动，两边意图可以直接叠加，例如一边改 import 、另一边加调用；
+   - 一边只是格式、排序或改名，另一边是实质改动，按实质改动保留；
+   - 生成类文件（如 `Cargo.lock` ）两边都动过，可以按仓库既有方式重新生成，并在任务 worktree 的测试里确认结果可用。
+
+   下面这些视为不明了：
+   - 同一行或同一代码分支上两个互斥的取值、默认值、条件判断；
+   - 同一段代码一边删除一边修改；
+   - 涉及公开 API 、行为语义、数据格式或迁移的取舍；
+   - 要靠猜业务规则才能决定保留哪边。
+
+4. 明确可解时：直接编辑冲突文件保留双方意图，`git add` 后用 `git -C "$task_worktree" commit --no-edit` 完成这次合并，不要在任务分支上提交猜出来的结果。
+5. 在任务 worktree 里跑与改动匹配的构建或测试，确认解决后仍能编译、行为符合预期。
+6. 回到 4.2 重新合并回原分支。原分支可能又前进了，重复 4.2 到 4.4 即可，最多重复 3 轮；超出就停下报告，不无限追着原分支合。
+
+冲突不明了，或解决后构建、测试失败且无法确定原因时：立即停止，保留 `task_branch` 与 `task_worktree` ，贴出冲突路径、两边原始内容与 Git 原文，等用户决定。
+
+### 4.5 重试等待
 
 只在「文件会被覆盖」这一种失败下重试：
 
@@ -85,7 +115,7 @@ git -C "$original_worktree" merge --abort
 - 每轮向用户报一句：第几次、当前 dirty 路径、上一次 Git 的报错。
 - 10 分钟仍失败就停止，贴出被拒路径和 Git 原文，把 `task_branch` 与 `task_worktree` 留给用户。
 
-### 4.5 确认合并结果
+### 4.6 确认合并结果
 
 ```bash
 git -C "$original_worktree" merge-base --is-ancestor "$task_branch" "$original_branch"
@@ -106,7 +136,7 @@ git -C "$original_worktree" branch -d "$task_branch"
 
 ## 6. 汇报
 
-分三段：实际改动（文件与前后行为）、验证结果（命令与输出摘要）、未完成或未验证项。合并与清理各自的结果都要写清楚：合并是 fast-forward 还是产生了合并提交，删掉了哪个分支和哪个 worktree。
+分三段：实际改动（文件与前后行为）、验证结果（命令与输出摘要）、未完成或未验证项。合并与清理各自的结果都要写清楚：合并是 fast-forward 还是产生了合并提交，是否因冲突把原分支合进过任务分支、冲突是怎么解的，删掉了哪个分支和哪个 worktree。
 
 不管流程是跑完还是中途停下，回复的最后一行都单独输出一行状态，每项前按实际结果加 tick 或 cross emoji：
 
