@@ -40,12 +40,12 @@ pub(crate) fn toggle(
             when(
                 move || open.get(),
                 move || {
-                    button::ghost_icon(icon::diff(14.0), "Hide the changes")
+                    button::ghost_icon(icon::file_diff(14.0), "Hide the changes")
                         .on_press(move || motion::set_panel(open, false))
                 },
             )
             .otherwise(move || {
-                button::ghost_icon(icon::diff(14.0), "Show the changes")
+                button::ghost_icon(icon::file_diff(14.0), "Show the changes")
                     .on_press(move || motion::set_panel(open, true))
             })
         },

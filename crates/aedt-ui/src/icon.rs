@@ -263,15 +263,16 @@ const ZED: &str = concat!(
     r#"</svg>"#,
 );
 
-/// A plus over a minus (Lucide's `diff`): the changes a folder holds against
-/// Git.
-const DIFF: &str = concat!(
+/// A page with a plus and a minus (Lucide's `file-diff`): a file the working
+/// tree changed against Git.
+const FILE_DIFF: &str = concat!(
     r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
     r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
     r#" stroke-linejoin="round">"#,
-    r#"<path d="M12 3v14"/>"#,
-    r#"<path d="M5 10h14"/>"#,
-    r#"<path d="M5 21h14"/>"#,
+    r#"<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/>"#,
+    r#"<path d="M9 10h6"/>"#,
+    r#"<path d="M12 13V7"/>"#,
+    r#"<path d="M9 17h6"/>"#,
     r#"</svg>"#,
 );
 
@@ -398,8 +399,8 @@ pub fn panel_right(size: f32) -> impl IntoElement {
 }
 
 /// The changes mark, `size` points square, in the caller's text color.
-pub fn diff(size: f32) -> impl IntoElement {
-    icon(DIFF, size)
+pub fn file_diff(size: f32) -> impl IntoElement {
+    icon(FILE_DIFF, size)
 }
 
 /// The closed folder, `size` points square, in the caller's text color.
