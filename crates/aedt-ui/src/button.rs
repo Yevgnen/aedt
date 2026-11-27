@@ -152,7 +152,7 @@ pub fn ghost_icon(icon: impl IntoElement, accessibility_label: &'static str) -> 
         .size(px(sizes::META_ACTION))
         .items_center()
         .justify_center()
-        .rounded(move || theme().radius)
+        .rounded(px(sizes::ICON_RADIUS))
         .hover(|s| s.bg(move || theme().muted))
         .active(press)
         .focus_visible(state::focus_ring)

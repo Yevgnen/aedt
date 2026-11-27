@@ -14,6 +14,11 @@ pub const LIST_ROW: f32 = 28.0;
 /// close to the edge of its row.
 pub const LIST_ROW_INSET: f32 = 10.0;
 
+/// A small square control's corner: half the app's radius, which on a 20-point
+/// button keeps it a rounded square rather than the circle the full radius
+/// would make of it.
+pub const ICON_RADIUS: f32 = 6.0;
+
 /// An avatar's diameter.
 pub const AVATAR: f32 = 28.0;
 
