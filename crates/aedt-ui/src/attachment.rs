@@ -93,7 +93,8 @@ pub fn thumbnail(
 }
 
 /// A picture a sent message carried, shown as a message of its own: the picture
-/// whole in a rounded tile, so what it shows reads in the transcript.
+/// whole in a rounded tile, with nothing behind it, so the page it showed reads
+/// as it was sent.
 pub fn picture(path: SharedString) -> impl IntoElement {
     view()
         .w(px(sizes::PICTURE_W))
@@ -101,7 +102,6 @@ pub fn picture(path: SharedString) -> impl IntoElement {
         .flex_none()
         .rounded(move || theme().radius)
         .overflow_hidden()
-        .bg(move || theme().muted)
         .child(
             image(path)
                 .w(px(sizes::PICTURE_W))

@@ -6,7 +6,7 @@ use aedt_ui::{button, motion, sizes, surface, tokens};
 use nsh_base::theme;
 use nsh_core::prelude::*;
 
-use super::body_of;
+use super::said_of;
 
 /// A tick's bar height, the padding that fills its pitch, and its length at
 /// rest and lit: adjacent ticks' hit areas touch, so sliding along the column
@@ -148,7 +148,7 @@ fn message_preview(
         .p_3()
         .gap_2()
         .child(
-            text(body_of(question))
+            text(said_of(question))
                 .text_sm()
                 .number_of_lines(3)
                 .text_color(move || theme().foreground),
@@ -158,7 +158,7 @@ fn message_preview(
             move || {
                 // The answer sits one point smaller and a shade quieter than
                 // the question it belongs to.
-                text(body_of(reply))
+                text(said_of(reply))
                     .text_size(px(sizes::TEXT_COMPACT))
                     .number_of_lines(4)
                     .text_color(move || tokens::meta().opacity(0.55))

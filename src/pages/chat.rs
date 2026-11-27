@@ -429,13 +429,16 @@ fn message_height(message: &Message) -> f32 {
 /// The column of question ticks at the pane's right edge: one per user message,
 /// all light and short at rest. The lit ones — under the pointer, and the last
 /// question the list shows — are dark and long; a press jumps to it.
-/// What `body` says, as the preview's text binds it.
-pub(super) fn body_of(body: Memo<Option<Message>>) -> impl Fn() -> SharedString + Copy + 'static {
+/// What `message` says, as the preview's text binds it: the words the reader
+/// wrote, without the paths its files were sent under.
+pub(super) fn said_of(
+    message: Memo<Option<Message>>,
+) -> impl Fn() -> SharedString + Copy + 'static {
     move || {
-        body.with(|message| {
+        message.with(|message| {
             message
                 .as_ref()
-                .map(|message| SharedString::from(message.body()))
+                .map(|message| SharedString::from(said(message)))
                 .unwrap_or_default()
         })
     }
@@ -464,40 +467,56 @@ fn user_message(message: Memo<Option<Message>>) -> impl IntoElement {
             |path| path.clone(),
             move |path, _| picture_message(path, message),
         ))
-        .child(
-            view().w_full().flex_row().justify_end().child(
+        // The words the reader wrote, when there are any: a message that carried
+        // files alone shows them, and no empty bubble under them.
+        .child(when(
+            move || {
+                message.with(|message| {
+                    message
+                        .as_ref()
+                        .is_some_and(|message| !said(message).is_empty())
+                })
+            },
+            move || {
                 view()
-                    .max_w(px(sizes::MESSAGE_MAX))
-                    .rounded(move || theme().radius)
-                    .bg(tokens::bubble)
-                    .px_4()
-                    .py_3()
+                    .w_full()
+                    .gap_1()
                     .child(
-                        text(move || {
-                            message.with(|message| {
-                                message
-                                    .as_ref()
-                                    .map(|message| SharedString::from(message.body()))
-                                    .unwrap_or_default()
-                            })
-                        })
-                        .text_sm()
-                        .line_height(LineHeight::Multiple(MESSAGE_LINE))
-                        .selectable(true)
-                        .text_color(move || theme().primary_foreground),
-                    ),
-            ),
-        )
-        .child(
-            view()
-                .w_full()
-                .flex_row()
-                .items_center()
-                .justify_end()
-                .gap_1()
-                .child(message_meta(message))
-                .child(copy_message(message)),
-        )
+                        view().w_full().flex_row().justify_end().child(
+                            view()
+                                .max_w(px(sizes::MESSAGE_MAX))
+                                .rounded(move || theme().radius)
+                                .bg(tokens::bubble)
+                                .px_4()
+                                .py_3()
+                                .child(
+                                    text(move || {
+                                        message.with(|message| {
+                                            message
+                                                .as_ref()
+                                                .map(|message| SharedString::from(said(message)))
+                                                .unwrap_or_default()
+                                        })
+                                    })
+                                    .text_sm()
+                                    .line_height(LineHeight::Multiple(MESSAGE_LINE))
+                                    .selectable(true)
+                                    .text_color(move || theme().primary_foreground),
+                                ),
+                        ),
+                    )
+                    .child(
+                        view()
+                            .w_full()
+                            .flex_row()
+                            .items_center()
+                            .justify_end()
+                            .gap_1()
+                            .child(message_meta(message))
+                            .child(copy_message(message)),
+                    )
+            },
+        ))
 }
 
 /// A picture a message carried, as a message of its own: the picture, and under
@@ -546,19 +565,40 @@ fn pictures(message: Memo<Option<Message>>) -> Vec<SharedString> {
     })
 }
 
-/// A message's trailing action: puts its text on the clipboard.
+/// What the reader wrote, as the transcript shows it: the message's text without
+/// the paths of the pictures it shows as messages of their own. Another file
+/// keeps its path in the text, which is all the transcript has of it.
+fn said(message: &Message) -> String {
+    let body = message.body();
+    let pictures: Vec<&str> = message
+        .files
+        .iter()
+        .map(SharedString::as_str)
+        .filter(|file| attachment::is_image(Path::new(file)))
+        .collect();
+    if pictures.is_empty() {
+        return body;
+    }
+
+    let mut kept: Vec<&str> = body
+        .lines()
+        .filter(|line| !pictures.contains(line))
+        .collect();
+    while kept.last().is_some_and(|line| line.trim().is_empty()) {
+        kept.pop();
+    }
+
+    kept.join("\n")
+}
+
+/// A message's trailing action: puts the words it shows on the clipboard.
 fn copy_message(message: Memo<Option<Message>>) -> impl IntoElement {
     let copy = move || {
-        let body = message.with(|message| {
-            message
-                .as_ref()
-                .map(|message| message.body())
-                .unwrap_or_default()
-        });
-        if body.is_empty() {
+        let said = message.with(|message| message.as_ref().map(said).unwrap_or_default());
+        if said.is_empty() {
             return;
         }
-        let write = set_clipboard(body);
+        let write = set_clipboard(said);
         spawn(async move {
             if write.await == ClipboardWrite::Failed {
                 eprintln!("copy message: the clipboard refused the write");
