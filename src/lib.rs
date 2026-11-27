@@ -5,10 +5,12 @@
 mod pages;
 mod shell;
 
+use aedt_store as store;
 use aedt_ui::{code, markdown, sizes};
 use nsh_core::{
     desktop::{TitleBarOptions, TitleBarStyle, WindowAttributes},
     element::desktop::window as app_window,
+    keymap::When,
     prelude::*,
 };
 
@@ -49,6 +51,18 @@ pub fn App() -> impl IntoElement {
     // The reader's own key starts and ends a recording, as the microphone's
     // press does.
     effect(|| untracked(aedt_bridge::voice::watch));
+
+    // Command+Shift+A archives the session on show, as its row's menu does.
+    // A session row takes no keyboard focus from a press, so the composer
+    // keeps it: the binding fires wherever the focus is.
+    on_key_with(
+        "mod+shift+a",
+        KeyOptions {
+            when: When::Always,
+            ..KeyOptions::default()
+        },
+        move |_| store::archive_session(store::selected_session_id()),
+    );
 
     // A code block draws its border in the token's border color, which reads as
     // an outline around its fill: the fill's own color leaves no outline while
