@@ -176,14 +176,16 @@ fn start(session: u32, providers: &[Provider], mcp: &[McpServer]) -> Result<Agen
         .map_err(|error| format!("failed to read the working directory: {error}"))?;
     // The harness's own home, one per session: the servers it starts keep their
     // state in it, and no two harnesses write one session log.
-    let home = nsh_core::element::data_dir()
+    let rig = nsh_core::element::data_dir()
         .ok_or_else(|| "the app's data directory is unknown".to_owned())?
-        .join("rig")
-        .join(format!("session-{session}"));
+        .join("rig");
+    let home = rig.join(format!("session-{session}"));
     let agent = Agent::start(Config {
         session,
         providers: providers.to_vec(),
         mcp: mcp.to_vec(),
+        // The catalogs are every session's: a server's tools are learnt once.
+        catalog: rig.join("mcp"),
         root,
         home,
     })?;
