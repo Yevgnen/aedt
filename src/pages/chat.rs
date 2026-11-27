@@ -714,7 +714,13 @@ fn thinking_bar(
                 .px_1()
                 .py(px(2.0))
                 .child(icon::bulb(14.0))
-                .child(text("Thinking").text_xs()),
+                // The name reads in the ink a call's own name takes; the bulb
+                // beside it keeps the quietest one, as a call's wrench does.
+                .child(
+                    text("Thinking")
+                        .text_xs()
+                        .text_color(|| tokens::meta().opacity(0.8)),
+                ),
         )
         .child(when(
             // A mode that always shows the thought leaves nothing to fold.
