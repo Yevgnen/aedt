@@ -12,6 +12,8 @@ mod composer;
 mod rail;
 mod tool;
 
+use crate::pages::zed;
+
 use composer::composer;
 use rail::rail;
 use tool::{ROW_INSET, tool_run};
@@ -235,12 +237,21 @@ fn header(
             .font_weight(FontWeight::SEMIBOLD)
             .text_color(move || theme().foreground),
         )
-        // The files of the conversation's folder open at the window's right end,
-        // where the panel's own toggle takes this place while it shows.
+        // The workspace opens in Zed at the window's right end, beside the
+        // toggle that shows the files; while the files show, the panel's own
+        // top row carries both marks.
         .child(when(
             move || !files_shown(),
             move || {
-                button::ghost_icon(icon::panel_right(14.0), "Show the files").on_press(show_files)
+                view()
+                    .flex_row()
+                    .items_center()
+                    .gap_1()
+                    .child(zed::button(move || store::session_path(session_id)))
+                    .child(
+                        button::ghost_icon(icon::panel_right(14.0), "Show the files")
+                            .on_press(show_files),
+                    )
             },
         ))
 }

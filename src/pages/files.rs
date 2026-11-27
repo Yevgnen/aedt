@@ -7,6 +7,8 @@ use aedt_ui::{button, empty, icon, motion, sizes};
 use nsh_base::theme;
 use nsh_core::prelude::*;
 
+use crate::pages::zed;
+
 /// One entry a folder holds, as the panel lists it.
 #[derive(Clone, PartialEq, Eq)]
 struct Entry {
@@ -51,7 +53,7 @@ pub(crate) fn panel(root: Memo<Option<SharedString>>, open: Signal<bool>) -> Vie
         .bg(move || theme().sidebar)
         .border_l_1()
         .border_l_color(move || theme().sidebar_border)
-        .child(top(open))
+        .child(top(root, open))
         .child(
             when(
                 move || root.with(|root| root.is_some()),
@@ -61,17 +63,19 @@ pub(crate) fn panel(root: Memo<Option<SharedString>>, open: Signal<bool>) -> Vie
         )
 }
 
-/// The panel's top row: the drag band every column starts with, and the toggle
-/// that shuts the panel, on the line the app's other marks stand on at the
-/// window's right edge.
-fn top(open: Signal<bool>) -> impl IntoElement {
+/// The panel's top row: the drag band every column starts with, the mark that
+/// opens the folder in Zed, and the toggle that shuts the panel, on the line
+/// the app's other marks stand on at the window's right edge.
+fn top(root: Memo<Option<SharedString>>, open: Signal<bool>) -> impl IntoElement {
     view()
         .h(px(sizes::TOPBAR))
         .flex_row()
         .items_center()
         .justify_end()
+        .gap_1()
         .pr_3()
         .window_drag(true)
+        .child(zed::button(move || root.get()))
         .child(
             button::ghost_icon(icon::panel_right(14.0), "Hide the files")
                 .on_press(move || motion::set_panel(open, false)),
