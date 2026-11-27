@@ -125,10 +125,10 @@ const WAVE_PROFILE: [f32; WAVE_BARS] = [
 ];
 
 /// One bar's width, the gap beside it, and the shortest and tallest it gets.
-const WAVE_BAR: f32 = 3.0;
-const WAVE_GAP: f32 = 3.0;
-const WAVE_MIN: f32 = 5.0;
-const WAVE_MAX: f32 = 22.0;
+const WAVE_BAR: f32 = 4.0;
+const WAVE_GAP: f32 = 4.0;
+const WAVE_MIN: f32 = 7.0;
+const WAVE_MAX: f32 = 32.0;
 
 /// The meter, floated over the field while the microphone listens: the field's
 /// own words give way to it.
@@ -157,7 +157,7 @@ fn bar(index: usize, meter: Signal<aedt_bridge::voice::Meter>) -> impl IntoEleme
     view()
         .w(px(WAVE_BAR))
         .rounded_full()
-        .bg(move || theme().primary)
+        .bg(move || theme().foreground)
         .h(move || px(height(index, meter.get())))
 }
 
