@@ -45,6 +45,10 @@ struct KeptMessage {
     /// What it wrote, in the order it wrote it.
     #[serde(default)]
     parts: Vec<KeptPart>,
+    /// The files the message carried, as the app picked them: what the
+    /// transcript draws before its words.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    files: Vec<String>,
     #[serde(default)]
     reasoning_open: bool,
     meta: Option<KeptMeta>,
@@ -218,6 +222,7 @@ impl KeptMessage {
             id: self.id,
             author: self.author.into(),
             parts,
+            files: self.files.into_iter().map(Into::into).collect(),
             reasoning_open: self.reasoning_open,
             meta: self.meta.map(KeptMeta::into_meta),
             streaming: false,
@@ -323,6 +328,7 @@ impl From<&Message> for KeptMessage {
             id: message.id,
             author: message.author.into(),
             parts: message.parts.iter().map(KeptPart::from).collect(),
+            files: message.files.iter().map(|file| file.to_string()).collect(),
             reasoning_open: message.reasoning_open,
             meta: message.meta.as_ref().map(KeptMeta::from),
             body: None,

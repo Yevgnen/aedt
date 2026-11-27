@@ -53,7 +53,14 @@ pub fn ask(session_id: u32, text: &str, files: &[PathBuf]) {
     // replaced was still writing is what fails then.
     let ready = ensure_agent(session_id);
 
-    let Some(sent) = store::send(session_id, &with_paths(text, files)) else {
+    // What the store keeps beside the message: the files it carries, so the
+    // transcript can show a picture as a message of its own. What the model
+    // reads is the text below, which names each path.
+    let carried: Vec<SharedString> = files
+        .iter()
+        .map(|path| SharedString::from(path.to_string_lossy().into_owned()))
+        .collect();
+    let Some(sent) = store::send(session_id, &with_paths(text, files), &carried) else {
         return;
     };
     let model = settings::selected();

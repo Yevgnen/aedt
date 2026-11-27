@@ -1,10 +1,11 @@
 //! The conversation: its header, its message timeline and its composer.
 
 use std::collections::HashMap;
+use std::path::Path;
 
 use aedt_settings::{self as settings, Thinking};
 use aedt_store::{self as store, Author, Message, Part, ToolRun};
-use aedt_ui::{MESSAGE_LINE, button, empty, icon, markdown, motion, sizes, tokens};
+use aedt_ui::{MESSAGE_LINE, attachment, button, empty, icon, markdown, motion, sizes, tokens};
 use nsh_base::theme;
 use nsh_core::{LineHeight, element::desktop::title_bar, prelude::*};
 
@@ -364,6 +365,9 @@ fn back_to_end(at_end: Signal<bool>, timeline: &ElementRef) -> impl IntoElement 
 /// holds: a message the reader wrote, a thought's bar or a call's row, a line
 /// of a reply's prose, and the head and lines of a changed file.
 const ROW_USER: f32 = 76.0;
+/// A picture a message carried, as a message of its own: the picture, the line
+/// under it, and the air between it and the next.
+const ROW_PICTURE: f32 = sizes::PICTURE_H + 24.0;
 const ROW_PART: f32 = 26.0;
 const ROW_PROSE_LINE: f32 = 20.0;
 const ROW_DIFF_HEAD: f32 = 30.0;
@@ -392,7 +396,13 @@ fn row_height(session_id: u32) -> f32 {
 /// How tall a message's row is before it is measured, by what it holds.
 fn message_height(message: &Message) -> f32 {
     if message.author == Author::User {
-        return ROW_USER;
+        let pictures = message
+            .files
+            .iter()
+            .filter(|file| attachment::is_image(Path::new(file.as_str())))
+            .count() as f32;
+
+        return ROW_USER + pictures * ROW_PICTURE;
     }
 
     message.parts.iter().fold(0.0, |tall, part| match part {
@@ -447,6 +457,13 @@ fn user_message(message: Memo<Option<Message>>) -> impl IntoElement {
     view()
         .w_full()
         .gap_1()
+        // The pictures the message carried come first, each as a message of its
+        // own: what it shows reads before the words that came with it.
+        .child(each(
+            move || pictures(message),
+            |path| path.clone(),
+            move |path, _| picture_message(path, message),
+        ))
         .child(
             view().w_full().flex_row().justify_end().child(
                 view()
@@ -481,6 +498,52 @@ fn user_message(message: Memo<Option<Message>>) -> impl IntoElement {
                 .child(message_meta(message))
                 .child(copy_message(message)),
         )
+}
+
+/// A picture a message carried, as a message of its own: the picture, and under
+/// it the same line the message it came with carries.
+fn picture_message(
+    path: ReadSignal<SharedString>,
+    message: Memo<Option<Message>>,
+) -> impl IntoElement {
+    let picked = path.with_untracked(|path| path.clone());
+
+    view()
+        .w_full()
+        .gap_1()
+        // The room a message keeps from the next one, under the line it carries.
+        .pb_3()
+        .child(
+            view()
+                .w_full()
+                .flex_row()
+                .justify_end()
+                .child(attachment::picture(picked)),
+        )
+        .child(
+            view()
+                .w_full()
+                .flex_row()
+                .items_center()
+                .justify_end()
+                .gap_1()
+                .child(message_meta(message)),
+        )
+}
+
+/// The pictures a message carried, in the order they were picked: an image
+/// shows as itself, any other file only as the path its text names.
+fn pictures(message: Memo<Option<Message>>) -> Vec<SharedString> {
+    message.with(|message| {
+        message.as_ref().map_or_else(Vec::new, |message| {
+            message
+                .files
+                .iter()
+                .filter(|file| attachment::is_image(Path::new(file.as_str())))
+                .cloned()
+                .collect()
+        })
+    })
 }
 
 /// A message's trailing action: puts its text on the clipboard.

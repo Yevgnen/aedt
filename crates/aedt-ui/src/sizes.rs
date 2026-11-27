@@ -78,6 +78,12 @@ pub const CHIP_MAX_W: f32 = 220.0;
 /// from another before the message goes.
 pub const THUMB: f32 = 64.0;
 
+/// A picture in the transcript, as a message of its own: wide enough to read
+/// what it shows, and low enough that a few of them leave the words they came
+/// with in view.
+pub const PICTURE_W: f32 = 320.0;
+pub const PICTURE_H: f32 = 240.0;
+
 /// The message rail at the conversation's right edge.
 pub const RAIL: f32 = 32.0;
 

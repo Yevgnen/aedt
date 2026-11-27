@@ -303,7 +303,7 @@ fn attach_button(
 fn attachment_chip(path: ReadSignal<PathBuf>, files: Signal<Vec<PathBuf>>) -> impl IntoElement {
     let picked = path.with_untracked(|path| path.clone());
     let name = file_name(&picked);
-    let picture = is_image(&picked);
+    let picture = attachment::is_image(&picked);
     let source = SharedString::from(picked.to_string_lossy().into_owned());
     let remove = move || files.update(|files| files.retain(|file| *file != picked));
 
@@ -312,20 +312,6 @@ fn attachment_chip(path: ReadSignal<PathBuf>, files: Signal<Vec<PathBuf>>) -> im
     } else {
         attachment::chip(name).on_press(remove).into_element()
     }
-}
-
-/// Whether `path` names one of the formats a message carries as an image: the
-/// extensions of the four the agent reads from the file's first bytes.
-fn is_image(path: &Path) -> bool {
-    const IMAGES: [&str; 5] = ["png", "jpg", "jpeg", "gif", "webp"];
-
-    path.extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| {
-            IMAGES
-                .iter()
-                .any(|known| extension.eq_ignore_ascii_case(known))
-        })
 }
 
 /// What a chip calls `path`: its file name, or the path whole when it has none.

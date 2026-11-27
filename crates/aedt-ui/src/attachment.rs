@@ -1,9 +1,25 @@
-//! What the next message carries: a file as its name, an image as itself.
+//! What a message carries: a file as its name, an image as itself.
+
+use std::path::Path;
 
 use nsh_base::{ButtonElement, button, theme};
 use nsh_core::{element::StyleRefinement, prelude::*};
 
 use crate::{icon, motion, sizes, state};
+
+/// Whether `path` names one of the formats a message carries as an image: the
+/// extensions of the four the agent reads from the file's first bytes.
+pub fn is_image(path: &Path) -> bool {
+    const IMAGES: [&str; 5] = ["png", "jpg", "jpeg", "gif", "webp"];
+
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            IMAGES
+                .iter()
+                .any(|known| extension.eq_ignore_ascii_case(known))
+        })
+}
 
 /// A picked file's chip, called `name`. The whole chip is the target, so the
 /// cross at its end reads as a hint rather than as a control of its own.
@@ -73,6 +89,24 @@ pub fn thumbnail(
                 .top(px(3.0))
                 .right(px(3.0))
                 .child(remove_button(name, remove)),
+        )
+}
+
+/// A picture a sent message carried, shown as a message of its own: the picture
+/// whole in a rounded tile, so what it shows reads in the transcript.
+pub fn picture(path: SharedString) -> impl IntoElement {
+    view()
+        .w(px(sizes::PICTURE_W))
+        .h(px(sizes::PICTURE_H))
+        .flex_none()
+        .rounded(move || theme().radius)
+        .overflow_hidden()
+        .bg(move || theme().muted)
+        .child(
+            image(path)
+                .w(px(sizes::PICTURE_W))
+                .h(px(sizes::PICTURE_H))
+                .object_fit(ResizeMode::Contain),
         )
 }
 

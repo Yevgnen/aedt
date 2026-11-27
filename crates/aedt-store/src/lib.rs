@@ -21,6 +21,10 @@ pub struct Message {
     /// What it says, in the order it was written: a reply's thoughts, the
     /// calls it made and the stretches of its answer, as they came.
     pub parts: Vec<Part>,
+    /// The files the message carried, in the order they were picked. The model
+    /// reads the message's text, which names each file's path; this is what the
+    /// transcript draws before the words, a picture as a message of its own.
+    pub files: Vec<SharedString>,
     /// Whether the reply's thought shows open at first: the state a reply is
     /// read with, until the reader folds it away.
     pub reasoning_open: bool,
@@ -534,14 +538,17 @@ pub struct Sent {
 
 /// Sends `text`: appends the user's message and an empty reply. A blank message
 /// sends nothing, and returns nothing to answer.
-pub fn send(session_id: u32, text: &str) -> Option<Sent> {
+/// Sends `text`, the user's message with the files it carries, and answers it
+/// with an empty reply to fill: what the model gets to read is every message
+/// before that reply.
+pub fn send(session_id: u32, text: &str, files: &[SharedString]) -> Option<Sent> {
     let text = text.trim();
-    if text.is_empty() {
+    if text.is_empty() && files.is_empty() {
         return None;
     }
 
     let mut started = None;
-    state().update(|workspace| started = append_sent(workspace, session_id, text));
+    state().update(|workspace| started = append_sent(workspace, session_id, text, files));
     if started.is_some() {
         keep();
     }
@@ -551,7 +558,12 @@ pub fn send(session_id: u32, text: &str) -> Option<Sent> {
 
 /// The user's message, the reply left empty, and what the model gets to read:
 /// every message before that reply.
-fn append_sent(state: &mut State, session_id: u32, text: &str) -> Option<(u32, Vec<Message>)> {
+fn append_sent(
+    state: &mut State,
+    session_id: u32,
+    text: &str,
+    files: &[SharedString],
+) -> Option<(u32, Vec<Message>)> {
     let user_id = state.next_message_id;
     let reply_id = user_id + 1;
     state.next_message_id += 2;
@@ -565,6 +577,7 @@ fn append_sent(state: &mut State, session_id: u32, text: &str) -> Option<(u32, V
         id: user_id,
         author: Author::User,
         parts: vec![Part::Text(text.to_owned().into())],
+        files: files.to_vec(),
         reasoning_open: false,
         meta: Some(Meta {
             time: sent_at.clone(),
@@ -577,6 +590,7 @@ fn append_sent(state: &mut State, session_id: u32, text: &str) -> Option<(u32, V
         id: reply_id,
         author: Author::Assistant,
         parts: Vec::new(),
+        files: Vec::new(),
         reasoning_open: false,
         meta: Some(Meta {
             time: sent_at,
