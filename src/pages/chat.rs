@@ -36,6 +36,9 @@ pub(crate) fn pane(
     let scrolled = signal(None::<f32>);
     // The reader's place: the last user message the list shows.
     let current = signal(store::last_user_index(session_id, 0, usize::MAX));
+    // Whether the timeline rests at its end: the mark that returns there shows
+    // while it does not.
+    let at_end = signal(true);
     let enter = motion().entering(motion::fade());
 
     view()
@@ -70,12 +73,14 @@ pub(crate) fn pane(
                             .child(blank_side(scrolled, &timeline))
                             .child(
                                 view()
+                                    .relative()
                                     .flex_none()
                                     .w(move || Length::from(percentage(column_share())))
                                     .min_h(px(0.0))
                                     .child(timeline_view(
-                                        session_id, folds, &timeline, current, scrolled,
-                                    )),
+                                        session_id, folds, &timeline, current, scrolled, at_end,
+                                    ))
+                                    .child(back_to_end(at_end, &timeline)),
                             )
                             .child(blank_side(scrolled, &timeline)),
                         rail(session_id, timeline, current),
@@ -246,6 +251,7 @@ fn timeline_view(
     handle: &ElementRef,
     current: Signal<Option<usize>>,
     scrolled: Signal<Option<f32>>,
+    at_end: Signal<bool>,
 ) -> impl IntoElement {
     virtual_list(
         move || store::message_count(session_id),
@@ -259,8 +265,16 @@ fn timeline_view(
     .content_padding_y(px(24.0))
     .estimated_item_size(px(row_height(session_id)))
     .row_gap(px(16.0))
-    // Where it stands, for the wheel that scrolls it from the pane's sides.
-    .on_scroll(move |event: &ScrollEvent| scrolled.set(Some(event.offset.y.0)))
+    // Where it stands, for the wheel that scrolls it from the pane's sides,
+    // and whether it rests at its end.
+    .on_scroll(move |event: &ScrollEvent| {
+        scrolled.set(Some(event.offset.y.0));
+        let from_end = event.content_size.height.0 - event.size.height.0 - event.offset.y.0;
+        let end = from_end <= END_SLOP;
+        if at_end.get_untracked() != end {
+            at_end.set(end);
+        }
+    })
     // The reader's place follows what the list shows as it scrolls.
     .on_viewable_items_change(move |items: &ViewableItems| {
         let place = items
@@ -277,6 +291,14 @@ fn timeline_view(
 /// The points one line of a mouse wheel scrolls the timeline, when the wheel is
 /// over the pane's blank sides: about one line of a message's prose.
 const WHEEL_LINE: f32 = sizes::TEXT_COMPACT * MESSAGE_LINE;
+
+/// How far the timeline may stand from its end and still count as there: a line
+/// or two short, so the mark hides as the last row settles into view.
+const END_SLOP: f32 = 24.0;
+
+/// The mark's clearance from the bottom edge of the messages' column, over the
+/// list's own padding.
+const END_MARK_INSET: f32 = 12.0;
 
 /// A blank side of the messages' column: a wheel over it scrolls the timeline as
 /// one over the timeline itself does, from where the list last said it stands.
@@ -301,6 +323,36 @@ fn blank_side(scrolled: Signal<Option<f32>>, timeline: &ElementRef) -> impl Into
 
             timeline.scroll_to_offset(px(next), false);
         })
+}
+
+/// The mark that returns the timeline to its end, floating over the messages'
+/// column while the reader stands away from the last message.
+fn back_to_end(at_end: Signal<bool>, timeline: &ElementRef) -> impl IntoElement {
+    let timeline = *timeline;
+
+    view()
+        .absolute()
+        .left(px(0.0))
+        .right(px(0.0))
+        .bottom(px(END_MARK_INSET))
+        .flex_row()
+        .justify_center()
+        // The mark alone takes the pointer: the band it floats in keeps the
+        // wheel on the messages under it.
+        .pointer_events(PointerEvents::BoxNone)
+        .child(when(
+            move || !at_end.get(),
+            move || {
+                let enter = motion().entering(motion::fade());
+
+                button::floating_icon(icon::chevron_down(16.0), "Scroll to bottom")
+                    .on_press(move || {
+                        at_end.set(true);
+                        timeline.scroll_to_end(true);
+                    })
+                    .bind_motion(&enter)
+            },
+        ))
 }
 
 /// How tall a row is guessed at before the list measures it, by what the row
