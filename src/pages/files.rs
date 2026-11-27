@@ -56,18 +56,21 @@ pub(crate) fn panel(session_id: u32, open: Signal<bool>) -> View {
 }
 
 /// The panel's top row: the drag band every column starts with, and the toggle
-/// that shuts the panel, at the window's right edge.
+/// that shuts the panel, on the line the app's other marks stand on at the
+/// window's right edge.
 fn top(open: Signal<bool>) -> impl IntoElement {
     view()
         .h(px(sizes::TOPBAR + sizes::HEADING))
         .flex_row()
-        .items_center()
+        .items_start()
         .justify_end()
         .pr(px(24.0))
         .window_drag(true)
         .child(
-            button::ghost_icon(icon::panel_right(14.0), "Hide the files")
-                .on_press(move || open.set(false)),
+            view().h(px(sizes::TOPBAR)).items_center().child(
+                button::ghost_icon(icon::panel_right(14.0), "Hide the files")
+                    .on_press(move || open.set(false)),
+            ),
         )
 }
 

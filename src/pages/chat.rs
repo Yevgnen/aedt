@@ -172,9 +172,7 @@ impl Folds {
 
 fn header(session_id: u32, sidebar: Signal<bool>, files: Signal<bool>) -> impl IntoElement {
     view()
-        // The sidebar's first block beside it: its top row and its heading. The
-        // title centers between the traffic lights and that heading.
-        .h(px(sizes::TOPBAR + sizes::HEADING))
+        .h(px(sizes::TOPBAR))
         .flex_row()
         .items_center()
         .pr(move || Length::from(title_bar().right + px(24.0)))
