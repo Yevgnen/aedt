@@ -93,12 +93,20 @@ fn tree(
         rows
     });
 
-    scroll().flex_1().min_h(px(0.0)).child(each(
-        move || rows.get(),
-        |row| row.path.clone(),
-        move |row, _| entry_row(row, opened, listings),
-    ))
+    scroll()
+        .flex_1()
+        .min_h(px(0.0))
+        .scrollbar(false)
+        .child(each(
+            move || rows.get(),
+            |row| row.path.clone(),
+            move |row, _| entry_row(row, opened, listings),
+        ))
 }
+
+/// The tree's text: a point under a compact row's, which the sidebar's own
+/// titles take, so a deep path still fits.
+const FILE_TEXT: f32 = sizes::TEXT_COMPACT - 1.0;
 
 /// Adds `folder`'s entries to `rows`, and those of the folders the reader
 /// opened under it.
@@ -203,7 +211,7 @@ fn entry_row(
                 .flex_1()
                 .min_w(px(0.0))
                 .number_of_lines(1)
-                .text_size(px(sizes::TEXT_COMPACT)),
+                .text_size(px(FILE_TEXT)),
         )
 }
 
