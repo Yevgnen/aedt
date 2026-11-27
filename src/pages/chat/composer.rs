@@ -85,33 +85,33 @@ fn composer_card(
 ) -> impl IntoElement {
     surface::card(surface::Surface::Composer)
         .p(px(sizes::CARD_PADDING))
-        .gap_2()
         .child(
             view()
                 .relative()
+                .gap_2()
                 .child(
                     input::composer(draft, submit)
                         .label("Message")
                         .element_ref(&field),
                 )
-                // While the microphone listens, its meter floats over the
-                // field: what is being said has not been written down yet.
+                .child(
+                    view()
+                        .flex_row()
+                        .items_center()
+                        .justify_end()
+                        .gap_2()
+                        .child(model_picker())
+                        // The microphone: only a provider that writes speech down can
+                        // give the button anything to do.
+                        .child(when(move || settings::speech().is_some(), voice_button))
+                        .child(button::icon("↑", "Send", can_send).on_press(submit)),
+                )
+                // While the microphone listens, its meter takes the card's own
+                // middle: what is being said has not been written down yet.
                 .child(when(
                     move || aedt_bridge::voice::state().get().recording,
                     waveform,
                 )),
-        )
-        .child(
-            view()
-                .flex_row()
-                .items_center()
-                .justify_end()
-                .gap_2()
-                .child(model_picker())
-                // The microphone: only a provider that writes speech down can
-                // give the button anything to do.
-                .child(when(move || settings::speech().is_some(), voice_button))
-                .child(button::icon("↑", "Send", can_send).on_press(submit)),
         )
 }
 
@@ -130,8 +130,8 @@ const WAVE_GAP: f32 = 4.0;
 const WAVE_MIN: f32 = 7.0;
 const WAVE_MAX: f32 = 32.0;
 
-/// The meter, floated over the field while the microphone listens: the field's
-/// own words give way to it.
+/// The meter, filling the card while the microphone listens: the card's own
+/// words give way to it, and a press anywhere on it ends the recording.
 fn waveform() -> impl IntoElement {
     let meter = aedt_bridge::voice::meter();
     let mut bars = view().flex_row().items_center().gap(px(WAVE_GAP));
@@ -148,6 +148,8 @@ fn waveform() -> impl IntoElement {
         .items_center()
         .justify_center()
         .bg(move || theme().card)
+        .label("Stop recording")
+        .on_press(aedt_bridge::voice::stop)
         .child(bars)
 }
 
@@ -157,7 +159,7 @@ fn bar(index: usize, meter: Signal<aedt_bridge::voice::Meter>) -> impl IntoEleme
     view()
         .w(px(WAVE_BAR))
         .rounded_full()
-        .bg(move || theme().foreground)
+        .bg(move || theme().muted_foreground)
         .h(move || px(height(index, meter.get())))
 }
 
