@@ -67,6 +67,22 @@ pub fn field_with_trailing(
     )
 }
 
+/// One field of a form whose value takes several lines, such as a list of
+/// arguments: its label, then its input, `rows` lines tall at least.
+pub fn multiline(
+    name: &'static str,
+    rows: u32,
+    value: impl Fn() -> String + Copy + 'static,
+    on_change: impl Fn(&str) + Copy + 'static,
+) -> impl IntoElement {
+    view().w_full().gap_1().child(label(name)).child(
+        control(value, on_change, || {}, Mask::Plain)
+            .multiline(true)
+            .min_h(px(sizes::CONTROL * rows as f32))
+            .py_2(),
+    )
+}
+
 /// A field's input, in the app's field look.
 fn control(
     value: impl Fn() -> String + Copy + 'static,

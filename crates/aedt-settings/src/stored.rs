@@ -41,6 +41,9 @@ pub(crate) struct Provider {
 pub(crate) struct Kept {
     #[serde(default)]
     pub(crate) providers: Vec<Provider>,
+    /// The local MCP servers the reader configured.
+    #[serde(default)]
+    pub(crate) mcp: Vec<Mcp>,
     /// The model the next reply asked, by id.
     #[serde(default)]
     pub(crate) selected: String,
@@ -57,6 +60,31 @@ pub(crate) struct Kept {
     /// none for the app's own default.
     #[serde(default)]
     pub(crate) margin: Option<u32>,
+}
+
+/// A local MCP server as it is kept: what starts it, and whether it does.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) struct Mcp {
+    pub(crate) id: u32,
+    /// What the app calls it, and the prefix of the tools it serves.
+    pub(crate) name: String,
+    /// The program it runs.
+    pub(crate) command: String,
+    /// Its arguments, as they were typed.
+    #[serde(default)]
+    pub(crate) args: String,
+    /// Its environment, a `KEY=value` a line, as it was typed.
+    #[serde(default)]
+    pub(crate) env: String,
+    /// Whether the agent starts it, and offers the tools it lists.
+    #[serde(default = "starts")]
+    pub(crate) enabled: bool,
+}
+
+/// A server the settings say nothing about starts: switching one on is the
+/// exception, and what a new one is.
+fn starts() -> bool {
+    true
 }
 
 /// The settings the app kept, while it kept a readable set.

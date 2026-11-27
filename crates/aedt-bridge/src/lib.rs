@@ -10,7 +10,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use aedt_harness::{Agent, Config, Event, Kind, Provider, Turn};
+use aedt_harness::{Agent, Config, Event, Kind, McpServer, Provider, Turn};
 use aedt_settings as settings;
 use aedt_store::{self as store, Author};
 use nsh_core::prelude::*;
@@ -18,11 +18,14 @@ use nsh_core::prelude::*;
 /// Whether the task that reads what the agent reports was started.
 static DISPATCH: OnceLock<()> = OnceLock::new();
 
+/// The agent, with the providers and the MCP servers it was started from.
+type Running = (Vec<Provider>, Vec<McpServer>, Agent);
+
 thread_local! {
     /// The agent, with the providers it was started from: the settings that
     /// build it change while the app runs, and the agent is started again from
     /// them when they do.
-    static AGENT: RefCell<Option<(Vec<Provider>, Agent)>> = const { RefCell::new(None) };
+    static AGENT: RefCell<Option<Running>> = const { RefCell::new(None) };
 
     /// When each session's reply was asked, and the model it asked, for its
     /// duration and its meta line.
@@ -79,14 +82,17 @@ pub fn ask(session_id: u32, text: &str) {
 }
 
 /// Makes the agent the one the settings hold: started while there is none, and
-/// started again while the providers it was made from changed. `Err` says why
-/// none could start.
+/// started again while the providers or the MCP servers it was made from
+/// changed. `Err` says why none could start.
 fn ensure_agent() -> Result<(), String> {
     let providers = providers()?;
+    let mcp = mcps();
     let changed = AGENT.with(|agent| {
         let agent = agent.borrow();
 
-        !agent.as_ref().is_some_and(|(made, _)| *made == providers)
+        !agent
+            .as_ref()
+            .is_some_and(|(made, made_mcp, _)| *made == providers && *made_mcp == mcp)
     });
     if !changed {
         return Ok(());
@@ -94,19 +100,19 @@ fn ensure_agent() -> Result<(), String> {
 
     if AGENT.with(|agent| agent.borrow().is_some()) {
         // A reply the agent being replaced is still writing cannot finish.
-        store::fail_streaming("the model settings changed");
+        store::fail_streaming("the settings the agent runs from changed");
         STARTED.with(|started| started.borrow_mut().clear());
     }
 
-    let started = start(&providers)?;
-    AGENT.with(|agent| *agent.borrow_mut() = Some((providers, started)));
+    let started = start(&providers, &mcp)?;
+    AGENT.with(|agent| *agent.borrow_mut() = Some((providers, mcp, started)));
     Ok(())
 }
 
 /// Sends the prompt to the agent as it is.
 fn say(session_id: u32, model: &str, text: &str, before: Vec<Turn>, root: Option<PathBuf>) {
     AGENT.with(|agent| {
-        if let Some((_, agent)) = agent.borrow().as_ref() {
+        if let Some((_, _, agent)) = agent.borrow().as_ref() {
             agent.say(session_id, model, text, before, root);
         }
     });
@@ -140,9 +146,22 @@ fn providers() -> Result<Vec<Provider>, String> {
     Ok(providers)
 }
 
-/// Starts the harness with `providers`, and once the task that reports what it
-/// does.
-fn start(providers: &[Provider]) -> Result<Agent, String> {
+/// The MCP servers the settings switched on, as the harness starts them.
+fn mcps() -> Vec<McpServer> {
+    settings::enabled_mcps()
+        .into_iter()
+        .map(|server| McpServer {
+            name: server.name,
+            command: server.command,
+            args: server.args,
+            env: server.env,
+        })
+        .collect()
+}
+
+/// Starts the harness with `providers` and the MCP servers `mcp`, and once the
+/// task that reports what it does.
+fn start(providers: &[Provider], mcp: &[McpServer]) -> Result<Agent, String> {
     let root = std::env::current_dir()
         .map_err(|error| format!("failed to read the working directory: {error}"))?;
     let home = nsh_core::element::data_dir()
@@ -150,6 +169,7 @@ fn start(providers: &[Provider]) -> Result<Agent, String> {
         .join("rig");
     let agent = Agent::start(Config {
         providers: providers.to_vec(),
+        mcp: mcp.to_vec(),
         root,
         home,
     })?;
@@ -166,7 +186,7 @@ async fn dispatch() {
     loop {
         let events: Vec<Event> = AGENT.with(|agent| {
             let agent = agent.borrow();
-            let Some((_, agent)) = agent.as_ref() else {
+            let Some((_, _, agent)) = agent.as_ref() else {
                 return Vec::new();
             };
 

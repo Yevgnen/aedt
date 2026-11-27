@@ -134,6 +134,101 @@ struct Provider {
     saved: bool,
 }
 
+/// One local MCP server: what starts it, and whether the agent does.
+#[derive(Clone, Debug, PartialEq)]
+struct Mcp {
+    id: u32,
+    /// What the app calls it, and the prefix of the tools it serves.
+    name: SharedString,
+    /// The program it runs.
+    command: String,
+    /// Its arguments, as they were typed.
+    args: String,
+    /// Its environment, a `KEY=value` a line, as it was typed.
+    env: String,
+    /// Whether the agent starts it, and offers the tools it lists.
+    enabled: bool,
+    /// Whether the reader kept it: a server being added is in the list only
+    /// while its form is filled in.
+    saved: bool,
+}
+
+impl Mcp {
+    /// The server `kept` names.
+    fn restored(kept: stored::Mcp) -> Self {
+        Self {
+            id: kept.id,
+            name: kept.name.into(),
+            command: kept.command,
+            args: kept.args,
+            env: kept.env,
+            enabled: kept.enabled,
+            saved: true,
+        }
+    }
+
+    /// The server as the agent starts it: its arguments and its environment
+    /// read out of the text the reader typed.
+    fn choice(&self) -> McpServer {
+        McpServer {
+            name: self.name.trim().to_owned(),
+            command: self.command.trim().to_owned(),
+            args: words(&self.args),
+            env: variables(&self.env),
+        }
+    }
+}
+
+/// The arguments `text` names: words separated by blank space, with quotes
+/// keeping one together, as a shell reads them. A quote that never closes runs
+/// to the end.
+fn words(text: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut word = String::new();
+    let mut quoted = None;
+    let mut started = false;
+    for character in text.chars() {
+        match quoted {
+            Some(quote) if character == quote => quoted = None,
+            Some(_) => {
+                started = true;
+                word.push(character);
+            }
+            None if character == '"' || character == '\'' => {
+                started = true;
+                quoted = Some(character);
+            }
+            None if character.is_whitespace() => {
+                if started {
+                    words.push(std::mem::take(&mut word));
+                    started = false;
+                }
+            }
+            None => {
+                started = true;
+                word.push(character);
+            }
+        }
+    }
+    if started {
+        words.push(word);
+    }
+
+    words
+}
+
+/// The variables `text` names, a `KEY=value` a line: a line without `=` or
+/// with no key names none.
+fn variables(text: &str) -> Vec<(String, String)> {
+    text.lines()
+        .filter_map(|line| {
+            let (key, value) = line.split_once('=')?;
+            let key = key.trim();
+            (!key.is_empty()).then(|| (key.to_owned(), value.to_owned()))
+        })
+        .collect()
+}
+
 /// A model a reply can ask: its id for the provider, its label for the reader,
 /// and the provider that serves it, which the reply asks.
 #[derive(Clone, Debug, PartialEq)]
@@ -151,6 +246,20 @@ pub struct Choice {
     pub api_key: String,
 }
 
+/// A local MCP server as the agent starts it: the program, what it is given,
+/// and what it runs with.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct McpServer {
+    /// What the app calls it, and the prefix of the tools it serves.
+    pub name: String,
+    /// The program it runs.
+    pub command: String,
+    /// Its arguments, in order.
+    pub args: Vec<String>,
+    /// Its environment, on top of the app's.
+    pub env: Vec<(String, String)>,
+}
+
 /// The settings: its providers, the model the next reply asks, and the keys
 /// the next run reads.
 #[derive(Clone)]
@@ -158,6 +267,10 @@ struct Settings {
     providers: Vec<Provider>,
     /// The id the next provider added takes.
     next_provider_id: u32,
+    /// The local MCP servers the reader configured.
+    mcp: Vec<Mcp>,
+    /// The id the next server added takes.
+    next_mcp_id: u32,
     /// The model the next reply asks, by id: the picker's choice, and the one
     /// the chat sends until another is picked.
     selected: SharedString,
@@ -201,10 +314,18 @@ impl Settings {
             .map(|provider| provider.id)
             .max()
             .map_or(1, |id| id + 1);
+        let mcp = kept.mcp.into_iter().map(Mcp::restored).collect::<Vec<_>>();
+        let next_mcp_id = mcp
+            .iter()
+            .map(|server| server.id)
+            .max()
+            .map_or(1, |id| id + 1);
 
         Some(Self {
             providers,
             next_provider_id,
+            mcp,
+            next_mcp_id,
             selected: kept.selected.into(),
             selected_provider: kept.selected_provider,
             effort: kept.effort.unwrap_or(Effort::High),
@@ -229,6 +350,8 @@ impl Settings {
         Self {
             providers: vec![provider],
             next_provider_id: 2,
+            mcp: Vec::new(),
+            next_mcp_id: 1,
             selected: DEEPSEEK_MODEL.into(),
             selected_provider: Some(1),
             effort: Effort::High,
@@ -251,6 +374,19 @@ impl Settings {
                     kind: provider.kind.kept(),
                     base_url: provider.base_url.clone(),
                     disabled: provider.disabled.iter().map(|id| id.to_string()).collect(),
+                })
+                .collect(),
+            mcp: self
+                .mcp
+                .iter()
+                .filter(|server| server.saved)
+                .map(|server| stored::Mcp {
+                    id: server.id,
+                    name: server.name.to_string(),
+                    command: server.command.clone(),
+                    args: server.args.clone(),
+                    env: server.env.clone(),
+                    enabled: server.enabled,
                 })
                 .collect(),
             selected: self.selected.to_string(),
@@ -862,4 +998,193 @@ fn merged(listed: Vec<ListedModel>, disabled: &[SharedString]) -> Vec<Model> {
             Model { id, label, enabled }
         })
         .collect()
+}
+
+/// Server `id` of `settings`, to change.
+fn mcp_mut(settings: &mut Settings, id: u32) -> Option<&mut Mcp> {
+    settings.mcp.iter_mut().find(|server| server.id == id)
+}
+
+/// `f` of server `id`, or none once it is gone (tracked where it is read).
+fn with_mcp<R>(id: u32, f: impl FnOnce(&Mcp) -> R) -> Option<R> {
+    settings().with(|settings| settings.mcp.iter().find(|server| server.id == id).map(f))
+}
+
+/// The MCP servers the reader kept, in order (tracked where it is read).
+pub fn mcps() -> Vec<u32> {
+    settings().with(|settings| {
+        settings
+            .mcp
+            .iter()
+            .filter(|server| server.saved)
+            .map(|server| server.id)
+            .collect()
+    })
+}
+
+/// The server being added, while one is (tracked where it is read).
+pub fn mcp_draft() -> Option<u32> {
+    settings().with(|settings| {
+        settings
+            .mcp
+            .iter()
+            .find(|server| !server.saved)
+            .map(|server| server.id)
+    })
+}
+
+/// Starts adding a server, with nothing filled in yet. A server already being
+/// added is left as it is.
+pub fn add_mcp() {
+    settings().update(|settings| {
+        if settings.mcp.iter().any(|server| !server.saved) {
+            return;
+        }
+        let id = settings.next_mcp_id;
+        settings.next_mcp_id += 1;
+        settings.mcp.push(Mcp {
+            id,
+            name: SharedString::default(),
+            command: String::new(),
+            args: String::new(),
+            env: String::new(),
+            enabled: true,
+            saved: false,
+        });
+    });
+}
+
+/// Keeps the server `id`: it is one of the reader's from now on, and the agent
+/// starts it from the next message while it is on.
+pub fn save_mcp(id: u32) {
+    settings().update(|settings| {
+        if let Some(server) = mcp_mut(settings, id) {
+            server.saved = true;
+        }
+    });
+    save();
+}
+
+/// Drops the server `id` while it is one being added.
+pub fn cancel_mcp(id: u32) {
+    settings().update(|settings| {
+        settings
+            .mcp
+            .retain(|server| server.id != id || server.saved);
+    });
+}
+
+/// What `id` is called (tracked where it is read).
+pub fn mcp_name(id: u32) -> SharedString {
+    with_mcp(id, |server| server.name.clone()).unwrap_or_default()
+}
+
+/// The program `id` runs (tracked where it is read).
+pub fn mcp_command(id: u32) -> String {
+    with_mcp(id, |server| server.command.clone()).unwrap_or_default()
+}
+
+/// The arguments `id` was given, as they were typed (tracked where it is read).
+pub fn mcp_args(id: u32) -> String {
+    with_mcp(id, |server| server.args.clone()).unwrap_or_default()
+}
+
+/// The environment `id` was given, as it was typed (tracked where it is read).
+pub fn mcp_env(id: u32) -> String {
+    with_mcp(id, |server| server.env.clone()).unwrap_or_default()
+}
+
+/// Whether the agent starts `id` (tracked where it is read).
+pub fn mcp_enabled(id: u32) -> bool {
+    with_mcp(id, |server| server.enabled).unwrap_or(false)
+}
+
+/// Names the server `id`.
+pub fn set_mcp_name(id: u32, name: &str) {
+    settings().update(|settings| {
+        if let Some(server) = mcp_mut(settings, id) {
+            server.name = name.to_owned().into();
+        }
+    });
+    save();
+}
+
+/// Sets the program `id` runs.
+pub fn set_mcp_command(id: u32, command: &str) {
+    settings().update(|settings| {
+        if let Some(server) = mcp_mut(settings, id) {
+            server.command = command.to_owned();
+        }
+    });
+    save();
+}
+
+/// Sets the arguments `id` is given.
+pub fn set_mcp_args(id: u32, args: &str) {
+    settings().update(|settings| {
+        if let Some(server) = mcp_mut(settings, id) {
+            server.args = args.to_owned();
+        }
+    });
+    save();
+}
+
+/// Sets the environment `id` is given.
+pub fn set_mcp_env(id: u32, env: &str) {
+    settings().update(|settings| {
+        if let Some(server) = mcp_mut(settings, id) {
+            server.env = env.to_owned();
+        }
+    });
+    save();
+}
+
+/// Starts `id` from the next message on, or stops starting it.
+pub fn set_mcp_enabled(id: u32, on: bool) {
+    settings().update(|settings| {
+        if let Some(server) = mcp_mut(settings, id) {
+            server.enabled = on;
+        }
+    });
+    save();
+}
+
+/// Whether `id` has what it takes to be kept: a name a server may take, and a
+/// command.
+pub fn can_save_mcp(id: u32) -> bool {
+    with_mcp(id, |server| {
+        server_name(server.name.trim()) && !server.command.trim().is_empty()
+    })
+    .unwrap_or(false)
+}
+
+/// Whether `name` is one a server may take: the letters, digits, `_` and `-` a
+/// tool name is made of, starting with a letter or `_`, with no `__` and no `_`
+/// at its end, as the client that starts it asks. Its tools are named from it.
+fn server_name(name: &str) -> bool {
+    let starts = name
+        .chars()
+        .next()
+        .is_some_and(|first| first.is_ascii_alphabetic() || first == '_');
+
+    starts
+        && !name.contains("__")
+        && !name.ends_with('_')
+        && name.chars().all(|character| {
+            character.is_ascii_alphanumeric() || character == '_' || character == '-'
+        })
+}
+
+/// The servers the agent starts, with their arguments and environment read out
+/// of what the reader typed (tracked where it is read).
+pub fn enabled_mcps() -> Vec<McpServer> {
+    settings().with(|settings| {
+        settings
+            .mcp
+            .iter()
+            .filter(|server| server.saved && server.enabled)
+            .map(Mcp::choice)
+            .filter(|server| !server.command.is_empty() && server_name(&server.name))
+            .collect()
+    })
 }

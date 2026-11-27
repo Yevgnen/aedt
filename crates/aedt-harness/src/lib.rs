@@ -10,6 +10,7 @@ use std::{path::PathBuf, thread};
 
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use rig_harness::prelude::*;
+use rig_mcp_client::{AddMcpServer, McpCorePlugin, ServerSpec};
 
 use crate::{front::AgentBridge, models::connector};
 
@@ -94,10 +95,26 @@ pub struct Turn {
 pub struct Config {
     /// The providers the app offers, each with the models the reader left on.
     pub providers: Vec<Provider>,
+    /// The local MCP servers the app switched on, started with the agent.
+    pub mcp: Vec<McpServer>,
     /// The directory the tools work in.
     pub root: PathBuf,
     /// The harness's own home: its sessions, logs and settings.
     pub home: PathBuf,
+}
+
+/// A local MCP server as the app configures it: a program to run, what it is
+/// given, and what it runs with.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct McpServer {
+    /// What the app calls it, and the prefix of the tools it serves.
+    pub name: String,
+    /// The program it runs.
+    pub command: String,
+    /// Its arguments, in order.
+    pub args: Vec<String>,
+    /// Its environment, on top of the app's.
+    pub env: Vec<(String, String)>,
 }
 
 /// The app's handle on the agent: what it says, and what comes back.
@@ -171,12 +188,43 @@ fn run(config: Config, commands: Receiver<Command>, events: Sender<Event>) {
     app.insert_resource(Models(models))
         .insert_resource(ProjectRoot(config.root))
         .insert_resource(RigHome(Home::at(config.home)))
+        .insert_resource(Mcp(config.mcp))
         .add_plugins((
             HeadlessPlugins,
             RigHarnessPlugins,
             rig_basics::prompt::DefaultPromptPlugin,
             tools::CodingTools,
+            // The servers the app configured, without the harness's own
+            // `mcp.json` files: the app is where they are configured.
+            McpCorePlugin,
             AgentBridge::new(commands, events),
-        ));
+        ))
+        // Before the run starts the servers of the files, which it has none of:
+        // the app's are handed over here.
+        .add_systems(PreStartup, start_mcp);
     rig_harness::run(app);
+}
+
+/// The MCP servers the app switched on: started as the run does, their tools
+/// offered as `<server>__<tool>`.
+#[derive(Resource)]
+struct Mcp(Vec<McpServer>);
+
+/// Hands the harness the servers the app configured, each as a client of rig's
+/// names one for its run.
+fn start_mcp(mcp: Option<Res<Mcp>>, mut commands: Commands) {
+    let Some(mcp) = mcp else {
+        return;
+    };
+    for server in &mcp.0 {
+        commands.trigger(AddMcpServer {
+            name: server.name.clone(),
+            spec: Ok(ServerSpec::Stdio {
+                command: server.command.clone(),
+                args: server.args.clone(),
+                env: server.env.iter().cloned().collect(),
+                cwd: None,
+            }),
+        });
+    }
 }

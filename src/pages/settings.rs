@@ -13,6 +13,7 @@ use aedt_settings::{self as settings, ProviderKind, Thinking};
 #[derive(Clone, Copy, PartialEq)]
 enum Category {
     Models,
+    Mcp,
     Conversation,
 }
 
@@ -80,6 +81,12 @@ fn categories(category: Signal<Category>) -> impl IntoElement {
             .on_press(move || category.set(Category::Models)),
         )
         .child(
+            list_item::nav_with_mark(icon::wrench(14.0), "MCP", move || {
+                category.get() == Category::Mcp
+            })
+            .on_press(move || category.set(Category::Mcp)),
+        )
+        .child(
             list_item::nav_with_mark(icon::bulb(14.0), "Conversation", move || {
                 category.get() == Category::Conversation
             })
@@ -96,10 +103,15 @@ fn content(category: Signal<Category>) -> impl IntoElement {
                 .p_6()
                 .gap_5()
                 .child(heading(category))
-                .child(
-                    when(move || category.get() == Category::Models, models_page)
-                        .otherwise(conversation_page),
-                ),
+                .child(when(
+                    move || category.get() == Category::Models,
+                    models_page,
+                ))
+                .child(when(move || category.get() == Category::Mcp, mcp_page))
+                .child(when(
+                    move || category.get() == Category::Conversation,
+                    conversation_page,
+                )),
         ),
     )
 }
@@ -115,6 +127,10 @@ fn heading(category: Signal<Category>) -> impl IntoElement {
                     SharedString::from("Add model provider")
                 }
                 Category::Models => SharedString::from("Models"),
+                Category::Mcp if settings::mcp_draft().is_some() => {
+                    SharedString::from("Add MCP server")
+                }
+                Category::Mcp => SharedString::from("MCP"),
                 Category::Conversation => SharedString::from("Conversation"),
             })
             .text_lg()
@@ -125,6 +141,14 @@ fn heading(category: Signal<Category>) -> impl IntoElement {
             move || category.get() == Category::Models && settings::draft().is_none(),
             || {
                 text("Enter your API keys to use models from the following providers.")
+                    .text_sm()
+                    .text_color(move || theme().muted_foreground)
+            },
+        ))
+        .child(when(
+            move || category.get() == Category::Mcp && settings::mcp_draft().is_none(),
+            || {
+                text("Local servers whose tools the agent can call.")
                     .text_sm()
                     .text_color(move || theme().muted_foreground)
             },
@@ -476,4 +500,134 @@ fn model_row(provider: u32, model: ReadSignal<settings::Model>) -> impl IntoElem
             let id = model.with(|model| model.id.clone());
             settings::set_model_enabled(provider, id.as_str(), on);
         }))
+}
+
+/// The MCP page: the action that adds a server, the ones the reader kept, or the
+/// server being added.
+fn mcp_page() -> View {
+    view()
+        .w_full()
+        .gap_5()
+        .child(when(move || settings::mcp_draft().is_none(), add_mcp))
+        .child(when(
+            move || settings::mcp_draft().is_none(),
+            || {
+                view().w_full().gap_2().child(each(
+                    settings::mcps,
+                    |id| *id,
+                    |id, _| mcp_card(id.get()),
+                ))
+            },
+        ))
+        .child(when(
+            move || settings::mcp_draft().is_some(),
+            || mcp_form(settings::mcp_draft().unwrap_or_default()),
+        ))
+}
+
+/// The action that starts adding a server: a press opens its form, where what
+/// starts it is filled in.
+fn add_mcp() -> impl IntoElement {
+    button::add("Add MCP server").on_press(settings::add_mcp)
+}
+
+/// The server being added: what starts it, then the commands that keep it or
+/// drop it.
+fn mcp_form(id: u32) -> impl IntoElement {
+    view().w_full().gap_5().child(mcp_fields(id)).child(
+        view()
+            .w_full()
+            .flex_row()
+            .items_center()
+            .justify_end()
+            .gap_2()
+            .child(button::ghost("Cancel").on_press(move || settings::cancel_mcp(id)))
+            .child(
+                button::secondary("Save")
+                    .disabled(move || !settings::can_save_mcp(id))
+                    .on_press(move || settings::save_mcp(id)),
+            ),
+    )
+}
+
+/// One server, folded to its name until it is asked for: what starts it, and
+/// whether the agent does.
+fn mcp_card(id: u32) -> impl IntoElement {
+    collapsible::section(
+        move || mcp_title(id),
+        when(move || !settings::mcp_enabled(id), || badge::badge("Off")),
+        mcp_body(id),
+    )
+    .w_full()
+}
+
+/// What a server's section holds once it opens: how it starts, and its switch.
+fn mcp_body(id: u32) -> impl IntoElement {
+    view().w_full().gap_4().child(mcp_fields(id)).child(
+        view()
+            .w_full()
+            .flex_row()
+            .items_center()
+            .gap_3()
+            .child(
+                text("Enabled")
+                    .flex_1()
+                    .text_sm()
+                    .text_color(move || theme().foreground),
+            )
+            .child(switch::toggle(
+                || SharedString::from("Enabled"),
+                move || settings::mcp_enabled(id),
+                move |on| settings::set_mcp_enabled(id, on),
+            )),
+    )
+}
+
+/// How a server starts: what it is called, the program, what the program is
+/// given as arguments, and the environment it runs with.
+fn mcp_fields(id: u32) -> impl IntoElement {
+    view()
+        .w_full()
+        .gap_3()
+        .child(field::field(
+            "Name",
+            move || settings::mcp_name(id).as_str().to_owned(),
+            move |name| settings::set_mcp_name(id, name),
+            || {},
+            field::Mask::Plain,
+        ))
+        .child(field::field(
+            "Command",
+            move || settings::mcp_command(id),
+            move |command| settings::set_mcp_command(id, command),
+            || {},
+            field::Mask::Plain,
+        ))
+        .child(field::multiline(
+            "Arguments",
+            3,
+            move || settings::mcp_args(id),
+            move |args| settings::set_mcp_args(id, args),
+        ))
+        .child(field::multiline(
+            "Environment",
+            4,
+            move || settings::mcp_env(id),
+            move |env| settings::set_mcp_env(id, env),
+        ))
+}
+
+/// What a server's header says: its name, else the program it runs, else that
+/// it has neither yet.
+fn mcp_title(id: u32) -> SharedString {
+    let name = settings::mcp_name(id);
+    if !name.as_str().trim().is_empty() {
+        return name;
+    }
+    let command = settings::mcp_command(id);
+    if !command.trim().is_empty() {
+        return command.trim().to_owned().into();
+    }
+
+    SharedString::from("New server")
 }
