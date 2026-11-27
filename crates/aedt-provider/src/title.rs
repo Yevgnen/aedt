@@ -4,7 +4,7 @@
 use nsh_core::{platform::HttpRequest, prelude::*};
 use serde::{Deserialize, Serialize};
 
-use crate::DEEPSEEK_TITLE_MODEL;
+use crate::DEEPSEEK_MODEL;
 use crate::models::failure;
 
 /// The longest title the app keeps, in characters: a model told to be brief may
@@ -29,7 +29,10 @@ pub async fn write(
 ) -> Result<SharedString, SharedString> {
     let url = format!("{}/chat/completions", base_url.trim().trim_end_matches('/'));
     let body = serde_json::to_string(&Request {
-        model: DEEPSEEK_TITLE_MODEL,
+        // DeepSeek's own name for V4.1 Flash, which is the model the app's
+        // replies default to as well: it refuses `deepseek-v4.1-flash` ("the
+        // supported API model names are deepseek-flash, deepseek-v4-pro").
+        model: DEEPSEEK_MODEL,
         messages: vec![
             RequestMessage {
                 role: "system",
