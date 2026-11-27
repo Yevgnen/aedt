@@ -36,11 +36,12 @@ thread_local! {
     static STARTED: RefCell<HashMap<u32, (Instant, SharedString)>> = RefCell::new(HashMap::new());
 }
 
-/// Sends `text` to the conversation and lets the agent answer it: the store
-/// keeps the conversation, the settings name the model and its provider.
-pub fn ask(session_id: u32, text: &str) {
+/// Sends `text` to the conversation, with the files the reader attached, and
+/// lets the agent answer it: the store keeps the conversation, the settings name
+/// the model and its provider.
+pub fn ask(session_id: u32, text: &str, files: &[PathBuf]) {
     let text = text.trim();
-    if text.is_empty() {
+    if text.is_empty() && files.is_empty() {
         return;
     }
 
@@ -49,7 +50,7 @@ pub fn ask(session_id: u32, text: &str) {
     // replaced was still writing is what fails then.
     let ready = ensure_agent(session_id);
 
-    let Some(sent) = store::send(session_id, text) else {
+    let Some(sent) = store::send(session_id, &with_paths(text, files)) else {
         return;
     };
     let model = settings::selected();
@@ -82,7 +83,22 @@ pub fn ask(session_id: u32, text: &str) {
             .borrow_mut()
             .insert(session_id, (Instant::now(), model.label.clone()));
     });
-    say(session_id, &reference, text, before, root);
+    say(session_id, &reference, text, files, before, root);
+}
+
+/// `text` with each attached file's path on a line of its own, under a blank
+/// line: what the transcript keeps, so the message reads where each file came
+/// from even when the model does not read it.
+fn with_paths(text: &str, files: &[PathBuf]) -> String {
+    let paths = files
+        .iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>();
+    match (text.is_empty(), paths.is_empty()) {
+        (_, true) => text.to_owned(),
+        (true, false) => paths.join("\n"),
+        (false, false) => format!("{text}\n\n{}", paths.join("\n")),
+    }
 }
 
 /// Makes `session`'s agent the one the settings hold: started while it has
@@ -122,10 +138,17 @@ fn ensure_agent(session: u32) -> Result<(), String> {
 }
 
 /// Sends the prompt to the session's agent as it is.
-fn say(session_id: u32, model: &str, text: &str, before: Vec<Turn>, root: Option<PathBuf>) {
+fn say(
+    session_id: u32,
+    model: &str,
+    text: &str,
+    files: &[PathBuf],
+    before: Vec<Turn>,
+    root: Option<PathBuf>,
+) {
     AGENTS.with(|agents| {
         if let Some((_, _, agent)) = agents.borrow().get(&session_id) {
-            agent.say(session_id, model, text, before, root);
+            agent.say(session_id, model, text, files.to_vec(), before, root);
         }
     });
 }

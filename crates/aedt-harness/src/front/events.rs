@@ -202,7 +202,7 @@ pub(super) fn model_refused(
     let Some(session) = sessions.session(added.entity) else {
         return;
     };
-    waiting.0.retain(|(queued, _, _)| *queued != session);
+    waiting.0.retain(|pending| pending.session != session);
     out.flush();
     out.send(Event::Failed(session, refusal.0.clone()));
 }

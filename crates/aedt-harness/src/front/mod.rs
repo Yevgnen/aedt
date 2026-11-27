@@ -4,14 +4,16 @@
 
 use std::{
     collections::{HashMap, VecDeque},
+    path::{Path, PathBuf},
     sync::Mutex,
 };
 
 use bevy_ecs::message::MessageCursor;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
+use rig_harness::prelude::Incoming as RigIncoming;
 use rig_harness::prelude::*;
 
-use crate::{Command, Event, Turn};
+use crate::{Command, Event, Turn, attach};
 
 mod events;
 
@@ -90,9 +92,45 @@ impl Sessions {
 }
 
 /// The prompts waiting for their agent to connect, each with the conversation
-/// its agent must know first, while it is new.
+/// its agent must know first, and the files it carries, while it is new.
 #[derive(Resource, Default)]
-pub(super) struct Waiting(pub(super) VecDeque<(u32, Option<String>, String)>);
+pub(super) struct Waiting(pub(super) VecDeque<Pending>);
+
+/// A prompt the reader sent before its session's agent was connected.
+pub(super) struct Pending {
+    pub(super) session: u32,
+    /// What a new agent is told of the conversation before this message.
+    pub(super) note: Option<String>,
+    pub(super) text: String,
+    /// The files the message carries, as the reader picked them.
+    pub(super) files: Vec<PathBuf>,
+}
+
+impl Pending {
+    /// The message its agent takes: the reader's words, then each file's path
+    /// and, for an image, the image itself.
+    pub(super) fn message(&self) -> RigIncoming {
+        let mut message = RigIncoming::new(self.text.trim(), DeliveryMode::Steer);
+        for file in &self.files {
+            // The path goes in every time, so the model reads where the file
+            // is even when its content does not follow.
+            let label = label(file);
+            message.parts.push(MessagePart::Text(label.clone()));
+            if let Some(content) = attach::image(file) {
+                message
+                    .parts
+                    .push(MessagePart::Attachment(Attachment { label, content }));
+            }
+        }
+
+        message
+    }
+}
+
+/// How a message names `file`: its path, as the reader picked it.
+fn label(file: &Path) -> String {
+    file.to_string_lossy().into_owned()
+}
 
 /// The tool calls the app shows: each one's id, by the call it runs for.
 #[derive(Resource, Default)]
@@ -150,6 +188,7 @@ fn receive(
                 session,
                 model,
                 text,
+                files,
                 before,
                 root,
             } => {
@@ -180,7 +219,12 @@ fn receive(
                     Some(root) => commands.entity(agent).insert(WorkDir(root)),
                     None => commands.entity(agent).remove::<WorkDir>(),
                 };
-                waiting.0.push_back((session, note, text));
+                waiting.0.push_back(Pending {
+                    session,
+                    note,
+                    text,
+                    files,
+                });
             }
             Command::SetModel { session, model } => {
                 if let Some(agent) = sessions.agent(session) {
@@ -200,15 +244,18 @@ fn deliver(
     mut commands: Commands,
 ) {
     let mut kept = VecDeque::new();
-    while let Some((session, note, text)) = waiting.0.pop_front() {
-        match sessions.agent(session) {
+    while let Some(pending) = waiting.0.pop_front() {
+        match sessions.agent(pending.session) {
             Some(agent) if connected.get(agent).is_ok() => {
-                if let Some(note) = note {
-                    commands.trigger(Deliver::new(agent, note, DeliveryMode::Inform));
+                if let Some(note) = &pending.note {
+                    commands.trigger(Deliver::new(agent, note.clone(), DeliveryMode::Inform));
                 }
-                commands.trigger(Deliver::new(agent, text, DeliveryMode::Steer));
+                commands.trigger(Deliver {
+                    entity: agent,
+                    message: pending.message(),
+                });
             }
-            _ => kept.push_back((session, note, text)),
+            _ => kept.push_back(pending),
         }
     }
     waiting.0 = kept;

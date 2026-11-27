@@ -58,6 +58,14 @@ pub const MESSAGE_MAX: f32 = 560.0;
 /// A meta row's trailing icon button: small enough to sit beside 12pt text.
 pub const META_ACTION: f32 = 20.0;
 
+/// An attachment chip's height in the composer: shorter than a control, on the
+/// line a 12pt label keeps.
+pub const CHIP: f32 = 24.0;
+
+/// An attachment chip's widest label, so one long file name does not push the
+/// composer's row.
+pub const CHIP_MAX_W: f32 = 220.0;
+
 /// The message rail at the conversation's right edge.
 pub const RAIL: f32 = 32.0;
 

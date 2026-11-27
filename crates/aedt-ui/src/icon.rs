@@ -261,6 +261,15 @@ const PLUS: &str = concat!(
     r#"</svg>"#,
 );
 
+/// Two strokes crossing (Lucide's `x`): takes an attachment out of a message.
+const X: &str = concat!(
+    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none""#,
+    r#" stroke="currentColor" stroke-width="2" stroke-linecap="round""#,
+    r#" stroke-linejoin="round">"#,
+    r#"<path d="M18 6 6 18"/><path d="m6 6 12 12"/>"#,
+    r#"</svg>"#,
+);
+
 /// The menu mark, `size` points square, in the caller's text color.
 pub fn more(size: f32) -> impl IntoElement {
     icon(MORE, size)
@@ -364,6 +373,11 @@ pub fn panel_left(size: f32) -> impl IntoElement {
 /// The plus, `size` points square, in the caller's text color.
 pub fn plus(size: f32) -> impl IntoElement {
     icon(PLUS, size)
+}
+
+/// The cross, `size` points square, in the caller's text color.
+pub fn x(size: f32) -> impl IntoElement {
+    icon(X, size)
 }
 
 /// `markup` drawn at `size` points square.

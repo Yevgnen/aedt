@@ -1,6 +1,7 @@
 //! The app's styled layer: every control here takes a variant, size or
 //! state, never a color or radius from the feature that places it.
 
+pub mod attachment;
 pub mod avatar;
 pub mod badge;
 pub mod button;

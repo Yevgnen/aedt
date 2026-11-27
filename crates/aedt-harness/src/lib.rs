@@ -2,6 +2,7 @@
 //! talked to over channels. Each session of the app gets an agent of its own,
 //! which asks the models the app's providers serve and may call its tools.
 
+mod attach;
 mod front;
 mod mcp;
 mod models;
@@ -67,14 +68,15 @@ pub struct ChangedFile {
 /// What the app tells the agent.
 #[derive(Clone, Debug)]
 pub(crate) enum Command {
-    /// Say `text` in `session`, asking `model` (`vendor/model`); `before` is
-    /// the conversation the session already had, which an agent made now must
-    /// know, and `root` the folder it works in, while its workspace gives
-    /// one.
+    /// Say `text` in `session`, with the files the reader attached, asking
+    /// `model` (`vendor/model`); `before` is the conversation the session
+    /// already had, which an agent made now must know, and `root` the folder it
+    /// works in, while its workspace gives one.
     Say {
         session: u32,
         model: String,
         text: String,
+        files: Vec<PathBuf>,
         before: Vec<Turn>,
         root: Option<std::path::PathBuf>,
     },
@@ -147,13 +149,15 @@ impl Agent {
         Ok(Agent { commands, events })
     }
 
-    /// Says `text` in `session`, asking `model` (`vendor/model`), with the
-    /// turns the session already had and the folder it works in.
+    /// Says `text` in `session`, with the files the reader attached, asking
+    /// `model` (`vendor/model`), with the turns the session already had and the
+    /// folder it works in.
     pub fn say(
         &self,
         session: u32,
         model: &str,
         text: &str,
+        files: Vec<PathBuf>,
         before: Vec<Turn>,
         root: Option<std::path::PathBuf>,
     ) {
@@ -161,6 +165,7 @@ impl Agent {
             session,
             model: model.to_owned(),
             text: text.to_owned(),
+            files,
             before,
             root,
         });

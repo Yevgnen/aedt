@@ -1,23 +1,30 @@
 //! The composer: the card the reader writes in, and the model and effort the
 //! next reply asks.
 
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use aedt_provider::Effort;
 use aedt_settings as settings;
-use aedt_ui::{button, icon, input, menu, sizes, surface};
+use aedt_ui::{attachment, button, icon, input, menu, sizes, surface};
 use nsh_base::{SubmenuEvent, theme};
-use nsh_core::prelude::*;
+use nsh_core::{file_dialog::OpenDialog, prelude::*};
 
 pub(super) fn composer(session_id: u32, draft: Signal<String>) -> impl IntoElement {
-    let can_send = move || draft.with(|draft| !draft.trim().is_empty());
+    // The files the next message carries, in the order they were picked.
+    let files = signal(Vec::<PathBuf>::new());
+    let can_send = move || {
+        !draft.with(|draft| draft.trim().is_empty()) || files.with(|files| !files.is_empty())
+    };
     let submit = move || {
         let text = draft.get_untracked();
-        if text.trim().is_empty() {
+        let attached = files.get_untracked();
+        if text.trim().is_empty() && attached.is_empty() {
             return;
         }
-        aedt_bridge::ask(session_id, &text);
+        aedt_bridge::ask(session_id, &text, &attached);
         draft.set(String::new());
+        files.set(Vec::new());
     };
     // Why a voice attempt failed; the status bar under the card shows it until
     // it has been read.
@@ -47,7 +54,7 @@ pub(super) fn composer(session_id: u32, draft: Signal<String>) -> impl IntoEleme
     view()
         .pb_2()
         .gap_2()
-        .child(composer_card(draft, can_send, submit, field))
+        .child(composer_card(draft, files, can_send, submit, field))
         // One line under the card: a failed voice attempt, and nothing else.
         .child(
             view()
@@ -79,6 +86,7 @@ fn speak(draft: &mut String, words: &str) {
 /// shadow under it, not a ring that lights up.
 fn composer_card(
     draft: Signal<String>,
+    files: Signal<Vec<PathBuf>>,
     can_send: impl Fn() -> bool + Copy + 'static,
     submit: impl Fn() + Copy + 'static,
     field: ElementRef,
@@ -89,6 +97,17 @@ fn composer_card(
             view()
                 .relative()
                 .gap_2()
+                // What the next message carries, above the words it sends.
+                .child(when(
+                    move || files.with(|files| !files.is_empty()),
+                    move || {
+                        view().flex_row().flex_wrap().gap_1().child(each(
+                            move || files.get(),
+                            |path| path.clone(),
+                            move |path, _| attachment_chip(path, files),
+                        ))
+                    },
+                ))
                 .child(
                     input::composer(draft, submit)
                         .label("Message")
@@ -98,13 +117,22 @@ fn composer_card(
                     view()
                         .flex_row()
                         .items_center()
-                        .justify_end()
+                        .justify_between()
                         .gap_2()
-                        .child(model_picker())
-                        // The microphone: only a provider that writes speech down can
-                        // give the button anything to do.
-                        .child(when(move || settings::speech().is_some(), voice_button))
-                        .child(button::icon("↑", "Send", can_send).on_press(submit)),
+                        // The files a message carries start at the row's left
+                        // end: the send stays alone at its right.
+                        .child(attach_button(files, field))
+                        .child(
+                            view()
+                                .flex_row()
+                                .items_center()
+                                .gap_2()
+                                .child(model_picker())
+                                // The microphone: only a provider that writes
+                                // speech down can give the button anything to do.
+                                .child(when(move || settings::speech().is_some(), voice_button))
+                                .child(button::icon("↑", "Send", can_send).on_press(submit)),
+                        ),
                 )
                 // While the microphone works, the card is veiled from its own
                 // middle: the meter as it listens, three dots while the provider
@@ -119,6 +147,47 @@ fn composer_card(
                     listening,
                 )),
         )
+}
+
+/// The button that opens the file dialog: what it picks joins the next message,
+/// and the field takes the keys back once the dialog closes.
+fn attach_button(files: Signal<Vec<PathBuf>>, field: ElementRef) -> impl IntoElement {
+    button::quiet_icon(icon::plus(16.0), "Attach files").on_press(move || {
+        let picked = pick_paths(OpenDialog::files().multiple(true).button_label("Attach"));
+        spawn(async move {
+            match picked.await {
+                Ok(Some(paths)) => files.update(|files| {
+                    for path in paths {
+                        if !files.contains(&path) {
+                            files.push(path);
+                        }
+                    }
+                }),
+                Ok(None) => {}
+                Err(why) => eprintln!("attachment: the file dialog failed: {why}"),
+            }
+            field.focus();
+        });
+    })
+}
+
+/// One file the next message carries: its name, and a press takes it out.
+fn attachment_chip(path: ReadSignal<PathBuf>, files: Signal<Vec<PathBuf>>) -> impl IntoElement {
+    let name = path.with_untracked(|path| file_name(path));
+    let picked = path.with_untracked(|path| path.clone());
+
+    attachment::chip(name)
+        .on_press(move || files.update(|files| files.retain(|file| *file != picked)))
+}
+
+/// What a chip calls `path`: its file name, or the path whole when it has none.
+fn file_name(path: &Path) -> SharedString {
+    path.file_name()
+        .map_or_else(
+            || path.to_string_lossy().into_owned(),
+            |name| name.to_string_lossy().into_owned(),
+        )
+        .into()
 }
 
 /// How many bars the meter has.
